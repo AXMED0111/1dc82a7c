@@ -80,13 +80,16 @@ export default async (req) => {
   if (cmd === '/paysupport') await tg('sendMessage', { chat_id: chat, text: TEXT.paysupport });
   else if (cmd === '/terms') await tg('sendMessage', { chat_id: chat, text: TEXT.terms });
   else if (cmd === '/start' || m.text) {
-    // /start c_KEY  -> open a specific channel offer
+    // /start ARG -> the app module may link the user and choose which screen to open (?query)
     const arg = cmd === '/start' ? (m.text.split(/\s+/)[1] || '') : '';
-    const url = /^c_[\w]+$/.test(arg) ? `${env('APP_URL')}?c=${arg.slice(2)}` : env('APP_URL');
-    await tg('sendMessage', {
-      chat_id: chat, text: TEXT.start,
-      reply_markup: { inline_keyboard: [[{ text: TEXT.open, web_app: { url } }]] }
-    });
+    let text = TEXT.start, query = '';
+    if (/^[a-z]_[\w-]+$/i.test(arg)) {
+      const r = await gas('botStart', { arg, user_id: m.from.id, first_name: m.from.first_name || '' });
+      if (r && r.text) text = r.text;
+      query = (r && r.query) || `${arg[0]}=${encodeURIComponent(arg.slice(2))}`; // default: c_KEY -> ?c=KEY
+    }
+    const url = env('APP_URL') + (query ? `?${query}` : '');
+    await tg('sendMessage', { chat_id: chat, text, reply_markup: { inline_keyboard: [[{ text: TEXT.open, web_app: { url } }]] } });
   }
   return new Response('ok');
 };

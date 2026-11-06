@@ -1,0 +1,55 @@
+/**
+ * APP #3 — DOCUMENT TRANSLATOR
+ * Apps Script project = Core.gs + this file. Script properties: BOT_TOKEN_translator, ADMIN_IDS, GEMINI_KEY.
+ * Up to 3 photos per document. Gemini reads and translates in one call; the app builds the PDF on the phone.
+ * Charged only when the translation succeeds. Images are NOT stored — only a short history row is kept.
+ */
+var THIS_APP = { id: 'translator', url: 'https://tran-49b0be25.netlify.app', button: 'Translate' };
+var EXTRA_SCHEMA = EXTRA_SCHEMA || {}, APP_HOOKS = APP_HOOKS || {}, APP_DEFAULTS = APP_DEFAULTS || {}, APP_SECRETS = APP_SECRETS || {};
+
+APP_DEFAULTS.translator = { appName: 'Document Translator', freeAllowance: 1, x_aiModel: 'gemini-2.5-flash', plans: [
+  { id: 'd1', label: '1 document', days: 0, credits: 1, usd: 3, stars: 200, region: 'ALL' },
+  { id: 'd5', label: '5 documents', days: 0, credits: 5, usd: 12, stars: 850, region: 'ALL' },
+  { id: 'pro_m', label: 'Unlimited · 1 month', days: 30, credits: 0, usd: 15, stars: 1000, region: 'ALL' } ] };
+APP_SECRETS.translator = ['GEMINI_KEY'];
+EXTRA_SCHEMA.Translations = ['tr_id','user_id','doc','source_language','target','title','pages','created_at'];
+
+var TR_LANG = { en: 'English', ar: 'Arabic', so: 'Somali' }, TR_NAME = { en: 'English', ar: 'العربية', so: 'Soomaali' };
+var TR_DOC = { birth: 'birth certificate', passport: 'passport or national ID card', diploma: 'diploma or certificate', transcript: 'academic transcript', marriage: 'marriage certificate', other: 'official document' };
+
+function trPrompt(doc, to) {
+  var L = TR_LANG[to] || 'English';
+  return 'You are a professional document translator. The images show one ' + (TR_DOC[doc] || TR_DOC.other) + ' (possibly several pages).\n' +
+    'Read every piece of text (printed, stamped or handwritten) and translate it into ' + L + '.\n' +
+    'Return ONLY JSON: {"source_language": string (in English, e.g. "Somali"), "title": string (document title in ' + L + '),\n' +
+    ' "fields": [{"label": string in ' + L + ', "value": string}] for every labelled item in reading order (names, dates, numbers, places, issuing authority, signatures/stamps described in brackets),\n' +
+    ' "body": string in ' + L + ' for any free paragraphs (empty string if none),\n' +
+    ' "labels": {"header": "TRANSLATION" in ' + L + ', "from": "Translated from" in ' + L + ', "disclaimer": "Unofficial translation prepared with automated tools. Not a certified translation." in ' + L + '}}\n' +
+    'Rules: keep personal names in Latin letters as written in the original (transliterate if the original is in another script); keep numbers and dates exactly; write dates as YYYY-MM-DD when unambiguous; ' +
+    'if text is unreadable write [illegible]; never invent information.';
+}
+
+APP_HOOKS.translator = {
+  routes: {
+    trHistory: function (ctx) {
+      return { ok: true, items: rows('Translations').filter(function (r) { return String(r.user_id) === ctx.uid; }).reverse().slice(0, 20)
+        .map(function (r) { return { doc: r.doc, title: r.title, from: r.source_language, to: TR_NAME[r.target] || r.target, created: iso(r.created_at) }; }) };
+    },
+    trTranslate: function (ctx, req) {
+      var a = accessFor(ctx); if (!a.entitled) return { ok: true, allowed: false, access: a };
+      var pages = (req.pages || []).slice(0, 3), to = TR_LANG[req.to] ? req.to : 'en', doc = TR_DOC[req.doc] ? req.doc : 'other';
+      if (!pages.length) return { ok: false, error: 'pages' };
+      var parts = [{ text: trPrompt(doc, to) }], total = 0;
+      pages.forEach(function (p) { var d = String(p.data || ''); total += d.length; parts.push({ inline_data: { mime_type: /^image\/(jpeg|png|webp)$/.test(p.mime) ? p.mime : 'image/jpeg', data: d } }); });
+      if (total > 15 * 1024 * 1024) return { ok: false, error: 'too_large' };
+      var res;
+      try { res = aiJson(parts, ctx.st.x_aiModel); } catch (e) { log(ctx.uid, 'translator', 'ai_error', e.message); return { ok: false, error: 'ai_failed' }; }
+      var c = consume(ctx, { tool: 'document' }); if (!c.allowed) return { ok: true, allowed: false, access: c.access };
+      var out = { target: to, target_name: TR_NAME[to], source_language: String(res.source_language || '').slice(0, 40), title: String(res.title || '').slice(0, 120),
+        fields: (res.fields || []).slice(0, 60).map(function (f) { return { label: String(f.label || '').slice(0, 80), value: String(f.value || '').slice(0, 400) }; }),
+        body: String(res.body || '').slice(0, 6000), labels: res.labels || {} };
+      append('Translations', { tr_id: Utilities.getUuid().slice(0, 12), user_id: ctx.uid, doc: doc, source_language: out.source_language, target: to, title: out.title, pages: pages.length, created_at: new Date() });
+      return { ok: true, allowed: true, access: c.access, token: c.token, result: out };
+    }
+  }
+};

@@ -3,11 +3,14 @@
  * Creators add the bot as admin of their private channel/group (rights: Invite users via link + Ban users).
  * The bot creates a join-request link. Subscribers pay (Stars / USDT / local), the bot approves their
  * join request, and removes them automatically when the period ends. Platform keeps x_feePercent.
- * Needs Script property BOT_TOKEN_gatekeeper.
+ * Apps Script project = Core.gs + this file. Script properties: BOT_TOKEN_gatekeeper, ADMIN_IDS.
  */
+var THIS_APP = { id: 'gatekeeper', url: 'https://cpass-5cc578be.netlify.app', button: 'Channel Pass' };
 var EXTRA_SCHEMA = EXTRA_SCHEMA || {};
 var APP_HOOKS = APP_HOOKS || {};
 var HOURLY_JOBS = HOURLY_JOBS || [];
+var APP_DEFAULTS = APP_DEFAULTS || {};
+APP_DEFAULTS.gatekeeper = { appName: 'Channel Pass', freeAllowance: 0, x_feePercent: 5, plans: [] };
 
 EXTRA_SCHEMA.Channels = ['channel_key','channel_id','owner_id','title','username','description','invite_link','status','plans_json','payout','bot_ok','created_at'];
 EXTRA_SCHEMA.Members  = ['channel_key','channel_id','user_id','plan','status','start_date','expiry_date','order_id','reminded'];

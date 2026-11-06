@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex,nofollow">
+<meta name="color-scheme" content="light dark">
+<title>Interview Coach</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<script src="config.js"></script>
+%%STYLE%%
+%%EXTRA%%
+</head>
+<body>
+%%ICONS%%
+<div class="wrap" id="app"></div>
+%%KIT%%
+<script>
+(function(){
+var t=K.t,esc=K.esc,ic=K.ic,S=K.S,api=K.api;
+var Q={
+ job:['Tell me about yourself.','Why do you want this job?','What are your main strengths and one weakness?','Describe a problem you solved at work or school.','Where do you see yourself in five years?','Why should we hire you?','Tell me about a time you worked in a team.','How do you handle pressure and deadlines?'],
+ visa:['Why did you choose this university?','Who is paying for your studies?','What will you do after you graduate?','Why not study in your home country?','What is your major and why did you choose it?','Do you have family in this country?','How will you support yourself while studying?'],
+ scholar:['Why do you deserve this scholarship?','How will this program help your community?','Describe your leadership experience.','What are your career goals?','Tell us about a difficult situation you overcame.','What will you contribute to the university?'],
+ english:['Describe your hometown.','What do you like to do in your free time?','Talk about a person who inspires you.','Describe a memorable trip.','What are the advantages of studying abroad?']};
+var C={cat:null,qi:0,rec:null,chunks:[],blob:null,url:null,sec:0,timer:null,state:'idle',result:null,history:null,MAX:120};
+function q(){return Q[C.cat][C.qi%Q[C.cat].length]}
+
+/* record -> 16 kHz mono WAV (works with every speech model; Android records webm, iPhone mp4) */
+function toWav(blob){return blob.arrayBuffer().then(function(buf){var AC=window.AudioContext||window.webkitAudioContext,ac=new AC();
+ return new Promise(function(res,rej){ac.decodeAudioData(buf,res,rej)}).then(function(ab){var rate=16000,len=Math.ceil(ab.duration*rate),off=new (window.OfflineAudioContext||window.webkitOfflineAudioContext)(1,len,rate),src=off.createBufferSource();
+  src.buffer=ab;src.connect(off.destination);src.start(0);return off.startRendering()}).then(function(r){ac.close&&ac.close();var d=r.getChannelData(0),out=new DataView(new ArrayBuffer(44+d.length*2));
+  function w(o,s){for(var i=0;i<s.length;i++)out.setUint8(o+i,s.charCodeAt(i))}w(0,'RIFF');out.setUint32(4,36+d.length*2,true);w(8,'WAVE');w(12,'fmt ');out.setUint32(16,16,true);out.setUint16(20,1,true);out.setUint16(22,1,true);
+  out.setUint32(24,16000,true);out.setUint32(28,32000,true);out.setUint16(32,2,true);out.setUint16(34,16,true);w(36,'data');out.setUint32(40,d.length*2,true);
+  for(var i=0;i<d.length;i++){var v=Math.max(-1,Math.min(1,d[i]));out.setInt16(44+i*2,v<0?v*0x8000:v*0x7fff,true)}return new Blob([out],{type:'audio/wav'})})})}
+function b64(blob){return new Promise(function(r){var f=new FileReader();f.onload=function(){r(String(f.result).split(',')[1])};f.readAsDataURL(blob)})}
+function startRec(){if(!navigator.mediaDevices||!window.MediaRecorder){S.err=t('no_mic');return K.render()}
+ navigator.mediaDevices.getUserMedia({audio:true}).then(function(stream){C.chunks=[];var mr=new MediaRecorder(stream);C.rec=mr;
+  mr.ondataavailable=function(e){if(e.data.size)C.chunks.push(e.data)};
+  mr.onstop=function(){stream.getTracks().forEach(function(x){x.stop()});C.blob=new Blob(C.chunks,{type:mr.mimeType||'audio/webm'});if(C.url)URL.revokeObjectURL(C.url);C.url=URL.createObjectURL(C.blob);C.state='done';K.render()};
+  mr.start();C.state='rec';C.sec=0;S.err='';K.haptic();C.timer=setInterval(function(){C.sec++;var el=document.getElementById('sec');if(el)el.textContent=fmt(C.sec);if(C.sec>=C.MAX)stopRec()},1000);K.render()})
+ .catch(function(){S.err=t('mic_denied');K.render()})}
+function stopRec(){clearInterval(C.timer);if(C.rec&&C.rec.state!=='inactive')C.rec.stop()}
+function fmt(s){return Math.floor(s/60)+':'+('0'+s%60).slice(-2)}
+function meter(label,v){return'<div style="margin-bottom:10px"><div class="row"><span class="grow fs" style="font-weight:600">'+label+'</span><b>'+v+'</b></div><div class="meter"><i style="width:'+v+'%"></i></div></div>'}
+
+K.app({
+ icon:'mic',freeLabel:'Free practice sessions (total)',
+ defaults:{appName:'Interview Coach',freeAllowance:2,x_aiModel:'gemini-2.5-flash',plans:[{id:'s1',label:'1 session',days:0,credits:1,usd:1,stars:75,region:'ALL'},{id:'s10',label:'10 sessions',days:0,credits:10,usd:7,stars:500,region:'ALL'},{id:'pro_m',label:'Unlimited · 1 month',days:30,credits:0,usd:9,stars:650,region:'ALL'}]},
+ adminFields:[{key:'x_aiModel',label:'AI model (Gemini)',ph:'gemini-2.5-flash',hint:'Check the current model name and price at ai.google.dev before launch.'}],
+ extraSecrets:{GEMINI_KEY:'Gemini API key (speech + scoring)'},
+ strings:{
+ en:{appName:'Interview Coach',tagline:'Practise out loud. Get a score and clear feedback.',choose:'Choose your interview',c_job:'Job interview',c_visa:'Student visa interview',c_scholar:'Scholarship interview',c_english:'English speaking',
+  d_job:'Common HR questions',d_visa:'Embassy-style questions',d_scholar:'Panel questions',d_english:'Everyday topics',history:'Recent sessions',question:'Question {n}',tip:'Answer as if you are in the real interview. Aim for 45–90 seconds.',
+  record:'Tap to record',recording:'Recording… tap to stop',again:'Record again',get:'Get feedback',scoring:'Listening and scoring… this takes about 10 seconds.',next:'Next question',skip:'Different question',
+  overall:'Overall',content:'Content',structure:'Structure',clarity:'Clarity',confidence:'Confidence',transcript:'What we heard',strengths:'What went well',improve:'What to improve',better:'A stronger answer',
+  no_mic:'Your device does not support recording here. Update Telegram and try again.',mic_denied:'Microphone access was blocked. Allow the microphone for Telegram in your phone settings.',too_short:'The answer is too short. Speak for at least 10 seconds.',
+  demo_fb:'Demo feedback — no AI connected yet. Real scoring starts when the server and AI key are set.',ai_fail:'Scoring is not available right now. Your session was not charged.'},
+ so:{appName:'Tababaraha Waraysiga',tagline:'Ku celceli cod dheer. Hel dhibco iyo talo cad.',choose:'Dooro waraysigaaga',c_job:'Waraysi shaqo',c_visa:'Waraysi fiisaha ardayga',c_scholar:'Waraysi deeq waxbarasho',c_english:'Ku hadlidda Ingiriisiga',
+  d_job:'Su\'aalaha caadiga ah ee HR',d_visa:'Su\'aalo nooca safaaradda',d_scholar:'Su\'aalaha guddiga',d_english:'Mawduucyo maalinle ah',history:'Fadhiyadii ugu dambeeyay',question:'Su\'aasha {n}',tip:'U jawaab sidii adoo jooga waraysiga dhabta ah. Isku day 45–90 ilbiriqsi.',
+  record:'Taabo si aad u duubto',recording:'Waa la duubayaa… taabo si aad u joojiso',again:'Dib u duub',get:'Hel talooyin',scoring:'Waa la dhageysanayaa oo la qiimeynayaa… qiyaastii 10 ilbiriqsi.',next:'Su\'aasha xigta',skip:'Su\'aal kale',
+  overall:'Guud ahaan',content:'Nuxurka',structure:'Habaynta',clarity:'Caddaanta',confidence:'Kalsoonida',transcript:'Waxa aan maqalnay',strengths:'Waxa si fiican u socday',improve:'Waxa la hagaajiyo',better:'Jawaab ka xoog badan',
+  no_mic:'Qalabkaagu ma taageerayo duubista halkan. Cusboonaysii Telegram oo isku day.',mic_denied:'Makarafoonka waa la xannibay. U oggolow makarafoonka Telegram dejinta taleefanka.',too_short:'Jawaabtu aad bay u gaaban tahay. Ka hadal ugu yaraan 10 ilbiriqsi.',
+  demo_fb:'Talo demo ah — AI weli lama xirin. Qiimaynta dhabta ah waxay bilaabataa marka server-ka iyo furaha AI la dejiyo.',ai_fail:'Qiimayntu hadda ma shaqaynayso. Lacag lagaama jarin.'}},
+ enter:{home:function(){api('coHistory').then(function(r){C.history=r.ok?r.items:[];K.render()})}},
+ screens:{
+  home:function(){var h=K.header(t('appName'),t('tagline'))+'<div class="row" style="margin:-4px 0 12px">'+K.planChip()+'</div>'+K.banners()+'<div class="sec">'+t('choose')+'</div><div class="grid">';
+   [['job','briefcase'],['visa','globe'],['scholar','award'],['english','message']].forEach(function(c){h+='<button class="tool" data-a="cat" data-c="'+c[0]+'"><div class="ic">'+ic(c[1])+'</div><div><b>'+t('c_'+c[0])+'</b><br><span>'+t('d_'+c[0])+'</span></div></button>'});
+   h+='</div>';if(C.history&&C.history.length){h+='<div class="sec">'+t('history')+'</div><div class="card"><ul class="files">'+C.history.slice(0,8).map(function(x){return'<li><div class="thumb"><b>'+x.score+'</b></div><div class="grow"><div class="fn">'+esc(x.question)+'</div><div class="fs">'+t('c_'+x.category)+' · '+K.fmtDate(x.created)+'</div></div></li>'}).join('')+'</ul></div>'}
+   return h},
+  practice:function(){var h=K.header(t('c_'+C.cat),t('question',{n:C.qi+1}));
+   h+='<div class="card"><div class="fs">'+t('question',{n:C.qi+1})+'</div><h2 style="margin-top:6px;font-size:19px;line-height:1.35">'+esc(q())+'</h2><div class="note" style="margin-top:10px;padding:0">'+ic('info','s')+'<span>'+t('tip')+'</span></div></div>';
+   if(C.state==='scoring')return h+'<div class="card center"><div class="spin" style="margin:6px auto 10px;color:var(--accent)"></div><p class="m">'+t('scoring')+'</p></div>';
+   h+='<div class="card center"><button class="rec '+(C.state==='rec'?'on':'')+'" data-a="rec">'+ic(C.state==='rec'?'stop':'mic','l')+'</button><div class="num" id="sec">'+fmt(C.sec)+'</div><div class="fs">'+(C.state==='rec'?t('recording'):t('record'))+' · max '+fmt(C.MAX)+'</div>'+
+    (C.state==='done'?'<audio controls src="'+C.url+'" style="width:100%;margin-top:12px"></audio>':'')+'</div>';
+   if(C.state==='done')h+='<button class="btn" data-a="score">'+ic('chart')+t('get')+'</button><button class="btn ghost" data-a="reset">'+ic('refresh')+t('again')+'</button>';
+   else if(C.state!=='rec')h+='<button class="btn ghost" data-a="skip">'+ic('refresh')+t('skip')+'</button>';
+   return h+K.errBox()},
+  result:function(){var r=C.result,s=r.scores||{},h=K.header(t('c_'+C.cat),t('question',{n:C.qi+1}));
+   if(r.demo)h+='<div class="banner">'+ic('info','s')+'<span>'+t('demo_fb')+'</span></div>';
+   h+='<div class="card center"><div class="fs">'+t('overall')+'</div><div class="score">'+r.overall+'</div><p class="m">'+esc(q())+'</p></div>';
+   h+='<div class="card">'+meter(t('content'),s.content||0)+meter(t('structure'),s.structure||0)+meter(t('clarity'),s.clarity||0)+meter(t('confidence'),s.confidence||0)+'</div>';
+   function list(title,arr,icn){return arr&&arr.length?'<div class="sec">'+title+'</div><div class="card"><ul class="feat" style="margin:0">'+arr.map(function(x){return'<li style="align-items:flex-start">'+ic(icn)+'<span>'+esc(x)+'</span></li>'}).join('')+'</ul></div>':''}
+   h+=list(t('strengths'),r.strengths,'check')+list(t('improve'),r.improvements,'alert');
+   if(r.better_answer)h+='<div class="sec">'+t('better')+'</div><div class="card"><p class="m" style="color:var(--text);white-space:pre-line">'+esc(r.better_answer)+'</p></div>';
+   if(r.transcript)h+='<div class="sec">'+t('transcript')+'</div><div class="card"><p class="m" style="font-style:italic">“'+esc(r.transcript)+'”</p></div>';
+   return h+'<button class="btn" data-a="next">'+ic('play')+t('next')+'</button><button class="btn ghost" data-a="retry">'+ic('refresh')+t('again')+'</button>'}
+ },
+ actions:{
+  cat:function(el,d){C.cat=d.c;C.qi=Math.floor(Math.random()*Q[d.c].length);C.state='idle';C.sec=0;K.go('practice')},
+  rec:function(){if(C.state==='rec')stopRec();else startRec()},
+  reset:function(){C.state='idle';C.sec=0;K.render()},
+  skip:function(){C.qi++;C.state='idle';C.sec=0;K.render()},
+  score:function(){if(C.sec<10){S.err=t('too_short');return K.render()}
+   if(!S.me.access.entitled)return K.paywall({title:t('appName'),text:t('tagline'),icon:'mic',features:[t('overall'),t('better'),t('transcript')],after:function(){K.back()}});
+   C.state='scoring';S.err='';K.render();
+   toWav(C.blob).then(b64).then(function(data){return api('coScore',{category:C.cat,question:q(),audio:data,mime:'audio/wav',seconds:C.sec,lang:K.lang()})}).then(function(r){
+    if(r.ok&&r.allowed===false){C.state='done';return K.paywall({title:t('appName'),text:t('tagline'),icon:'mic',after:function(){K.back()}})}
+    if(!r.ok){C.state='done';S.err=r.error==='network'?t('e_net'):t('ai_fail');return K.render()}
+    if(r.access)S.me.access=r.access;else K.refreshMe();C.result=r.result;C.state='idle';K.haptic('ok');K.go('result',{replace:true})})
+   .catch(function(e){console.error(e);C.state='done';S.err=t('e_gen');K.render()})},
+  next:function(){C.qi++;C.state='idle';C.sec=0;K.go('practice',{replace:true})},
+  retry:function(){C.state='idle';C.sec=0;K.go('practice',{replace:true})}
+ },
+ demoSeed:function(){return{history:[]}},
+ demo:{
+  coHistory:function(d,s){return{ok:true,items:s.app.history}},
+  coScore:function(d,s){var st=s.settings,a=K.S.me.access;if(!a.entitled)return{ok:true,allowed:false};
+   if(a.reason==='free')s.freeUsed++;else if(a.reason==='credits')s.credits--;
+   var len=Math.min(1,d.seconds/60),base=Math.round(55+len*30),r={demo:true,overall:base,scores:{content:Math.min(100,base+4),structure:base-3,clarity:Math.min(100,base+6),confidence:base-6},
+    strengths:['You answered the question directly.','Your pace was easy to follow.'],improvements:['Add one concrete example with a result (numbers help).','Finish with a short summary sentence that links back to the role or program.'],
+    better_answer:'Start with a one-line summary, give one specific example (situation, action, result), and close by connecting it to what the interviewer needs.',transcript:''};
+   s.app.history.unshift({category:d.category,question:d.question,score:base,created:new Date().toISOString()});
+   return{ok:true,allowed:true,result:r}}
+ }
+});
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,154 @@
+/* Backend tests for all 8 apps using the Apps Script simulator: node tools/test-backends.js */
+const { makeEnv } = require('./gas-sim');
+const ADMIN = { id: 1001, first_name: 'Ahmed' }, U = { id: 2002, first_name: 'Hodan' }, V = { id: 3003, first_name: 'Abdi' };
+let pass = 0, fail = 0;
+function ok(name, cond, info) { if (cond) pass++; else { fail++; console.log('  FAIL', name, info !== undefined ? JSON.stringify(info).slice(0, 300) : ''); } }
+function section(n) { console.log('•', n); }
+
+section('core / converter');
+let E = makeEnv('converter');
+ok('reject unsigned', E.call(null, 'init').error === 'unauthorized' || E.call(null, 'init').ok, null);
+let r = E.call({ id: 2002, first_name: 'x' }, 'init', { initData: 'user=%7B%22id%22%3A1%7D&hash=bad' });
+r = (function () { E.ctx.__req = JSON.stringify({ action: 'consume', app: 'converter', initData: 'auth_date=1&user=%7B%22id%22%3A5%7D&hash=deadbeef' }); return JSON.parse(E.run('doPost({postData:{contents:__req}}).text')); })();
+ok('forged initData rejected', r.ok === false && r.error === 'unauthorized', r);
+r = E.call(U, 'init'); ok('init verified', r.ok && r.verified && r.access.reason === 'test', r);
+ok('admin flag', E.call(ADMIN, 'init').isAdmin === true && r.isAdmin === false);
+ok('non-admin blocked from admin', E.call(U, 'adminGet').error === 'forbidden');
+E.setSettings({ testMode: false, methods: { stars: true, usdt_trc20: 'TXYZabcdefghijkmnopqrstuvwxyz12345', usdt_bep20: '', evc: '+252611111111', zaad: '', sahal: '', mpesa: '' } });
+r = E.call(U, 'init'); ok('free 2 left', r.access.reason === 'free' && r.access.freeLeft === 2, r.access);
+ok('global user: no EVC', !r.methods.some((m) => m.id === 'evc') && r.methods.some((m) => m.id === 'stars'), r.methods);
+ok('consume 1', E.call(U, 'consume', { tool: 'merge' }).allowed);
+ok('consume 2', E.call(U, 'consume', { tool: 'merge' }).allowed);
+r = E.call(U, 'consume', { tool: 'merge' }); ok('consume 3 blocked', r.allowed === false && r.access.reason === 'blocked', r);
+r = E.call(U, 'createOrder', { plan: 'pro_m', method: 'stars' }); ok('stars invoice', r.ok && r.invoiceLink, r);
+let pc = E.server('precheckout', { order_id: r.order_id, user_id: 2002, total: 75, currency: 'XTR' }); ok('precheckout valid', pc.valid === true, pc);
+ok('precheckout wrong amount', E.server('precheckout', { order_id: r.order_id, user_id: 2002, total: 1, currency: 'XTR' }).valid === false);
+ok('server secret required', JSON.parse((E.ctx.__req = JSON.stringify({ action: 'starsPaid', app: 'converter', serverSecret: 'nope' }), E.run('doPost({postData:{contents:__req}}).text'))).error === 'forbidden');
+E.server('starsPaid', { order_id: r.order_id, user_id: 2002, charge_id: 'ch1' });
+r = E.call(U, 'init'); ok('subscribed after stars', r.access.reason === 'sub', r.access);
+ok('consume as sub', E.call(U, 'consume', { tool: 'x' }).allowed);
+ok('user notified', E.sent.some((s) => s.method === 'sendMessage' && /confirmed/.test(s.payload)));
+// USDT unique amount + on-chain match
+r = E.call(V, 'createOrder', { plan: 'pro_m', method: 'usdt_trc20' }); ok('usdt order', r.ok && /^1\.\d{4}$/.test(r.amount), r);
+const amt = r.amount, oid = r.order_id;
+E.ctx.__fetchReply = (url) => /trongrid/.test(url) ? { data: [{ transaction_id: 'TX1', to: 'TXYZabcdefghijkmnopqrstuvwxyz12345', value: String(Math.round(parseFloat(amt) * 1e6)), block_timestamp: Date.now() }] } : { ok: true, result: {} };
+r = E.call(V, 'checkOrder', { order_id: oid }); ok('usdt detected', r.status === 'paid' && r.access.reason === 'sub', r);
+E.ctx.__fetchReply = null;
+// local mobile money
+r = E.call(V, 'createOrder', { plan: 'pro_m_l', method: 'evc' }); ok('global cannot use evc', r.ok === false, r);
+E.server('contact', { user_id: 3003, phone: '+252 61 555 0000' });
+r = E.call(V, 'init'); ok('phone +252 -> LOCAL + evc shown', r.region === 'LOCAL' && r.methods.some((m) => m.id === 'evc'), r);
+r = E.call(V, 'createOrder', { plan: 'pro_m_l', method: 'evc' }); ok('evc order', r.ok && r.number === '+252611111111', r);
+ok('submit tx', E.call(V, 'submitManual', { order_id: r.order_id, txid: 'EVC12345' }).status === 'review');
+ok('duplicate tx refused', E.call(V, 'submitManual', { order_id: r.order_id, txid: 'EVC12345' }).ok === false);
+ok('admin sees pending', E.call(ADMIN, 'adminPending').items.length === 1);
+ok('admin approve', E.call(ADMIN, 'adminDecide', { order_id: r.order_id, approve: true }).ok);
+ok('phone stored as text', E.sheets.Users.data.some((row) => row.includes('+252615550000')));
+// send file needs delivery token
+r = E.call(U, 'consume', { tool: 'x' }); ok('sendFile with token', E.call(U, 'sendFile', { token: r.token, name: 'a.pdf', mime: 'application/pdf', data: 'JVBERi0=' }).ok);
+ok('sendFile without token', E.call(U, 'sendFile', { token: 'nope', data: 'AA' }).error === 'expired');
+// credits plans
+E.setSettings({ plans: [{ id: 'c3', label: '3 credits', days: 0, credits: 3, usd: 2, stars: 150, region: 'ALL' }] });
+const W = { id: 4004, first_name: 'W' }; E.call(W, 'consume'); E.call(W, 'consume');
+r = E.call(W, 'createOrder', { plan: 'c3', method: 'stars' }); E.server('starsPaid', { order_id: r.order_id, user_id: 4004, charge_id: 'c' });
+r = E.call(W, 'init'); ok('credits added', r.access.reason === 'credits' && r.access.credits === 3, r.access);
+E.call(W, 'consume'); ok('credit used', E.call(W, 'init').access.credits === 2);
+E.run('cronDaily(); cronHourly(); cronUsdt();'); ok('crons run', true);
+
+section('gatekeeper');
+E = makeEnv('gatekeeper');
+E.server('gkBotStatus', { chat: { id: -100555, title: 'VIP Signals', type: 'channel' }, from_id: 2002, status: 'administrator', can_invite: true, can_restrict: true });
+r = E.call(U, 'gkMine'); ok('channel registered to owner', r.channels.length === 1 && r.channels[0].botOk, r);
+const key = r.channels[0].key;
+ok('owner saves plans', E.call(U, 'gkSave', { key, description: 'd', status: 'active', plans: [{ id: 'p1', label: '1 month', days: 30, usd: 5, stars: 350 }] }).ok);
+ok('other user cannot edit', E.call(V, 'gkSave', { key, plans: [] }).error === 'forbidden');
+r = E.call(V, 'gkChannel', { key }); ok('buyer sees offer', r.ok && r.channel.plans.length === 1 && !r.member, r);
+ok('join request declined before pay', E.server('gkJoinRequest', { chat_id: -100555, user_id: 3003 }).approve === false);
+E.setSettings({ testMode: false });
+r = E.call(V, 'createOrder', { plan: key + '|p1', method: 'stars' }); ok('channel order', r.ok, r);
+ok('precheckout 350', E.server('precheckout', { order_id: r.order_id, user_id: 3003, total: 350, currency: 'XTR' }).valid);
+E.server('starsPaid', { order_id: r.order_id, user_id: 3003, charge_id: 'x' });
+r = E.call(V, 'gkChannel', { key }); ok('member after pay', !!r.member && r.inviteLink, r);
+ok('join request approved', E.server('gkJoinRequest', { chat_id: -100555, user_id: 3003 }).approve === true);
+ok('approveChatJoinRequest sent', E.sent.some((s) => s.method === 'approveChatJoinRequest'));
+r = E.call(ADMIN, 'adminGk'); ok('payout owed 95% of 350 stars', r.channels[0].owedStars === 332, r);
+E.run("rows('Members').forEach(function(m){update('Members',m,{expiry_date:new Date(Date.now()-1000)})}); cronHourly();");
+ok('expired member removed', E.sent.some((s) => s.method === 'banChatMember') && E.call(V, 'gkChannel', { key }).member === null);
+
+section('rsvp');
+E = makeEnv('rsvp'); E.setSettings({ testMode: false });
+r = E.call(U, 'rsvSave', { event: { title: 'Wedding', date: '2026-12-24', time: '18:00', open_max: 3 } }); ok('event saved', r.ok && r.event.status === 'draft', r);
+const ek = r.event.key; ok('date kept as text', r.event.date === '2026-12-24' && r.event.time === '18:00', r.event);
+ok('publish uses free 1', E.call(U, 'rsvPublish', { key: ek }).allowed === true);
+const ek2 = E.call(U, 'rsvSave', { event: { title: 'Second', date: '2026-12-25' } }).event.key;
+ok('2nd publish blocked', E.call(U, 'rsvPublish', { key: ek2 }).allowed === false);
+r = E.call(U, 'rsvGuestAdd', { key: ek, guests: [{ name: 'Ali', max: 2 }] }); const gk = r.event.guests[0].key; ok('guest added', !!gk);
+r = E.call(V, 'rsvReply', { g: gk, rsvp: 'yes', party: 5 }); ok('party capped at max 2', r.ok && r.guest.party === 2, r);
+r = E.call({ id: 5005, first_name: 'O' }, 'rsvReply', { e: ek, rsvp: 'yes', party: 2, name: 'Open guest' }); ok('open link reply', r.ok && r.guest.name === 'Open guest', r);
+ok('host notified', E.sent.some((s) => /RSVP for Wedding/.test(s.payload)));
+r = E.call(U, 'rsvCheckin', { key: ek, code: gk.toUpperCase() }); ok('check-in', r.result === 'in', r);
+ok('second scan = already', E.call(U, 'rsvCheckin', { key: ek, code: 'RSVP:' + gk }).result === 'already');
+ok('stranger cannot check in', E.call(V, 'rsvCheckin', { key: ek, code: gk }).error === 'forbidden');
+
+section('debt');
+E = makeEnv('debt'); E.setSettings({ testMode: false, freeAllowance: 2 });
+E.call(U, 'dbSaveShop', { shop: { name: 'Hodan Store', currency: 'USD', freq: 'weekly', lang: 'so' } });
+r = E.call(U, 'dbSaveCustomer', { name: 'Abdi', phone: '+252610000001' }); ok('customer added', r.allowed && r.customer.id, r);
+const cid = r.customer.id, tok = r.customer.token;
+r = E.call(U, 'dbAddEntry', { id: cid, type: 'debt', amount: 45, date: '2026-10-01', due: '2026-10-20' }); r = E.call(U, 'dbAddEntry', { id: cid, type: 'payment', amount: 15 });
+ok('balance 30 + overdue', r.customer.balance === 30 && r.customer.overdue === true, r.customer);
+E.call(U, 'dbSaveCustomer', { name: 'B' }); ok('3rd customer blocked', E.call(U, 'dbSaveCustomer', { name: 'C' }).allowed === false);
+ok('other shop cannot read', E.call(V, 'dbCustomer', { id: cid }).ok === false);
+r = E.server('botStart', { arg: 'd_' + tok, user_id: 3003 }); ok('bot /start links customer', /Hodan Store/.test(r.text) && r.query === 'd=' + tok, r);
+r = E.call(V, 'dbStatement', { token: tok }); ok('statement hides phone', r.ok && r.customer.balance === 30 && !r.customer.phone, r);
+E.run('cronDaily()'); ok('weekly reminder sent in Somali', E.sent.some((s) => s.method === 'sendMessage' && /Asc Abdi/.test(s.payload)));
+
+section('scholar');
+E = makeEnv('scholar'); E.setSettings({ testMode: false });
+['A', 'B', 'C', 'D', 'E'].forEach((n, i) => E.call(ADMIN, 'adminSchSave', { item: { name: 'Award ' + n, url: 'https://x.org', deadline: '2027-0' + (i + 1) + '-01', levels: ['master'], fields: ['any'], eligible: i === 4 ? ['SOUTH_ASIA'] : ['AFRICA'], funding: 'full' } }));
+ok('non-admin cannot add', E.call(U, 'adminSchSave', { item: {} }).error === 'forbidden');
+E.call(U, 'scSaveProfile', { profile: { country: 'SO', level: 'master', field: 'agriculture', english: 'ielts', need: 'full', alerts: true } });
+r = E.call(U, 'scHome'); ok('free: 3 shown, 1 locked (South Asia excluded)', r.matches.length === 3 && r.locked === 1, { n: r.matches.length, l: r.locked });
+ok('save needs pro', E.call(U, 'scSave', { id: r.matches[0].id, on: true }).ok === false);
+
+section('coach');
+E = makeEnv('coach'); E.setSettings({ testMode: false }); E.props.GEMINI_KEY = 'k';
+E.ctx.__fetchReply = (url) => /generativelanguage/.test(url) ? { candidates: [{ content: { parts: [{ text: JSON.stringify({ transcript: 'I want to study', overall: 72, scores: { content: 70, structure: 75, clarity: 80, confidence: 60 }, strengths: ['a'], improvements: ['b'], better_answer: 'c' }) }] } }] } : { ok: true, result: {} };
+r = E.call(U, 'coScore', { category: 'visa', question: 'Why?', audio: 'A'.repeat(2000), seconds: 30, lang: 'so' }); ok('scored + charged', r.ok && r.result.overall === 72 && r.access.freeLeft === 1, r);
+ok('gemini called with wav', E.fetches.some((f) => /generativelanguage/.test(f.url) && /audio\/wav/.test(f.o.payload)));
+E.ctx.__fetchReply = () => ({ candidates: [{ content: { parts: [{ text: 'not json' }] } }] });
+r = E.call(U, 'coScore', { category: 'visa', question: 'Why?', audio: 'A'.repeat(2000), seconds: 30 }); ok('AI failure not charged', r.ok === false && E.call(U, 'init').access.freeLeft === 1, r);
+
+section('translator');
+E = makeEnv('translator'); E.setSettings({ testMode: false }); E.props.GEMINI_KEY = 'k';
+E.ctx.__fetchReply = () => ({ candidates: [{ content: { parts: [{ text: '```json\n' + JSON.stringify({ source_language: 'Somali', title: 'Birth Certificate', fields: [{ label: 'Name', value: 'Amina' }], body: '', labels: {} }) + '\n```' }] } }] });
+r = E.call(U, 'trTranslate', { doc: 'birth', to: 'en', pages: [{ data: 'AAAA', mime: 'image/jpeg' }] }); ok('translated (code-fenced JSON ok) + token', r.ok && r.result.fields[0].value === 'Amina' && r.token, r);
+ok('second doc blocked (1 free)', E.call(U, 'trTranslate', { doc: 'birth', to: 'en', pages: [{ data: 'AAAA' }] }).allowed === false);
+
+section('market');
+E = makeEnv('market'); E.setSettings({ testMode: false });
+r = E.call(U, 'mkSaveTask', { task: { title: 'Shelf photo', instructions: 'Do it', city: 'Hargeisa', reward: 1, slots: 2, needs_photo: true, needs_gps: true, questions: ['Shop name'] } });
+ok('task total incl 20% fee', r.ok && r.task.total === 2.4 && r.task.status === 'awaiting_payment', r);
+const tid = r.task.id;
+ok('not in feed before payment', E.call(V, 'mkFeed', { city: 'hargeisa' }).tasks.length === 0);
+E.setSettings({ methods: { stars: true, usdt_trc20: '', usdt_bep20: '', evc: '', zaad: '', sahal: '', mpesa: '' } });
+r = E.call(U, 'createOrder', { plan: 'task:' + tid, method: 'stars' }); ok('task order', r.ok, r);
+ok('other user cannot pay my task plan', E.call(V, 'createOrder', { plan: 'task:' + tid, method: 'stars' }).ok === false);
+ok('precheckout 180 stars', E.server('precheckout', { order_id: r.order_id, user_id: 2002, total: 180, currency: 'XTR' }).valid);
+E.server('starsPaid', { order_id: r.order_id, user_id: 2002, charge_id: 'm' });
+ok('live in feed', E.call(V, 'mkFeed', { city: 'Hargeisa' }).tasks.length === 1);
+ok('owner cannot do own task', E.call(U, 'mkSubmit', { task: tid, photo: 'AAAA', lat: 1, lng: 2, answers: ['x'] }).error === 'own');
+ok('missing gps refused', E.call(V, 'mkSubmit', { task: tid, photo: 'AAAA', answers: ['x'] }).error === 'e_gps');
+ok('submit ok', E.call(V, 'mkSubmit', { task: tid, photo: 'AAAA', lat: 9.5, lng: 44, answers: ['Hodan'] }).ok);
+ok('duplicate refused', E.call(V, 'mkSubmit', { task: tid, photo: 'AAAA', lat: 9.5, lng: 44, answers: ['Hodan'] }).error === 'already');
+r = E.call(U, 'mkSubs', { task: tid }); ok('owner sees submission + photo', r.subs.length === 1 && /^data:image/.test(r.subs[0].photo), r);
+ok('approve', E.call(U, 'mkDecide', { sub: r.subs[0].id, approve: true }).ok);
+r = E.call(V, 'mkWallet'); ok('worker credited $1', r.balance === 1, r);
+ok('withdraw below min refused', E.call(V, 'mkWithdraw', { address: 'T' + 'A'.repeat(33) }).error === 'min');
+E.run("var w=find('Workers',function(x){return String(x.user_id)==='3003'});update('Workers',w,{balance:6})");
+ok('withdraw ok', E.call(V, 'mkWithdraw', { address: 'T' + 'A'.repeat(33) }).ok);
+r = E.call(ADMIN, 'adminMk'); ok('admin sees withdrawal', r.withdrawals.length === 1 && r.withdrawals[0].amount === 6, r);
+ok('mark paid', E.call(ADMIN, 'adminMkWithdrawal', { id: r.withdrawals[0].id, paid: true }).ok);
+
+console.log('\n' + pass + ' passed, ' + fail + ' failed');
+process.exit(fail ? 1 : 0);

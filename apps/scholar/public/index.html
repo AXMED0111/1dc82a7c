@@ -1,0 +1,689 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex,nofollow">
+<meta name="color-scheme" content="light dark">
+<title>Scholarship Finder</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<script src="config.js"></script>
+<style>
+:root{
+  --bg:var(--tg-theme-secondary-bg-color,#f2f4f7);
+  --card:var(--tg-theme-section-bg-color,var(--tg-theme-bg-color,#ffffff));
+  --text:var(--tg-theme-text-color,#101828);
+  --hint:var(--tg-theme-hint-color,#667085);
+  --accent:var(--tg-theme-button-color,#2457d6);
+  --accent-text:var(--tg-theme-button-text-color,#ffffff);
+  --link:var(--tg-theme-link-color,#2457d6);
+  --sep:var(--tg-theme-section-separator-color,rgba(128,128,128,.2));
+  --danger:var(--tg-theme-destructive-text-color,#d92d20);
+  --ok:#12b76a;
+  --soft:color-mix(in srgb,var(--accent) 10%,transparent);
+  --r:14px;
+}
+@media (prefers-color-scheme:dark){:root{
+  --bg:var(--tg-theme-secondary-bg-color,#0e1116);
+  --card:var(--tg-theme-section-bg-color,var(--tg-theme-bg-color,#171b22));
+  --text:var(--tg-theme-text-color,#e6e9ef);
+  --hint:var(--tg-theme-hint-color,#8b93a1);
+  --accent:var(--tg-theme-button-color,#4c7cf0);
+  --link:var(--tg-theme-link-color,#6f97f5);
+}}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;background:var(--bg);color:var(--text)}
+body{font:15px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Noto Sans",Arial,sans-serif;min-height:100vh}
+button,input,select{font:inherit;color:inherit}
+.wrap{max-width:560px;margin:0 auto;padding:12px 16px 40px}
+.top{display:flex;align-items:center;gap:10px;padding:6px 0 14px}
+.logo{width:36px;height:36px;border-radius:10px;background:var(--accent);color:var(--accent-text);display:grid;place-items:center;flex:none}
+.top h1{font-size:18px;margin:0;font-weight:650;letter-spacing:-.01em}
+.top .sub{font-size:12px;color:var(--hint)}
+.grow{flex:1;min-width:0}
+.ibtn{width:36px;height:36px;border-radius:10px;border:1px solid var(--sep);background:var(--card);display:grid;place-items:center;cursor:pointer;flex:none}
+.lang{display:flex;border:1px solid var(--sep);border-radius:10px;overflow:hidden;background:var(--card);flex:none}
+.lang button{border:0;background:none;padding:7px 10px;font-size:12px;font-weight:650;color:var(--hint);cursor:pointer}
+.lang button.on{background:var(--accent);color:var(--accent-text)}
+svg.i{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.75;stroke-linecap:round;stroke-linejoin:round;flex:none}
+svg.i.s{width:16px;height:16px}svg.i.l{width:26px;height:26px}
+.chip{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;padding:5px 10px;border-radius:999px;background:var(--soft);color:var(--accent);border:0;cursor:pointer}
+.chip.warn{background:color-mix(in srgb,var(--danger) 12%,transparent);color:var(--danger)}
+.chip.good{background:color-mix(in srgb,var(--ok) 14%,transparent);color:var(--ok)}
+.card{background:var(--card);border-radius:var(--r);padding:16px;margin:0 0 12px;border:1px solid var(--sep)}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px}
+.tool{background:var(--card);border:1px solid var(--sep);border-radius:var(--r);padding:14px;text-align:left;cursor:pointer;display:flex;flex-direction:column;gap:10px;min-height:128px}
+.tool:active{transform:scale(.985)}
+.tool .ic{width:40px;height:40px;border-radius:11px;background:var(--soft);color:var(--accent);display:grid;place-items:center}
+.tool b{font-size:14.5px;font-weight:650}
+.tool span{font-size:12.5px;color:var(--hint);line-height:1.35}
+.tool.dis{opacity:.55;cursor:default}
+.tag{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--hint);border:1px solid var(--sep);border-radius:6px;padding:2px 6px;align-self:flex-start}
+.sec{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--hint);margin:18px 4px 8px}
+.note{display:flex;gap:10px;align-items:flex-start;font-size:12.5px;color:var(--hint);padding:4px 4px}
+.btn{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;border:0;border-radius:12px;padding:13px 16px;font-weight:650;background:var(--accent);color:var(--accent-text);cursor:pointer;text-decoration:none}
+.btn:disabled{opacity:.5;cursor:default}
+.btn.sec2{background:var(--soft);color:var(--accent)}
+.btn.ghost{background:transparent;color:var(--accent);border:1px solid var(--sep)}
+.btn.sm{padding:9px 12px;font-size:13.5px;width:auto}
+.btn+.btn{margin-top:8px}
+.row{display:flex;gap:8px;align-items:center}
+.drop{border:1.5px dashed var(--sep);border-radius:var(--r);padding:26px 16px;text-align:center;cursor:pointer;background:var(--card);display:flex;flex-direction:column;align-items:center;gap:8px;width:100%}
+.drop .ic{width:48px;height:48px;border-radius:14px;background:var(--soft);color:var(--accent);display:grid;place-items:center}
+.drop small{color:var(--hint)}
+.files{list-style:none;margin:0;padding:0}
+.files li{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--sep)}
+.files li:last-child{border-bottom:0}
+.thumb{width:40px;height:40px;border-radius:8px;background:var(--soft);color:var(--accent);display:grid;place-items:center;overflow:hidden;flex:none}
+.thumb img{width:100%;height:100%;object-fit:cover}
+.fn{font-size:13.5px;font-weight:550;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.fs{font-size:12px;color:var(--hint)}
+.mini{width:30px;height:30px;border-radius:8px;border:0;background:transparent;color:var(--hint);display:grid;place-items:center;cursor:pointer;flex:none}
+.mini:disabled{opacity:.3}
+label.f{display:block;font-size:12.5px;font-weight:600;color:var(--hint);margin:12px 0 6px}
+label.f:first-child{margin-top:0}
+.seg{display:flex;background:var(--bg);border-radius:10px;padding:3px;gap:3px}
+.seg button{flex:1;border:0;background:transparent;padding:8px 6px;border-radius:8px;font-size:13px;font-weight:600;color:var(--hint);cursor:pointer}
+.seg button.on{background:var(--card);color:var(--text);box-shadow:0 1px 2px rgba(0,0,0,.08)}
+input.t,select.t,textarea.t{width:100%;border:1px solid var(--sep);background:var(--bg);border-radius:10px;padding:10px 12px;outline:none}
+input.t:focus,select.t:focus{border-color:var(--accent)}
+.opt{display:flex;flex-direction:column;gap:6px}
+.radio{display:flex;align-items:center;gap:10px;padding:11px 12px;border:1px solid var(--sep);border-radius:12px;cursor:pointer;background:var(--card)}
+.radio.on{border-color:var(--accent);background:var(--soft)}
+.dot{width:18px;height:18px;border-radius:50%;border:1.5px solid var(--hint);flex:none;display:grid;place-items:center}
+.radio.on .dot{border-color:var(--accent)}
+.radio.on .dot:after{content:"";width:9px;height:9px;border-radius:50%;background:var(--accent)}
+.bar{height:6px;border-radius:6px;background:var(--bg);overflow:hidden;margin:10px 0 6px}
+.bar i{display:block;height:100%;background:var(--accent);width:0;transition:width .2s}
+.err{color:var(--danger);font-size:13px;display:flex;gap:8px;align-items:flex-start;margin-top:10px}
+.okmsg{color:var(--ok);font-size:13px;display:flex;gap:8px;align-items:center;margin-top:10px}
+.center{text-align:center}
+.big{width:56px;height:56px;border-radius:16px;display:grid;place-items:center;margin:4px auto 10px;background:var(--soft);color:var(--accent)}
+.big.good{background:color-mix(in srgb,var(--ok) 14%,transparent);color:var(--ok)}
+h2{font-size:17px;margin:0 0 4px;font-weight:650}
+p.m{margin:0;color:var(--hint);font-size:13.5px}
+.feat{list-style:none;padding:0;margin:12px 0 0}
+.feat li{display:flex;gap:10px;align-items:center;padding:5px 0;font-size:14px}
+.feat svg{color:var(--ok)}
+.price{font-weight:700;margin-left:auto;text-align:right;font-size:14px}
+.price small{display:block;font-weight:500;color:var(--hint);font-size:11.5px}
+.kv{display:flex;align-items:center;gap:8px;padding:10px 12px;border:1px solid var(--sep);border-radius:10px;background:var(--bg);margin-bottom:8px}
+.kv code{font:600 13px/1.3 ui-monospace,SFMono-Regular,Menlo,monospace;word-break:break-all;flex:1}
+.kv .k{font-size:11.5px;color:var(--hint);display:block;font-weight:600}
+.toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:var(--text);color:var(--card);padding:10px 16px;border-radius:10px;font-size:13.5px;z-index:9;max-width:90%;box-shadow:0 6px 24px rgba(0,0,0,.2)}
+.banner{display:flex;gap:10px;align-items:flex-start;font-size:12.5px;padding:10px 12px;border-radius:12px;background:var(--soft);color:var(--text);margin-bottom:12px}
+.banner svg{color:var(--accent);margin-top:1px}
+table.pl{width:100%;border-collapse:collapse;font-size:13px}
+.plan{border:1px solid var(--sep);border-radius:12px;padding:10px;margin-bottom:8px;display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.plan .full{grid-column:1/-1}
+.plan input,.plan select{padding:8px 10px;font-size:13px}
+.sw{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:6px 0}
+.tgl{width:44px;height:26px;border-radius:13px;background:var(--sep);border:0;position:relative;cursor:pointer;flex:none}
+.tgl:after{content:"";position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:50%;background:#fff;transition:left .15s;box-shadow:0 1px 2px rgba(0,0,0,.2)}
+.tgl.on{background:var(--accent)}.tgl.on:after{left:21px}
+.stat{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
+.stat div{background:var(--bg);border-radius:10px;padding:10px}
+.stat b{display:block;font-size:18px}
+.stat span{font-size:11.5px;color:var(--hint)}
+.spin{width:18px;height:18px;border:2px solid currentColor;border-right-color:transparent;border-radius:50%;animation:sp .7s linear infinite}
+@keyframes sp{to{transform:rotate(360deg)}}
+.hide{display:none!important}
+.foot{text-align:center;color:var(--hint);font-size:11.5px;margin-top:18px}
+</style>
+<style>
+textarea.t{min-height:84px;resize:vertical;font:inherit;width:100%}
+.chrow{display:flex;align-items:center;gap:12px;padding:12px;border:1px solid var(--sep);border-radius:var(--r);background:var(--card);margin-bottom:10px;cursor:pointer;width:100%;text-align:left}
+.av{width:42px;height:42px;border-radius:12px;background:var(--soft);color:var(--accent);display:grid;place-items:center;font-weight:700;flex:none}
+.tabs{display:flex;gap:6px;margin-bottom:12px}
+.tabs button{flex:1;border:1px solid var(--sep);background:var(--card);border-radius:10px;padding:9px 6px;font-weight:600;font-size:13px;color:var(--hint);cursor:pointer}
+.tabs button.on{background:var(--accent);color:var(--accent-text);border-color:var(--accent)}
+ol.steps{margin:0;padding-left:20px}ol.steps li{margin:6px 0;font-size:14px}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:8px}.g3{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.pill{display:inline-flex;align-items:center;gap:4px;font-size:11.5px;font-weight:600;padding:3px 8px;border-radius:999px;background:var(--bg);color:var(--hint);margin:2px 4px 2px 0}
+.pill.ok{background:color-mix(in srgb,var(--ok) 14%,transparent);color:var(--ok)}.pill.bad{background:color-mix(in srgb,var(--danger) 12%,transparent);color:var(--danger)}.pill.ac{background:var(--soft);color:var(--accent)}
+.num{font-size:26px;font-weight:700;letter-spacing:-.02em}
+.stepper{display:flex;align-items:center;gap:10px}.stepper button{width:38px;height:38px;border-radius:10px;border:1px solid var(--sep);background:var(--card);font-size:18px;cursor:pointer}
+.stepper b{min-width:28px;text-align:center;font-size:18px}
+.score{width:86px;height:86px;border-radius:50%;display:grid;place-items:center;margin:4px auto 8px;font-size:26px;font-weight:700;border:6px solid var(--accent);color:var(--accent)}
+.meter{height:8px;border-radius:8px;background:var(--bg);overflow:hidden;margin-top:4px}.meter i{display:block;height:100%;background:var(--accent)}
+.photo{width:100%;border-radius:12px;display:block;max-height:320px;object-fit:cover;background:var(--bg)}
+.rec{width:84px;height:84px;border-radius:50%;border:0;background:var(--danger);color:#fff;display:grid;place-items:center;margin:8px auto;cursor:pointer}
+.rec.on{animation:pulse 1.2s infinite}@keyframes pulse{50%{box-shadow:0 0 0 12px color-mix(in srgb,var(--danger) 25%,transparent)}}
+.inv{border-radius:18px;padding:26px 20px;text-align:center;border:1px solid var(--sep);background:var(--card);margin-bottom:12px}
+.inv .eyebrow{font-size:11.5px;letter-spacing:.18em;text-transform:uppercase;color:var(--hint)}
+.inv h2{font-family:Georgia,"Times New Roman",serif;font-weight:500;font-size:26px;margin:10px 0 6px;line-height:1.2}
+.inv .line{width:48px;height:1px;background:var(--accent);margin:14px auto}
+.qrbox{background:#fff;border-radius:14px;padding:14px;display:inline-block}
+.qrbox svg,.qrbox img{display:block;width:200px;height:200px}
+table.tb{width:100%;border-collapse:collapse;font-size:13px}table.tb td{padding:8px 4px;border-bottom:1px solid var(--sep);vertical-align:top}table.tb td:first-child{color:var(--hint);width:38%}
+</style>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-calendar" viewBox="0 0 24 24"><rect x="3.5" y="5" width="17" height="15" rx="2"/><path d="M3.5 10h17M8 3v4M16 3v4"/></symbol>
+  <symbol id="i-pin" viewBox="0 0 24 24"><path d="M12 21s-7-6.2-7-11.5a7 7 0 0 1 14 0C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/></symbol>
+  <symbol id="i-qr" viewBox="0 0 24 24"><rect x="3.5" y="3.5" width="6" height="6" rx="1"/><rect x="14.5" y="3.5" width="6" height="6" rx="1"/><rect x="3.5" y="14.5" width="6" height="6" rx="1"/><path d="M14.5 14.5h2v2h-2zM18.5 18.5h2v2h-2zM18.5 14.5h2M14.5 18.5v2"/></symbol>
+  <symbol id="i-scan" viewBox="0 0 24 24"><path d="M4 8V5a1 1 0 0 1 1-1h3M16 4h3a1 1 0 0 1 1 1v3M20 16v3a1 1 0 0 1-1 1h-3M8 20H5a1 1 0 0 1-1-1v-3"/><path d="M4 12h16"/></symbol>
+  <symbol id="i-mic" viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21"/></symbol>
+  <symbol id="i-stop" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="2"/></symbol>
+  <symbol id="i-play" viewBox="0 0 24 24"><path d="M7 4.5v15l12-7.5z"/></symbol>
+  <symbol id="i-globe" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/></symbol>
+  <symbol id="i-award" viewBox="0 0 24 24"><circle cx="12" cy="9" r="5.5"/><path d="M8.5 13.5L7 21l5-2.5 5 2.5-1.5-7.5"/></symbol>
+  <symbol id="i-cash" viewBox="0 0 24 24"><rect x="2.5" y="6" width="19" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/><path d="M6 9v.01M18 15v.01"/></symbol>
+  <symbol id="i-task" viewBox="0 0 24 24"><rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 4V3h6v1M9 11l2 2 4-4M9 17h6"/></symbol>
+  <symbol id="i-camera" viewBox="0 0 24 24"><path d="M4 8a2 2 0 0 1 2-2h2l1.5-2h5L16 6h2a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z"/><circle cx="12" cy="13" r="3.5"/></symbol>
+  <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4.2-4.2"/></symbol>
+  <symbol id="i-bell" viewBox="0 0 24 24"><path d="M6 16V11a6 6 0 0 1 12 0v5l1.5 2h-15z"/><path d="M10 20.5a2 2 0 0 0 4 0"/></symbol>
+  <symbol id="i-edit" viewBox="0 0 24 24"><path d="M4 20h4L19 9a2.8 2.8 0 0 0-4-4L4 16z"/><path d="M13.5 6.5l4 4"/></symbol>
+  <symbol id="i-trash" viewBox="0 0 24 24"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/></symbol>
+  <symbol id="i-users" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><path d="M16 4.5a3.5 3.5 0 0 1 0 7M18 14a6 6 0 0 1 3.5 6"/></symbol>
+  <symbol id="i-chart" viewBox="0 0 24 24"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></symbol>
+  <symbol id="i-ext" viewBox="0 0 24 24"><path d="M14 4h6v6M20 4l-9 9"/><path d="M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></symbol>
+  <symbol id="i-link" viewBox="0 0 24 24"><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/></symbol>
+  <symbol id="i-list" viewBox="0 0 24 24"><path d="M9 6h11M9 12h11M9 18h11"/><path d="M4.5 6h.01M4.5 12h.01M4.5 18h.01"/></symbol>
+  <symbol id="i-message" viewBox="0 0 24 24"><path d="M4 5h16v11H9l-5 4z"/></symbol>
+  <symbol id="i-briefcase" viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M9 7V5h6v2M3 12.5h18"/></symbol>
+  <symbol id="i-translate" viewBox="0 0 24 24"><path d="M4 5h9M8.5 3v2M6 5c.5 3 2.5 5.5 5 7M11 5c-.5 3-3 6-6.5 7.5"/><path d="M13 21l4-9 4 9M14.5 18h5"/></symbol>
+  <symbol id="i-store" viewBox="0 0 24 24"><path d="M4 9l1.5-5h13L20 9M4 9v11h16V9M4 9a2.7 2.7 0 0 0 5.3 0 2.7 2.7 0 0 0 5.4 0 2.7 2.7 0 0 0 5.3 0"/><path d="M10 20v-5h4v5"/></symbol>
+</svg>
+
+<style>.locked{filter:blur(3px);pointer-events:none;user-select:none}.lockwrap{position:relative}.lockwrap .over{position:absolute;inset:0;display:grid;place-items:center}</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-logo" viewBox="0 0 24 24"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/><path d="M9 13h6M9 17h4"/></symbol>
+  <symbol id="i-file" viewBox="0 0 24 24"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/></symbol>
+  <symbol id="i-images" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="8.5" cy="10" r="1.5"/><path d="M21 15.5l-4.5-4.5L7 19"/></symbol>
+  <symbol id="i-merge" viewBox="0 0 24 24"><path d="M7 4v4a5 5 0 0 0 5 5 5 5 0 0 0 5-5V4"/><path d="M12 13v7"/><path d="M9 17l3 3 3-3"/></symbol>
+  <symbol id="i-split" viewBox="0 0 24 24"><path d="M12 4v7"/><path d="M12 11a5 5 0 0 0-5 5v4"/><path d="M12 11a5 5 0 0 1 5 5v4"/><path d="M9 7l3-3 3 3"/></symbol>
+  <symbol id="i-pdfimg" viewBox="0 0 24 24"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/><circle cx="10" cy="12" r="1.3"/><path d="M8 18l3.5-3.5 2 2L15 15l1.5 3"/></symbol>
+  <symbol id="i-word" viewBox="0 0 24 24"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/><path d="M8 12l1.3 5 1.7-4 1.7 4 1.3-5"/></symbol>
+  <symbol id="i-compress" viewBox="0 0 24 24"><path d="M4 14h6v6"/><path d="M20 10h-6V4"/><path d="M14 10l7-7"/><path d="M3 21l7-7"/></symbol>
+  <symbol id="i-settings" viewBox="0 0 24 24"><path d="M4 6h9M17 6h3M4 12h3M11 12h9M4 18h11M19 18h1"/><circle cx="15" cy="6" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="17" cy="18" r="2"/></symbol>
+  <symbol id="i-back" viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></symbol>
+  <symbol id="i-up" viewBox="0 0 24 24"><path d="M18 15l-6-6-6 6"/></symbol>
+  <symbol id="i-down" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></symbol>
+  <symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12"/></symbol>
+  <symbol id="i-upload" viewBox="0 0 24 24"><path d="M12 15V4M7 9l5-5 5 5"/><path d="M4 15v4a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-4"/></symbol>
+  <symbol id="i-download" viewBox="0 0 24 24"><path d="M12 4v11M7 10l5 5 5-5"/><path d="M4 15v4a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-4"/></symbol>
+  <symbol id="i-send" viewBox="0 0 24 24"><path d="M21 3L10 14"/><path d="M21 3l-6.5 18-4.5-7-7-4.5z"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></symbol>
+  <symbol id="i-lock" viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7.5a4 4 0 0 1 8 0V11"/></symbol>
+  <symbol id="i-star" viewBox="0 0 24 24"><path d="M12 3.5l2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.9l-5.2 2.7 1-5.8-4.3-4.1 5.9-.9z"/></symbol>
+  <symbol id="i-wallet" viewBox="0 0 24 24"><path d="M19 7V5.5A1.5 1.5 0 0 0 17.5 4H5a2 2 0 0 0 0 4h14a1 1 0 0 1 1 1v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6"/><path d="M16 14h.01"/></symbol>
+  <symbol id="i-phone" viewBox="0 0 24 24"><rect x="7" y="2.5" width="10" height="19" rx="2"/><path d="M11 18h2"/></symbol>
+  <symbol id="i-copy" viewBox="0 0 24 24"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V6a2 2 0 0 1 2-2h8"/></symbol>
+  <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.4-5.7L20 8.5"/><path d="M20 4v4.5h-4.5"/></symbol>
+  <symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 3l7.5 3v6c0 4.6-3.2 7.8-7.5 9-4.3-1.2-7.5-4.4-7.5-9V6z"/><path d="M9 12l2 2 4-4"/></symbol>
+  <symbol id="i-zip" viewBox="0 0 24 24"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/><path d="M10 4v1.5M10 8v1.5M10 12v1.5"/><rect x="8.5" y="15" width="3" height="3" rx=".8"/></symbol>
+  <symbol id="i-alert" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7.5v5.5M12 16.5h.01"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+  <symbol id="i-user" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></symbol>
+  <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></symbol>
+  <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v5.5M12 7.5h.01"/></symbol>
+</svg>
+<div class="wrap" id="app"></div>
+<script>
+/* Shared Mini App kit: Telegram, i18n (SO/EN), API + DEMO backend, payments, admin settings.
+   Injected into every app by tools/build.py. Apps call K.app({...}). */
+var K = (function () {
+'use strict';
+var CFG = Object.assign({ appId: 'app', apiUrl: '', defaultLang: 'en', version: '1.0.0', botUsername: '', appShortName: '' }, window.APP_CONFIG || {});
+var TG = (window.Telegram && window.Telegram.WebApp) || null, IN_TG = !!(TG && TG.initData), TGU = (IN_TG && TG.initDataUnsafe.user) || null;
+var QS = new URLSearchParams(location.search), START = (IN_TG && TG.initDataUnsafe.start_param) || QS.get('startapp') || '';
+var EDITION = /local/i.test(START) || QS.get('edition') === 'local' ? 'local' : 'global', DEMO = !CFG.apiUrl, MB = 1048576;
+var LOCAL_METHODS = ['evc', 'zaad', 'sahal', 'mpesa'];
+var APP = { strings: { en: {}, so: {} }, screens: {}, actions: {}, enter: {}, demo: {}, adminFields: [], extraSecrets: {} };
+var S = { screen: 'home', stack: [], me: null, err: '', msg: '', pw: null, payPlan: null, payment: null, admin: null };
+
+function lsGet(k, d) { try { var v = localStorage.getItem(k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } }
+function lsSet(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} }
+/* start param helper: param('e') reads ?e=KEY or start_param e_KEY */
+function param(p) { return QS.get(p) || (START.indexOf(p + '_') === 0 ? START.slice(p.length + 1) : ''); }
+
+var L = {
+en: {
+  back: 'Back', settings: 'Settings', save: 'Save', saved: 'Saved', cancel: 'Cancel', copied: 'Copied', remove: 'Remove', edit: 'Edit', add: 'Add', done: 'Done', close: 'Close', share: 'Share', search: 'Search',
+  e_gen: 'Something went wrong. Please try again.', e_net: 'Connection problem. Please try again.',
+  demo_banner: 'Demo mode — no server connected. Data is saved on this device only.', test_banner: 'Test mode is ON — everyone has full access.',
+  sim_banner: 'Simulating a free user on this device.',
+  p_test: 'Test mode', p_pro: 'Pro', p_free: '{n} free left', p_credits: '{n} credits', p_none: 'Upgrade',
+  pw_title: 'Upgrade', pw_text: 'Get full access.', f_unl: 'Unlimited use', f_all: 'All features included',
+  choose_plan: 'Choose a plan', pay_with: 'Pay with', days: '{n} days', credits: '{n} credits', credit1: '1 credit',
+  stars: 'Telegram Stars', usdt_trc20: 'USDT · TRC20', usdt_bep20: 'USDT · BEP20', evc: 'EVC Plus', zaad: 'Zaad', sahal: 'Sahal', mpesa: 'M-Pesa',
+  send_exact: 'Send exactly this amount', network: 'Network', address: 'Address', amount: 'Amount',
+  check_pay: 'I have paid — check now', not_yet: 'Not received yet. Blockchain confirmation can take a few minutes.',
+  usdt_note: 'Send USDT on the {net} network only. The exact amount identifies your order.',
+  mm_text: 'Send {a} to {n} using {m}, then enter the transaction ID below.', txid: 'Transaction ID', submit: 'Submit',
+  pending: 'Submitted. Your access opens as soon as the payment is confirmed.',
+  verify_phone: 'Verify phone number', verify_text: 'Local payment methods need a verified phone number.',
+  paid_ok: 'Payment confirmed. Thank you.', no_methods: 'Payments are not set up yet. Please check back soon.',
+  pay_demo: 'Demo: simulate a successful payment?', open_in_tg: 'Open this app inside Telegram to pay with Stars.', continue: 'Continue',
+  my_plan: 'My plan', acc_status: 'Status', acc_free: 'Free plan', acc_used: 'Free uses', acc_exp: 'Expires', acc_id: 'Telegram ID', support: 'Support', upgrade: 'Upgrade'
+},
+so: {
+  back: 'Dib', settings: 'Dejinta', save: 'Keydi', saved: 'Waa la keydiyay', cancel: 'Jooji', copied: 'Waa la koobiyeeyay', remove: 'Ka saar', edit: 'Wax ka beddel', add: 'Ku dar', done: 'Dhammaad', close: 'Xir', share: 'La wadaag', search: 'Raadi',
+  e_gen: 'Khalad ayaa dhacay. Fadlan isku day mar kale.', e_net: 'Dhibaato xiriir. Fadlan isku day mar kale.',
+  demo_banner: 'Habka demo — server lama xirin. Xogta waxaa lagu keydiyaa qalabkan oo keliya.', test_banner: 'Habka tijaabada waa SHIDAN yahay — qof walba wuu isticmaali karaa.',
+  sim_banner: 'Qalabkan wuxuu u dhaqmayaa sidii isticmaale bilaash ah.',
+  p_test: 'Tijaabo', p_pro: 'Pro', p_free: '{n} bilaash ah ayaa haray', p_credits: '{n} dhibcood', p_none: 'U gudub Pro',
+  pw_title: 'U gudub Pro', pw_text: 'Hel adeegga oo dhan.', f_unl: 'Isticmaal aan xad lahayn', f_all: 'Dhammaan adeegyada waa ku jiraan',
+  choose_plan: 'Dooro qorshe', pay_with: 'Ku bixi', days: '{n} maalmood', credits: '{n} dhibcood', credit1: '1 dhibic',
+  stars: 'Telegram Stars', usdt_trc20: 'USDT · TRC20', usdt_bep20: 'USDT · BEP20', evc: 'EVC Plus', zaad: 'Zaad', sahal: 'Sahal', mpesa: 'M-Pesa',
+  send_exact: 'Dir qadarkan oo sax ah', network: 'Shabakadda', address: 'Cinwaanka', amount: 'Qadarka',
+  check_pay: 'Waan bixiyay — hubi hadda', not_yet: 'Weli lama helin. Xaqiijintu waxay qaadan kartaa dhowr daqiiqo.',
+  usdt_note: 'USDT ku dir shabakadda {net} oo keliya. Qadarka saxda ah ayaa aqoonsanaya dalabkaaga.',
+  mm_text: 'U dir {a} lambarka {n} adigoo isticmaalaya {m}, kadib geli aqoonsiga macaamilka hoose.', txid: 'Aqoonsiga macaamilka', submit: 'Gudbi',
+  pending: 'Waa la gudbiyay. Adeeggu wuu kuu furmayaa marka lacagta la xaqiijiyo.',
+  verify_phone: 'Xaqiiji lambarka taleefanka', verify_text: 'Hababka lacag-bixinta gudaha waxay u baahan yihiin lambar la xaqiijiyay.',
+  paid_ok: 'Lacag-bixinta waa la xaqiijiyay. Mahadsanid.', no_methods: 'Lacag-bixinta weli lama diyaarin. Fadlan dib u eeg.',
+  pay_demo: 'Demo: ma la jilaa lacag-bixin guulaysatay?', open_in_tg: 'App-kan ka fur Telegram si aad Stars ugu bixiso.', continue: 'Sii wad',
+  my_plan: 'Qorshahayga', acc_status: 'Xaaladda', acc_free: 'Qorshe bilaash', acc_used: 'Isticmaalka bilaashka', acc_exp: 'Wuxuu dhacayaa', acc_id: 'Aqoonsiga Telegram', support: 'Taageero', upgrade: 'U gudub Pro'
+}};
+var LANG;
+function t(k, v) {
+  var s = (APP.strings[LANG] && APP.strings[LANG][k]) || (L[LANG] && L[LANG][k]) || APP.strings.en[k] || L.en[k] || k;
+  if (v) for (var x in v) s = s.split('{' + x + '}').join(v[x]);
+  return s;
+}
+function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+function ic(n, c) { return '<svg class="i ' + (c || '') + '"><use href="#i-' + n + '"/></svg>'; }
+function fmtDate(s) { var d = new Date(s); return isNaN(d) ? '' : d.toISOString().slice(0, 10); }
+function money(n, cur) { n = +n || 0; return (cur && cur !== 'USD' ? cur + ' ' : '$') + n.toFixed(2).replace(/\.00$/, ''); }
+function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
+var toastT; function toast(m) { var el = document.querySelector('.toast'); if (!el) { el = document.createElement('div'); el.className = 'toast'; document.body.appendChild(el); } el.textContent = m; el.classList.remove('hide'); clearTimeout(toastT); toastT = setTimeout(function () { el.classList.add('hide'); }, 2400); }
+function copy(x) { (navigator.clipboard ? navigator.clipboard.writeText(x) : Promise.reject()).then(function () { toast(t('copied')); }, function () { var ta = document.createElement('textarea'); ta.value = x; document.body.appendChild(ta); ta.select(); try { document.execCommand('copy'); toast(t('copied')); } catch (e) {} ta.remove(); }); }
+function openLink(u) { if (!u) return; if (IN_TG && /^https:\/\/t\.me\//.test(u)) TG.openTelegramLink(u); else if (IN_TG) TG.openLink(u); else window.open(u, '_blank'); }
+function shareTg(url, text) { openLink('https://t.me/share/url?url=' + encodeURIComponent(url) + '&text=' + encodeURIComponent(text || '')); }
+function haptic(k) { try { if (IN_TG) { if (k === 'ok') TG.HapticFeedback.notificationOccurred('success'); else TG.HapticFeedback.impactOccurred('light'); } } catch (e) {} }
+function appLink(arg) {
+  if (CFG.botUsername && CFG.appShortName) return 'https://t.me/' + CFG.botUsername + '/' + CFG.appShortName + (arg ? '?startapp=' + arg : '');
+  if (CFG.botUsername) return 'https://t.me/' + CFG.botUsername + (arg ? '?start=' + arg : '');
+  var i = arg ? arg.indexOf('_') : -1;
+  return location.origin + location.pathname + (arg ? '?' + (i > 0 ? arg.slice(0, i) + '=' + arg.slice(i + 1) : 'startapp=' + arg) : '');
+}
+function fileB64(file, maxPx, q) { // images are downscaled to save data on low-end phones
+  return new Promise(function (res, rej) {
+    if (!/^image\//.test(file.type) || !maxPx) { var fr = new FileReader(); fr.onload = function () { res({ b64: String(fr.result).split(',')[1], mime: file.type }); }; fr.onerror = rej; fr.readAsDataURL(file); return; }
+    var u = URL.createObjectURL(file), im = new Image();
+    im.onload = function () { var sc = Math.min(1, maxPx / Math.max(im.naturalWidth, im.naturalHeight)), c = document.createElement('canvas');
+      c.width = Math.round(im.naturalWidth * sc); c.height = Math.round(im.naturalHeight * sc); var x = c.getContext('2d'); x.fillStyle = '#fff'; x.fillRect(0, 0, c.width, c.height); x.drawImage(im, 0, 0, c.width, c.height);
+      URL.revokeObjectURL(u); var d = c.toDataURL('image/jpeg', q || 0.82); c.width = c.height = 0; res({ b64: d.split(',')[1], mime: 'image/jpeg', dataUrl: d }); };
+    im.onerror = function () { URL.revokeObjectURL(u); rej(new Error('img')); };
+    im.src = u;
+  });
+}
+
+/* ---------------- access (mirror of Core.gs) ---------------- */
+function defaultSettings() {
+  return Object.assign({ appName: 'App', testMode: true, freeAllowance: 2, freeMaxMB: 10, paidMaxMB: 100, supportContact: '', localPrefixes: '252', plans: [],
+    methods: { stars: true, usdt_trc20: '', usdt_bep20: '', evc: '', zaad: '', sahal: '', mpesa: '' } }, JSON.parse(JSON.stringify(APP.defaults || {})));
+}
+function computeAccess(st, sub, freeUsed, simFree, credits) {
+  var test = st.testMode && !simFree, s = sub && new Date(sub.expiry) > new Date() ? sub : null, allow = +st.freeAllowance || 0, left = Math.max(0, allow - freeUsed), cr = +credits || 0;
+  return { entitled: !!(test || s || left > 0 || cr > 0), reason: test ? 'test' : s ? 'sub' : left > 0 ? 'free' : cr > 0 ? 'credits' : 'blocked',
+    plan: s ? s.plan : null, expiry: s ? s.expiry : null, freeUsed: freeUsed, freeAllowance: allow, freeLeft: left, credits: cr, maxMB: (test || s) ? +st.paidMaxMB : +st.freeMaxMB, paidMaxMB: +st.paidMaxMB };
+}
+function availMethods(st, region) { var m = st.methods || {}, o = []; if (m.stars) o.push({ id: 'stars' }); if (m.usdt_trc20) o.push({ id: 'usdt_trc20' }); if (m.usdt_bep20) o.push({ id: 'usdt_bep20' });
+  if (region === 'LOCAL') LOCAL_METHODS.forEach(function (k) { if (m[k]) o.push({ id: k, local: true }); }); return o; }
+
+/* ---------------- DEMO backend (used when apiUrl is empty) ---------------- */
+var DKEY = function () { return 'demo_' + CFG.appId + '_v1'; };
+function dState() { var s = lsGet(DKEY(), null); if (!s) { s = { settings: defaultSettings(), freeUsed: 0, credits: 0, sub: null, orders: [], total: 0, app: APP.demoSeed ? APP.demoSeed() : {} }; }
+  s.settings = Object.assign(defaultSettings(), s.settings); s.settings.methods = Object.assign(defaultSettings().methods, s.settings.methods || {}); return s; }
+function dAccess(s, d) { return computeAccess(s.settings, s.sub, s.freeUsed, d.simulateFree, s.credits); }
+function dRegion(s) { return EDITION === 'local' || s.phoneVerified ? 'LOCAL' : 'GLOBAL'; }
+function dPlan(s, id) { if (APP.demoResolvePlan) { var p = APP.demoResolvePlan(id, s); if (p) return p; } return (s.settings.plans || []).filter(function (x) { return x.id === id; })[0]; }
+function dMarkPaid(s, o) {
+  if (o.status === 'paid') return; o.status = 'paid'; var p = dPlan(s, o.plan) || { days: 30 };
+  if (APP.demoOnPaid && APP.demoOnPaid(o, p, s)) return;
+  if (+p.credits > 0 && !(+p.days > 0)) { s.credits = (+s.credits || 0) + +p.credits; return; }
+  var base = s.sub && new Date(s.sub.expiry) > new Date() ? new Date(s.sub.expiry) : new Date(); base.setDate(base.getDate() + (+p.days || 30)); s.sub = { plan: o.plan, expiry: base.toISOString() };
+}
+var DemoCore = {
+  init: function (d, s) { var r = dRegion(s); return { ok: true, demo: true, verified: false, isAdmin: true, user: { id: TGU ? TGU.id : 0, name: TGU ? TGU.first_name : 'Demo user' }, region: r, phoneVerified: !!s.phoneVerified,
+    access: dAccess(s, d), plans: (s.settings.plans || []).filter(function (p) { return p.region === 'ALL' || p.region === r; }), methods: availMethods(s.settings, r), appName: s.settings.appName, support: s.settings.supportContact }; },
+  consume: function (d, s) { var a = dAccess(s, d); if (!a.entitled) return { ok: true, allowed: false, access: a }; if (a.reason === 'free') s.freeUsed++; else if (a.reason === 'credits') s.credits--; s.total++; return { ok: true, allowed: true, token: 'demo', access: dAccess(s, d) }; },
+  createOrder: function (d, s) { var p = dPlan(s, d.plan); if (!p) return { ok: false, error: 'plan' };
+    var o = { order_id: 'D' + uid(), plan: d.plan, method: d.method, status: 'pending' };
+    if (d.method === 'stars') { o.amount = p.stars; o.currency = 'XTR'; }
+    else if (/^usdt/.test(d.method)) { o.amount = (+p.usd + Math.floor(Math.random() * 9000 + 1000) / 1e6).toFixed(4); o.currency = 'USDT'; o.address = s.settings.methods[d.method]; o.network = d.method === 'usdt_trc20' ? 'TRC20 (Tron)' : 'BEP20 (BNB Smart Chain)'; }
+    else { if (!s.phoneVerified) return { ok: false, error: 'phone_required' }; o.amount = '$' + (+p.usd).toFixed(2); o.currency = 'USD'; o.number = s.settings.methods[d.method]; }
+    s.orders.push(o); return Object.assign({ ok: true }, o); },
+  checkOrder: function (d, s) { var o = s.orders.filter(function (x) { return x.order_id === d.order_id; })[0]; return o ? { ok: true, status: o.status, access: dAccess(s, d) } : { ok: false, error: 'order' }; },
+  demoPay: function (d, s) { var o = s.orders.filter(function (x) { return x.order_id === d.order_id; })[0]; if (o) dMarkPaid(s, o); return { ok: true, status: 'paid', access: dAccess(s, d) }; },
+  submitManual: function (d, s) { var o = s.orders.filter(function (x) { return x.order_id === d.order_id; })[0]; o.status = 'review'; o.tx_ref = d.txid; return { ok: true, status: 'review' }; },
+  demoVerifyPhone: function (d, s) { s.phoneVerified = true; return { ok: true }; },
+  adminGet: function (d, s) { var sec = { BOT_TOKEN: false, TRONGRID_KEY: false, ETHERSCAN_KEY: false }; Object.keys(APP.extraSecrets).forEach(function (k) { sec[k] = !!(s.secrets || {})[k]; }); return { ok: true, settings: s.settings, secrets: sec }; },
+  adminSave: function (d, s) { s.settings = Object.assign(defaultSettings(), d.settings); return { ok: true }; },
+  adminSetSecret: function (d, s) { s.secrets = s.secrets || {}; s.secrets[d.key] = true; return { ok: true }; }, // never stores the value
+  adminPending: function (d, s) { return { ok: true, items: s.orders.filter(function (x) { return x.status === 'review'; }).map(function (x) { return Object.assign({ user_id: 'demo' }, x); }) }; },
+  adminDecide: function (d, s) { var o = s.orders.filter(function (x) { return x.order_id === d.order_id; })[0]; if (d.approve) dMarkPaid(s, o); else o.status = 'rejected'; return { ok: true }; },
+  adminStats: function (d, s) { return { ok: true, stats: { users: 1, activeSubs: s.sub && new Date(s.sub.expiry) > new Date() ? 1 : 0, conversions: s.total, paidOrders: s.orders.filter(function (x) { return x.status === 'paid'; }).length, pending: s.orders.filter(function (x) { return x.status === 'review'; }).length } }; },
+  adminResetMe: function (d, s) { s.freeUsed = 0; s.credits = 0; s.sub = null; s.phoneVerified = false; return { ok: true }; }
+};
+function demoCall(action, d) {
+  return new Promise(function (res) { setTimeout(function () { var s = dState(), r;
+    try { r = APP.demo[action] ? APP.demo[action](d, s) : DemoCore[action] ? DemoCore[action](d, s) : { ok: false, error: 'unknown_action' }; } catch (e) { console.error(e); r = { ok: false, error: e.message }; }
+    lsSet(DKEY(), s); res(r); }, 150); });
+}
+function api(action, data) {
+  data = Object.assign({}, data || {}); data.simulateFree = !!lsGet('simfree_' + CFG.appId, false);
+  if (DEMO) return demoCall(action, data);
+  return fetch(CFG.apiUrl, { method: 'POST', redirect: 'follow', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+    body: JSON.stringify(Object.assign({ action: action, app: CFG.appId, edition: EDITION, initData: IN_TG ? TG.initData : '', start: START }, data)) })
+    .then(function (r) { return r.json(); }).catch(function () { return { ok: false, error: 'network' }; });
+}
+function refreshMe() { return api('init').then(function (r) { if (r.ok) S.me = r; else if (!S.me) S.me = { access: computeAccess(defaultSettings(), null, 0, false, 0), plans: [], methods: [], error: r.error }; return S.me; }); }
+
+/* ---------------- navigation & rendering ---------------- */
+var $app;
+function go(screen, opts) { if (S.screen !== screen && !(opts && opts.replace)) S.stack.push(S.screen); S.screen = screen; S.err = ''; S.msg = (opts && opts.msg) || ''; enter(); window.scrollTo(0, 0); }
+function back() { S.screen = S.stack.pop() || 'home'; S.err = ''; S.msg = ''; enter(); }
+function home() { S.stack = []; S.screen = 'home'; S.err = ''; enter(); }
+function enter() { render(); var f = APP.enter[S.screen]; if (f) f(); else if (S.screen === 'settings') loadAdmin(); }
+function header(title, sub, right) {
+  var showBack = S.stack.length && !IN_TG;
+  return '<div class="top">' + (showBack ? '<button class="ibtn" data-act="back" aria-label="' + t('back') + '">' + ic('back') + '</button>' : '<div class="logo">' + ic(APP.icon || 'logo') + '</div>') +
+    '<div class="grow"><h1>' + esc(title) + '</h1>' + (sub ? '<div class="sub">' + esc(sub) + '</div>' : '') + '</div>' + (right || '') +
+    '<div class="lang"><button data-lang="so" class="' + (LANG === 'so' ? 'on' : '') + '">SO</button><button data-lang="en" class="' + (LANG === 'en' ? 'on' : '') + '">EN</button></div>' +
+    (S.me && S.me.isAdmin ? '<button class="ibtn" data-act="settings" aria-label="' + t('settings') + '">' + ic('settings') + '</button>' : '') + '</div>';
+}
+function banners() { var h = ''; if (DEMO) h += '<div class="banner">' + ic('info', 's') + '<span>' + t('demo_banner') + '</span></div>';
+  if (S.me && S.me.access && S.me.access.reason === 'test') h += '<div class="banner">' + ic('shield', 's') + '<span>' + t('test_banner') + '</span></div>';
+  if (lsGet('simfree_' + CFG.appId, false)) h += '<div class="banner">' + ic('user', 's') + '<span>' + t('sim_banner') + '</span></div>'; return h; }
+function planChip() { var a = S.me && S.me.access; if (!a) return '';
+  if (a.reason === 'test') return '<button class="chip" data-act="account">' + ic('shield', 's') + t('p_test') + '</button>';
+  if (a.reason === 'sub') return '<button class="chip good" data-act="account">' + ic('check', 's') + t('p_pro') + '</button>';
+  if (a.reason === 'credits') return '<button class="chip good" data-act="account">' + ic('star', 's') + t('p_credits', { n: a.credits }) + '</button>';
+  if (a.reason === 'free') return '<button class="chip" data-act="account">' + ic('clock', 's') + t('p_free', { n: a.freeLeft }) + '</button>';
+  return '<button class="chip warn" data-act="account">' + ic('lock', 's') + t('p_none') + '</button>'; }
+function spin() { return '<div class="card center"><div class="spin" style="margin:0 auto;color:var(--accent)"></div></div>'; }
+function errBox() { return (S.err ? '<div class="err">' + ic('alert', 's') + '<span>' + esc(S.err) + '</span></div>' : '') + (S.msg ? '<div class="okmsg">' + ic('check', 's') + '<span>' + esc(S.msg) + '</span></div>' : ''); }
+function empty(icon, text, extra) { return '<div class="card center"><div class="big">' + ic(icon, 'l') + '</div><p class="m">' + text + '</p>' + (extra || '') + '</div>'; }
+function kv(k, v, copyable) { return '<div class="kv"><div class="grow"><span class="k">' + k + '</span><code>' + esc(v) + '</code></div>' + (copyable ? '<button class="mini" data-copy="' + esc(v) + '">' + ic('copy') + '</button>' : '') + '</div>'; }
+function seg(name, val, opts) { return '<div class="seg">' + opts.map(function (o) { return '<button data-seg="' + name + '" data-val="' + esc(o[0]) + '" class="' + (String(val) === String(o[0]) ? 'on' : '') + '">' + esc(o[1]) + '</button>'; }).join('') + '</div>'; }
+function render() {
+  if (IN_TG) { if (S.stack.length) TG.BackButton.show(); else TG.BackButton.hide(); }
+  if (!S.me) { $app.innerHTML = '<div class="center" style="padding:80px 0"><div class="spin" style="margin:0 auto;color:var(--accent)"></div></div>'; return; }
+  var f = APP.screens[S.screen] || BUILTIN[S.screen] || APP.screens.home;
+  $app.innerHTML = f();
+}
+
+/* ---------------- payments UI ---------------- */
+function paywall(ctx) { S.pw = ctx || {}; S.payPlan = null; go('paywall'); }
+function planPrice(p) { return '<div class="price">' + (p.usd ? '$' + (+p.usd).toFixed(2) : '') + (p.stars ? '<small>' + p.stars + ' Stars</small>' : '') + '</div>'; }
+function planSub(p) { return +p.days > 0 ? t('days', { n: p.days }) : +p.credits === 1 ? t('credit1') : +p.credits > 1 ? t('credits', { n: p.credits }) : ''; }
+var BUILTIN = {
+  paywall: function () {
+    var me = S.me, pw = S.pw || {}, plans = pw.plans || me.plans, h = header(pw.title || t('pw_title'), '');
+    if (!S.payPlan && plans[0]) S.payPlan = plans[0].id;
+    h += '<div class="card"><div class="big">' + ic(pw.icon || 'lock', 'l') + '</div><h2 class="center">' + esc(pw.title || t('pw_title')) + '</h2><p class="m center">' + esc(pw.text || t('pw_text')) + '</p>' +
+      '<ul class="feat">' + (pw.features || [t('f_unl'), t('f_all')]).map(function (f) { return '<li>' + ic('check') + esc(f) + '</li>'; }).join('') + '</ul></div>';
+    h += '<div class="sec">' + t('choose_plan') + '</div><div class="opt">' + plans.map(function (p) { return '<div class="radio ' + (S.payPlan === p.id ? 'on' : '') + '" data-plan="' + esc(p.id) + '"><span class="dot"></span><div><b>' + esc(p.label) + '</b><div class="fs">' + planSub(p) + '</div></div>' + planPrice(p) + '</div>'; }).join('') + '</div>';
+    h += '<div class="sec">' + t('pay_with') + '</div>';
+    if (!me.methods.length) h += '<div class="card"><p class="m">' + t('no_methods') + '</p></div>';
+    else h += '<div class="opt">' + me.methods.map(function (m) { return '<button class="radio" style="width:100%;text-align:left" data-method="' + m.id + '"><span class="thumb" style="width:34px;height:34px">' + ic(m.id === 'stars' ? 'star' : /^usdt/.test(m.id) ? 'wallet' : 'phone') + '</span><b class="grow">' + t(m.id) + '</b></button>'; }).join('') + '</div>';
+    return h + errBox();
+  },
+  pay: function () {
+    var o = S.payment, h = header(t(o.method), '');
+    if (o.status === 'paid') return h + '<div class="card center"><div class="big good">' + ic('check', 'l') + '</div><h2>' + esc((S.pw && S.pw.paidText) || t('paid_ok')) + '</h2></div><button class="btn" data-act="afterpay">' + t('continue') + '</button>';
+    if (o.status === 'review') return h + '<div class="card center"><div class="big">' + ic('clock', 'l') + '</div><p class="m">' + t('pending') + '</p></div><button class="btn ghost" data-act="home">' + t('close') + '</button>';
+    if (o.phoneNeeded) return h + '<div class="card center"><div class="big">' + ic('phone', 'l') + '</div><p class="m">' + t('verify_text') + '</p></div><button class="btn" data-act="verifyphone">' + ic('phone') + t('verify_phone') + '</button>';
+    if (/^usdt/.test(o.method)) h += '<div class="card"><p class="m" style="margin-bottom:12px">' + t('send_exact') + '</p>' + kv(t('amount'), o.amount + ' USDT', true).replace('data-copy="' + esc(o.amount + ' USDT') + '"', 'data-copy="' + esc(o.amount) + '"') +
+      kv(t('network'), o.network) + kv(t('address'), o.address, true) + '<div class="note">' + ic('alert', 's') + '<span>' + t('usdt_note', { net: esc(o.network) }) + '</span></div></div><button class="btn" data-act="checkpay">' + ic('refresh') + t('check_pay') + '</button>';
+    else h += '<div class="card"><p class="m" style="margin-bottom:12px">' + t('mm_text', { a: esc(o.amount), n: esc(o.number), m: t(o.method) }) + '</p>' + kv(t(o.method), o.number, true) + kv(t('amount'), o.amount) +
+      '<label class="f">' + t('txid') + '</label><input class="t" id="txid" autocomplete="off"></div><button class="btn" data-act="submittx">' + t('submit') + '</button>';
+    return h + errBox();
+  },
+  account: function () {
+    var me = S.me, a = me.access, h = header(t('my_plan'), '');
+    h += '<div class="card">' + kv(t('acc_status'), a.reason === 'test' ? t('p_test') : a.reason === 'sub' ? t('p_pro') + ' — ' + (a.plan || '') : a.reason === 'credits' ? t('p_credits', { n: a.credits }) : t('acc_free')) +
+      (a.reason === 'sub' ? kv(t('acc_exp'), fmtDate(a.expiry)) : a.freeAllowance ? kv(t('acc_used'), a.freeUsed + ' / ' + a.freeAllowance) : '') +
+      (me.user && me.user.id ? kv(t('acc_id'), me.user.id) : '') + (me.support ? kv(t('support'), me.support) : '') + '</div>';
+    if (me.plans.length) h += '<button class="btn" data-act="paywall">' + ic('star') + t('upgrade') + '</button>';
+    return h;
+  },
+  settings: function () { return renderSettings(); }
+};
+function startPayment(method) {
+  S.err = '';
+  if (method === 'stars' && !DEMO && !IN_TG) { S.err = t('open_in_tg'); return render(); }
+  api('createOrder', { plan: S.payPlan, method: method }).then(function (r) {
+    if (!r.ok) { if (r.error === 'phone_required') { S.payment = { method: method, phoneNeeded: true }; return go('pay'); } S.err = r.error === 'network' ? t('e_net') : t('e_gen'); return render(); }
+    S.payment = r;
+    if (method === 'stars') {
+      if (DEMO) { if (confirm(t('pay_demo'))) api('demoPay', { order_id: r.order_id }).then(onPaid); return; }
+      TG.openInvoice(r.invoiceLink, function (st) { if (st === 'paid') poll(r.order_id, 10); }); return;
+    }
+    go('pay');
+  });
+}
+function poll(id, n) { api('checkOrder', { order_id: id }).then(function (r) { if (r.ok && r.status === 'paid') return onPaid(r); if (n > 0) setTimeout(function () { poll(id, n - 1); }, 2000); }); }
+function onPaid() { haptic('ok'); S.payment = Object.assign(S.payment || {}, { status: 'paid' }); refreshMe().then(function () { if (S.screen !== 'pay') go('pay'); else render(); }); }
+
+/* ---------------- admin settings ---------------- */
+var SECRETS = { BOT_TOKEN: 'Telegram bot token', TRONGRID_KEY: 'TronGrid API key (TRC20 checks)', ETHERSCAN_KEY: 'Etherscan API key (BEP20 checks)' };
+function loadAdmin() { S.admin = null; render(); Promise.all([api('adminGet'), api('adminPending'), api('adminStats'), APP.adminLoad ? APP.adminLoad() : Promise.resolve(null)]).then(function (r) {
+  S.admin = { settings: r[0].settings || defaultSettings(), secrets: r[0].secrets || {}, pending: r[1].items || [], stats: (r[2] && r[2].stats) || {}, extra: r[3] }; if (!r[0].ok) toast(r[0].error || 'error'); render(); }); }
+function renderSettings() {
+  var A = S.admin, h = header('Settings', 'Admin only'); if (!A) return h + spin();
+  var st = A.settings, m = st.methods, showPlans = APP.showPlans !== false;
+  function inp(id, v, ph, ty) { return '<input class="t" data-set="' + id + '" type="' + (ty || 'text') + '" value="' + esc(v) + '" placeholder="' + esc(ph || '') + '">'; }
+  function sw(id, on, l, s) { return '<div class="sw"><div><b style="font-size:14px">' + l + '</b>' + (s ? '<div class="fs">' + s + '</div>' : '') + '</div><button class="tgl ' + (on ? 'on' : '') + '" data-toggle="' + id + '"></button></div>'; }
+  if (DEMO) h += '<div class="banner">' + ic('info', 's') + '<span>Demo mode: settings are saved on this device only. Put the Apps Script URL in config.js → apiUrl to go live.</span></div>';
+  if (!DEMO && !S.me.verified) h += '<div class="banner">' + ic('alert', 's') + '<span>Server cannot verify Telegram yet. Add BOT_TOKEN_' + esc(CFG.appId) + ' and ADMIN_IDS in Script properties.</span></div>';
+  h += '<div class="sec">General</div><div class="card">' + sw('testMode', st.testMode, 'Test mode', 'Everyone gets full access. Turn OFF at launch.') +
+    '<label class="f">App name</label>' + inp('appName', st.appName) +
+    (APP.freeLabel !== null ? '<label class="f">' + (APP.freeLabel || 'Free uses (total, no reset)') + '</label>' + inp('freeAllowance', st.freeAllowance, '2', 'number') : '') +
+    '<label class="f">Support contact</label>' + inp('supportContact', st.supportContact, '@username') +
+    '<label class="f">Local phone prefixes (comma separated)</label>' + inp('localPrefixes', st.localPrefixes, '252') +
+    APP.adminFields.map(function (f) { return f.type === 'bool' ? sw('x:' + f.key, st[f.key], f.label, f.hint) : '<label class="f">' + esc(f.label) + '</label>' + inp(f.key, st[f.key], f.ph || '', f.type || 'text') + (f.hint ? '<div class="fs" style="margin-top:4px">' + esc(f.hint) + '</div>' : ''); }).join('') + '</div>';
+  if (showPlans) h += '<div class="sec">Plans</div>' + (st.plans || []).map(function (p, i) { function pi(k, ty, step) { return '<input class="t" data-plan-i="' + i + '" data-k="' + k + '" type="' + (ty || 'text') + '"' + (step ? ' step="' + step + '"' : '') + ' value="' + esc(p[k] == null ? '' : p[k]) + '">'; }
+    return '<div class="plan"><div class="full"><label class="f">Label</label>' + pi('label') + '</div><div><label class="f">Plan ID</label>' + pi('id') + '</div><div><label class="f">Region</label><select class="t" data-plan-i="' + i + '" data-k="region">' +
+      ['GLOBAL', 'LOCAL', 'ALL'].map(function (r) { return '<option ' + (p.region === r ? 'selected' : '') + '>' + r + '</option>'; }).join('') + '</select></div>' +
+      '<div><label class="f">Days (0 = credits pack)</label>' + pi('days', 'number') + '</div><div><label class="f">Credits</label>' + pi('credits', 'number') + '</div>' +
+      '<div><label class="f">Price USD</label>' + pi('usd', 'number', '0.01') + '</div><div><label class="f">Price Stars</label>' + pi('stars', 'number') + '</div>' +
+      '<div class="full"><button class="btn sm ghost" style="width:100%" data-plan-rm="' + i + '">Remove plan</button></div></div>'; }).join('') + '<button class="btn sm sec2" data-act="addplan">' + ic('plus', 's') + 'Add plan</button>';
+  h += '<div class="sec">Payment methods</div><div class="card">' + sw('m_stars', m.stars, 'Telegram Stars', 'Global. Needs bot token. Verify fees in Telegram docs before launch.') +
+    '<label class="f">USDT TRC20 receive address</label>' + inp('m_usdt_trc20', m.usdt_trc20, 'T…') + '<label class="f">USDT BEP20 receive address</label>' + inp('m_usdt_bep20', m.usdt_bep20, '0x…') +
+    '<div class="fs" style="margin:12px 0 0">Local only (hidden from global users, phone verification required):</div>' +
+    '<label class="f">EVC Plus number</label>' + inp('m_evc', m.evc, '+252…') + '<label class="f">Zaad number</label>' + inp('m_zaad', m.zaad, '+252…') +
+    '<label class="f">Sahal number</label>' + inp('m_sahal', m.sahal, '+252…') + '<label class="f">M-Pesa number</label>' + inp('m_mpesa', m.mpesa, '+254…') + '</div>';
+  h += '<button class="btn" data-act="savesettings">' + ic('check') + 'Save settings</button>' + errBox();
+  var secs = Object.assign({}, SECRETS, APP.extraSecrets);
+  h += '<div class="sec">Secrets (write-only)</div><div class="card"><div class="fs" style="margin-bottom:8px">Stored only on the server (Apps Script properties). Values are never shown again.</div>' +
+    Object.keys(secs).map(function (k) { return '<label class="f">' + esc(secs[k]) + ' — <span style="color:' + (A.secrets[k] ? 'var(--ok)' : 'var(--danger)') + '">' + (A.secrets[k] ? 'set' : 'not set') + '</span></label><div class="row"><input class="t" type="password" autocomplete="off" id="sec_' + k + '" placeholder="Paste new value"><button class="btn sm sec2" data-secret="' + k + '">Save</button></div>'; }).join('') + '</div>';
+  h += '<div class="sec">Payments to review</div><div class="card">' + (A.pending.length ? '<ul class="files">' + A.pending.map(function (p) { return '<li><div class="grow"><div class="fn">' + esc(p.method) + ' · ' + esc(p.amount) + ' · ' + esc(p.plan) + '</div><div class="fs">User ' + esc(p.user_id) + ' · Tx ' + esc(p.tx_ref) + '</div></div><button class="btn sm" data-approve="' + esc(p.order_id) + '">Approve</button><button class="btn sm ghost" data-reject="' + esc(p.order_id) + '">Reject</button></li>'; }).join('') + '</ul>' : '<p class="m">Nothing to review.</p>') + '</div>';
+  var s = A.stats; h += '<div class="sec">Stats</div><div class="card stat"><div><b>' + (s.users || 0) + '</b><span>Users</span></div><div><b>' + (s.activeSubs || 0) + '</b><span>Active subscriptions</span></div><div><b>' + (s.conversions || 0) + '</b><span>Uses</span></div><div><b>' + (s.paidOrders || 0) + '</b><span>Paid orders</span></div></div>';
+  if (APP.adminExtra) h += APP.adminExtra(A.extra);
+  h += '<div class="sec">Testing</div><div class="card">' + sw('simfree', lsGet('simfree_' + CFG.appId, false), 'Simulate free user (this device)', 'Ignores test mode so you can try the free limit and the paywall.') +
+    '<button class="btn sm ghost" style="width:100%;margin-top:8px" data-act="resetme">Reset my usage, credits &amp; subscription</button>' + (S.me.plans.length ? '<button class="btn sm ghost" style="width:100%;margin-top:8px" data-act="paywall">Preview paywall</button>' : '') + '</div>';
+  return h;
+}
+function collectSettings() {
+  var st = JSON.parse(JSON.stringify(S.admin.settings));
+  document.querySelectorAll('[data-set]').forEach(function (el) { var k = el.dataset.set, v = el.type === 'number' ? +el.value : el.value.trim(); if (k.indexOf('m_') === 0) st.methods[k.slice(2)] = v; else st[k] = v; });
+  document.querySelectorAll('[data-plan-i]').forEach(function (el) { var p = st.plans[+el.dataset.planI], k = el.dataset.k; p[k] = el.type === 'number' ? +el.value : el.value.trim(); });
+  return st;
+}
+
+/* ---------------- events ---------------- */
+function needAccess(fn, pwCtx) { var a = S.me.access; if (a.entitled) return fn(); paywall(pwCtx); }
+function consume(tool) { return api('consume', { tool: tool }).then(function (r) { if (r.ok && r.access) S.me.access = r.access; return r; }); }
+document.addEventListener('click', function (ev) {
+  var el = ev.target.closest('[data-a],[data-act],[data-lang],[data-copy],[data-open],[data-plan],[data-method],[data-toggle],[data-plan-rm],[data-secret],[data-approve],[data-reject],[data-seg],[data-go]'); if (!el) return;
+  var d = el.dataset;
+  if (d.a) { var fa = APP.actions[d.a]; if (fa) fa(el, d); return; }
+  if (d.seg) { if (APP.onSeg) APP.onSeg(d.seg, d.val, el); return; }
+  if (d.go) return go(d.go);
+  if (d.lang) { LANG = d.lang; lsSet('lang_' + CFG.appId, LANG); document.documentElement.lang = LANG; return render(); }
+  if (d.copy != null) return copy(d.copy);
+  if (d.open != null) return openLink(d.open);
+  if (d.plan) { S.payPlan = d.plan; return render(); }
+  if (d.method) return startPayment(d.method);
+  if (d.toggle) { if (d.toggle === 'simfree') { lsSet('simfree_' + CFG.appId, !lsGet('simfree_' + CFG.appId, false)); refreshMe().then(render); return; }
+    S.admin.settings = collectSettings(); var st = S.admin.settings;
+    if (d.toggle === 'testMode') st.testMode = !st.testMode; else if (d.toggle === 'm_stars') st.methods.stars = !st.methods.stars; else if (d.toggle.indexOf('x:') === 0) st[d.toggle.slice(2)] = !st[d.toggle.slice(2)]; return render(); }
+  if (d.planRm != null) { S.admin.settings = collectSettings(); S.admin.settings.plans.splice(+d.planRm, 1); return render(); }
+  if (d.secret) { var i = document.getElementById('sec_' + d.secret); if (!i.value.trim()) return; api('adminSetSecret', { key: d.secret, value: i.value.trim() }).then(function (r) { i.value = ''; toast(r.ok ? 'Saved' : (r.error || 'Error')); if (r.ok) { S.admin.secrets[d.secret] = true; render(); } }); return; }
+  if (d.approve || d.reject) { api('adminDecide', { order_id: d.approve || d.reject, approve: !!d.approve }).then(function (r) { toast(r.ok ? 'Done' : (r.error || 'Error')); loadAdmin(); }); return; }
+  switch (d.act) {
+    case 'back': return back();
+    case 'home': return home();
+    case 'settings': return go('settings');
+    case 'account': return go('account');
+    case 'paywall': return paywall();
+    case 'afterpay': if (S.pw && S.pw.after) return S.pw.after(); return home();
+    case 'addplan': S.admin.settings = collectSettings(); S.admin.settings.plans.push({ id: 'plan_' + (S.admin.settings.plans.length + 1), label: 'New plan', days: 30, credits: 0, usd: 1, stars: 75, region: 'GLOBAL' }); return render();
+    case 'savesettings': var st2 = collectSettings(); api('adminSave', { settings: st2 }).then(function (r) { if (r.ok) { S.admin.settings = st2; S.msg = 'Saved'; refreshMe().then(render); } else toast(r.error || 'Error'); }); return;
+    case 'resetme': api('adminResetMe').then(function () { refreshMe().then(function () { toast('Reset'); render(); }); }); return;
+    case 'checkpay': api('checkOrder', { order_id: S.payment.order_id }).then(function (r) { if (r.ok && r.status === 'paid') return onPaid(r);
+        if (DEMO && confirm(t('pay_demo'))) return api('demoPay', { order_id: S.payment.order_id }).then(onPaid); S.err = t('not_yet'); render(); }); return;
+    case 'submittx': var tx = document.getElementById('txid').value.trim(); if (tx.length < 4) { S.err = t('txid'); return render(); }
+      api('submitManual', { order_id: S.payment.order_id, txid: tx }).then(function (r) { if (r.ok) S.payment.status = 'review'; else S.err = t('e_gen'); render(); }); return;
+    case 'verifyphone': var after = function () { refreshMe().then(function () { back(); }); };
+      if (DEMO) { api('demoVerifyPhone').then(after); return; } if (IN_TG && TG.requestContact) TG.requestContact(function (ok) { if (ok) setTimeout(after, 1500); }); return;
+  }
+});
+
+function app(def) {
+  Object.keys(def).forEach(function (k) { APP[k] = def[k]; });
+  APP.strings = def.strings || { en: {}, so: {} }; APP.screens = def.screens || {}; APP.actions = def.actions || {}; APP.enter = def.enter || {}; APP.demo = def.demo || {};
+  APP.adminFields = def.adminFields || []; APP.extraSecrets = def.extraSecrets || {};
+  LANG = lsGet('lang_' + CFG.appId, null) || (EDITION === 'local' || (TGU && TGU.language_code === 'so') ? 'so' : CFG.defaultLang);
+  document.documentElement.lang = LANG;
+  $app = document.getElementById('app');
+  if (IN_TG) { TG.BackButton.onClick(back); try { TG.ready(); TG.expand(); if (TG.isVersionAtLeast('7.7')) TG.disableVerticalSwipes(); } catch (e) {} }
+  if (def.startScreen) S.screen = def.startScreen();
+  render();
+  refreshMe().then(function () { enter(); });
+}
+
+return { app: app, CFG: CFG, TG: TG, IN_TG: IN_TG, TGU: TGU, QS: QS, START: START, EDITION: EDITION, DEMO: DEMO, MB: MB, S: S,
+  t: t, esc: esc, ic: ic, fmtDate: fmtDate, money: money, uid: uid, toast: toast, copy: copy, openLink: openLink, shareTg: shareTg, haptic: haptic, appLink: appLink, param: param, fileB64: fileB64,
+  lsGet: lsGet, lsSet: lsSet, api: api, refreshMe: refreshMe, go: go, back: back, home: home, render: render, header: header, banners: banners, planChip: planChip, spin: spin, errBox: errBox, empty: empty, kv: kv, seg: seg,
+  paywall: paywall, needAccess: needAccess, consume: consume, lang: function () { return LANG; } };
+})();
+
+</script>
+<script>
+(function(){
+var t=K.t,esc=K.esc,ic=K.ic,S=K.S,api=K.api;
+var COUNTRIES=[['SO','Somalia','AFRICA'],['KE','Kenya','AFRICA'],['ET','Ethiopia','AFRICA'],['DJ','Djibouti','AFRICA'],['UG','Uganda','AFRICA'],['TZ','Tanzania','AFRICA'],['RW','Rwanda','AFRICA'],['SD','Sudan','AFRICA'],['EG','Egypt','AFRICA'],
+ ['NG','Nigeria','AFRICA'],['GH','Ghana','AFRICA'],['SN','Senegal','AFRICA'],['CM','Cameroon','AFRICA'],['ZA','South Africa','AFRICA'],['ZM','Zambia','AFRICA'],['ZW','Zimbabwe','AFRICA'],['MW','Malawi','AFRICA'],
+ ['PK','Pakistan','SOUTH_ASIA'],['IN','India','SOUTH_ASIA'],['BD','Bangladesh','SOUTH_ASIA'],['NP','Nepal','SOUTH_ASIA'],['LK','Sri Lanka','SOUTH_ASIA'],['AF','Afghanistan','SOUTH_ASIA'],['YE','Yemen','MENA'],['OT','Other','OTHER']];
+var FIELDS=['any','engineering','medicine','business','computing','agriculture','education','law','social','science','arts'];
+var LEVELS=['bachelor','master','phd','short'];
+var F={profile:null,list:null,detail:null,adm:null,admForm:null,filter:'all'};
+function region(c){var r=COUNTRIES.filter(function(x){return x[0]===c})[0];return r?r[2]:'OTHER'}
+function daysLeft(d){return Math.ceil((new Date(d+'T23:59:59')-new Date())/864e5)}
+/* same scoring as the server (Scholar.gs) */
+function score(p,s){if(!p)return 0;if(s.levels.indexOf(p.level)<0)return 0;var el=s.eligible;if(!(el.indexOf('ALL')>=0||el.indexOf(p.country)>=0||el.indexOf(region(p.country))>=0))return 0;
+ if(daysLeft(s.deadline)<0)return 0;var sc=50;sc+=s.fields.indexOf(p.field)>=0?25:s.fields.indexOf('any')>=0?15:p.field==='any'?15:0;
+ sc+=p.need==='any'||p.need===s.funding?15:s.funding==='full'?15:5;sc+=!s.lang_req||p.english!=='none'?10:0;return Math.min(100,sc)}
+
+K.app({
+ icon:'award',freeLabel:'Free matches shown (top N)',
+ defaults:{appName:'Scholarship Finder',freeAllowance:3,plans:[{id:'pro_m',label:'Pro · 1 month',days:30,credits:0,usd:1,stars:75,region:'ALL'},{id:'pro_6m',label:'Pro · 6 months',days:180,credits:0,usd:5,stars:350,region:'ALL'}]},
+ startScreen:function(){return'home'},
+ strings:{
+ en:{appName:'Scholarship Finder',tagline:'Matches for your profile, with deadline alerts',profile:'My profile',matches:'Matches',saved:'Saved',setup:'Set up your profile to see scholarships that fit you.',start:'Start',
+  country:'Your country',level:'Study level',field:'Field of study',gpa:'Grade average (optional)',english:'English test',need:'Funding needed',alerts:'Deadline alerts',alerts_sub:'Telegram message 14, 7 and 2 days before deadlines (Pro).',
+  bachelor:'Bachelor',master:'Master',phd:'PhD',short:'Short course',f_any:'Any field',f_engineering:'Engineering',f_medicine:'Medicine & health',f_business:'Business & economics',f_computing:'Computer science',f_agriculture:'Agriculture',f_education:'Education',f_law:'Law',f_social:'Social sciences',f_science:'Natural sciences',f_arts:'Arts & humanities',
+  e_none:'None yet',e_ielts:'IELTS / TOEFL',e_duo:'Duolingo',full:'Fully funded',partial:'Partial',any:'Any',save_profile:'Save and find matches',
+  match:'{n}% match',days_left:'{n} days left',closes_today:'Closes today',deadline:'Deadline',host:'Study in',funding:'Funding',levels:'Levels',apply:'Official website',save_s:'Save',unsave:'Saved',
+  more_locked:'{n} more matches',unlock:'Unlock all matches',no_matches:'No open scholarships match your profile right now. Try “Any field” or check back soon — new programs are added regularly.',
+  sample:'Sample data for the demo. Always confirm details and deadlines on the official website.',lang_req:'Language requirement',none_saved:'Nothing saved yet.',f_all:'All',f_full:'Fully funded',f_soon:'Closing soon',
+  pw_text:'See every match, save scholarships and get deadline alerts.',manage:'Manage scholarships'},
+ so:{appName:'Raadiye Deeqaha',tagline:'Deeqo ku habboon astaantaada, iyo xusuusin waqtiga',profile:'Astaantayda',matches:'Kuwa ku habboon',saved:'La keydiyay',setup:'Buuxi astaantaada si aad u aragto deeqaha kugu habboon.',start:'Bilow',
+  country:'Dalkaaga',level:'Heerka waxbarashada',field:'Qaybta waxbarashada',gpa:'Celceliska darajada (ikhtiyaari)',english:'Imtixaanka Ingiriisiga',need:'Maalgelinta loo baahan yahay',alerts:'Xusuusinta waqtiga',alerts_sub:'Fariin Telegram 14, 7 iyo 2 maalmood ka hor (Pro).',
+  bachelor:'Bachelor',master:'Master',phd:'PhD',short:'Koorso gaaban',f_any:'Qayb kasta',f_engineering:'Injineernimo',f_medicine:'Caafimaad',f_business:'Ganacsi & dhaqaale',f_computing:'Kombiyuutar',f_agriculture:'Beeraha',f_education:'Waxbarasho',f_law:'Sharci',f_social:'Cilmiga bulshada',f_science:'Cilmiga dabiiciga',f_arts:'Fanka & aadanaha',
+  e_none:'Weli ma jiro',e_ielts:'IELTS / TOEFL',e_duo:'Duolingo',full:'Si buuxda loo bixiyo',partial:'Qayb',any:'Mid kasta',save_profile:'Keydi oo raadi',
+  match:'{n}% ku habboon',days_left:'{n} maalmood ayaa haray',closes_today:'Maanta ayuu xirmayaa',deadline:'Waqtiga ugu dambeeya',host:'Waxbarasho',funding:'Maalgelin',levels:'Heerarka',apply:'Bogga rasmiga ah',save_s:'Keydi',unsave:'La keydiyay',
+  more_locked:'{n} kale oo ku habboon',unlock:'Fur dhammaan',no_matches:'Hadda ma jiraan deeqo furan oo ku habboon. Isku day “Qayb kasta” ama dib u eeg — barnaamijyo cusub ayaa la soo daraa.',
+  sample:'Xog tusaale ah oo demo ah. Had iyo jeer ka xaqiiji faahfaahinta iyo waqtiga bogga rasmiga ah.',lang_req:'Shuruudaha luqadda',none_saved:'Weli waxba lama keydin.',f_all:'Dhammaan',f_full:'Si buuxda',f_soon:'Dhowaan xirmaya',
+  pw_text:'Arag dhammaan, keydi deeqaha oo hel xusuusinta waqtiga.',manage:'Maamul deeqaha'}},
+ adminExtra:function(){return'<div class="sec">Scholarships</div><div class="card"><button class="btn sm sec2" style="width:100%" data-a="manage">'+ic('list','s')+t('manage')+'</button></div>'},
+ enter:{
+  home:function(){api('scHome').then(function(r){if(r.ok){F.profile=r.profile;F.list=r.matches;F.locked=r.locked;F.savedIds=r.saved||[]}else{F.list=[]}K.render()})},
+  schadmin:function(){api('adminSchList').then(function(r){F.adm=r.ok?r.items:[];K.render()})}
+ },
+ screens:{
+  home:function(){var h=K.header(t('appName'),t('tagline'))+'<div class="row" style="margin:-4px 0 12px">'+(/^(sub|test)$/.test(S.me.access.reason)?K.planChip():'<button class="chip" data-act="paywall">'+ic('lock','s')+t('unlock')+'</button>')+'<button class="chip" data-a="profile">'+ic('user','s')+t('profile')+'</button></div>'+K.banners();
+   if(!F.list)return h+K.spin();
+   if(!F.profile)return h+K.empty('award',t('setup'),'<button class="btn" style="margin-top:12px" data-a="profile">'+t('start')+'</button>');
+   if(K.DEMO)h+='<div class="note" style="margin-bottom:8px">'+ic('info','s')+'<span>'+t('sample')+'</span></div>';
+   h+='<div class="tabs"><button data-a="filter" data-v="all" class="'+(F.filter==='all'?'on':'')+'">'+t('f_all')+'</button><button data-a="filter" data-v="full" class="'+(F.filter==='full'?'on':'')+'">'+t('f_full')+'</button><button data-a="filter" data-v="soon" class="'+(F.filter==='soon'?'on':'')+'">'+t('f_soon')+'</button><button data-a="filter" data-v="saved" class="'+(F.filter==='saved'?'on':'')+'">'+t('saved')+'</button></div>';
+   var list=F.list.filter(function(s){return F.filter==='all'||F.filter==='full'&&s.funding==='full'||F.filter==='soon'&&daysLeft(s.deadline)<=30||F.filter==='saved'&&F.savedIds.indexOf(s.id)>=0});
+   if(!list.length&&!F.locked)h+=K.empty('search',F.filter==='saved'?t('none_saved'):t('no_matches'));
+   list.forEach(function(s){h+=card(s)});
+   if(F.locked&&F.filter!=='saved')h+='<div class="lockwrap"><div class="locked">'+card({id:'x',name:'██████████ Scholarship',provider:'█████',host:'████',funding:'full',deadline:new Date(Date.now()+40*864e5).toISOString().slice(0,10),score:80,levels:[],fields:[]})+'</div><div class="over"><button class="btn sm" data-act="paywall">'+ic('lock','s')+t('more_locked',{n:F.locked})+' · '+t('unlock')+'</button></div></div>';
+   return h},
+  profile:function(){var p=F.form,h=K.header(t('profile'),'');
+   function sel(id,opts,val){return'<select class="t" id="'+id+'">'+opts.map(function(o){return'<option value="'+esc(o[0])+'" '+(String(val)===String(o[0])?'selected':'')+'>'+esc(o[1])+'</option>'}).join('')+'</select>'}
+   h+='<div class="card"><label class="f">'+t('country')+'</label>'+sel('pcountry',COUNTRIES.map(function(c){return[c[0],c[1]]}),p.country)+'<label class="f">'+t('level')+'</label>'+K.seg('level',p.level,LEVELS.map(function(l){return[l,t(l)]}))+
+    '<label class="f">'+t('field')+'</label>'+sel('pfield',FIELDS.map(function(f){return[f,t('f_'+f)]}),p.field)+'<label class="f">'+t('english')+'</label>'+K.seg('english',p.english,[['none',t('e_none')],['ielts',t('e_ielts')],['duolingo',t('e_duo')]])+
+    '<label class="f">'+t('need')+'</label>'+K.seg('need',p.need,[['full',t('full')],['partial',t('partial')],['any',t('any')]])+'<label class="f">'+t('gpa')+'</label><input class="t" id="pgpa" value="'+esc(p.gpa||'')+'" placeholder="3.2 / 4.0">'+
+    '<div class="sw" style="margin-top:10px"><div><b style="font-size:14px">'+t('alerts')+'</b><div class="fs">'+t('alerts_sub')+'</div></div><button class="tgl '+(p.alerts?'on':'')+'" data-a="alerts"></button></div></div>';
+   return h+'<button class="btn" data-a="saveprofile">'+ic('search')+t('save_profile')+'</button>'+K.errBox()},
+  detail:function(){var s=F.detail,saved=F.savedIds.indexOf(s.id)>=0,dl=daysLeft(s.deadline),h=K.header(s.name,s.provider);
+   h+='<div class="card"><div class="row"><span class="pill ac">'+t('match',{n:s.score})+'</span><span class="pill '+(dl<=14?'bad':'')+'">'+(dl===0?t('closes_today'):t('days_left',{n:dl}))+'</span></div>'+(s.summary?'<p class="m" style="margin-top:10px">'+esc(s.summary)+'</p>':'')+
+    '<table class="tb" style="margin-top:10px"><tr><td>'+t('host')+'</td><td>'+esc(s.host)+'</td></tr><tr><td>'+t('funding')+'</td><td>'+t(s.funding)+'</td></tr><tr><td>'+t('levels')+'</td><td>'+s.levels.map(t).join(', ')+'</td></tr><tr><td>'+t('deadline')+'</td><td>'+esc(s.deadline)+'</td></tr>'+(s.lang_req?'<tr><td>'+t('lang_req')+'</td><td>'+esc(s.lang_req)+'</td></tr>':'')+'</table>'+
+    (K.DEMO?'<div class="note" style="margin-top:8px">'+ic('info','s')+'<span>'+t('sample')+'</span></div>':'')+'</div>';
+   return h+'<button class="btn" data-open="'+esc(s.url)+'">'+ic('ext')+t('apply')+'</button><button class="btn '+(saved?'sec2':'ghost')+'" data-a="save" data-id="'+esc(s.id)+'">'+ic(saved?'check':'star')+(saved?t('unsave'):t('save_s'))+'</button>'},
+  schadmin:function(){var h=K.header(t('manage'),'Admin');if(!F.adm)return h+K.spin();
+   h+='<button class="btn" data-a="schnew">'+ic('plus')+'Add scholarship</button><div style="height:10px"></div>';
+   F.adm.forEach(function(s){h+='<button class="chrow" data-a="schedit" data-id="'+esc(s.id)+'"><div class="grow"><div class="fn">'+esc(s.name)+'</div><div class="fs">'+esc(s.host)+' · '+esc(s.deadline)+' · '+esc(s.status||'active')+'</div></div>'+ic('edit')+'</button>'});return h},
+  schform:function(){var s=F.admForm,h=K.header(s.id?'Edit scholarship':'Add scholarship','Admin');
+   function f(k,l,ph,ty){return'<label class="f">'+l+'</label><input class="t" data-sf="'+k+'" type="'+(ty||'text')+'" value="'+esc(Array.isArray(s[k])?s[k].join(', '):s[k]||'')+'" placeholder="'+esc(ph||'')+'">'}
+   h+='<div class="card">'+f('name','Name')+f('provider','Provider')+f('host','Host country / region')+f('url','Official URL','https://')+f('deadline','Deadline','','date')+
+    f('levels','Levels (comma): bachelor, master, phd, short')+f('fields','Fields (comma) or any: '+FIELDS.slice(1).join(', '))+f('eligible','Eligible (comma): ALL, AFRICA, SOUTH_ASIA, MENA or country codes like SO, KE')+
+    '<label class="f">Funding</label>'+K.seg('sfund',s.funding,[['full','Full'],['partial','Partial']])+f('lang_req','Language requirement (optional)')+'<label class="f">Summary</label><textarea class="t" data-sf="summary">'+esc(s.summary||'')+'</textarea>'+
+    '<label class="f">Status</label>'+K.seg('sstatus',s.status||'active',[['active','Active'],['hidden','Hidden']])+'</div>';
+   return h+'<button class="btn" data-a="schsave">'+ic('check')+'Save</button>'+(s.id?'<button class="btn ghost" style="color:var(--danger)" data-a="schdel">'+ic('trash')+'Delete</button>':'')+K.errBox()}
+ },
+ onSeg:function(n,v){if(n==='sfund'||n==='sstatus'){readSch();F.admForm[n==='sfund'?'funding':'status']=v;return K.render()}readProfile();F.form[n]=v;K.render()},
+ actions:{
+  profile:function(){F.form=Object.assign({country:'SO',level:'bachelor',field:'any',english:'none',need:'full',gpa:'',alerts:true},F.profile||{});K.go('profile')},
+  alerts:function(){readProfile();F.form.alerts=!F.form.alerts;K.render()},
+  saveprofile:function(){readProfile();api('scSaveProfile',{profile:F.form}).then(function(r){if(!r.ok){S.err=t('e_gen');return K.render()}F.profile=F.form;F.list=null;K.home()})},
+  filter:function(el,d){F.filter=d.v;K.render()},
+  open:function(el,d){F.detail=F.list.filter(function(s){return s.id===d.id})[0];K.go('detail')},
+  save:function(el,d){var on=F.savedIds.indexOf(d.id)<0;if(on&&S.me.access.reason!=='sub'&&S.me.access.reason!=='test')return K.paywall({title:t('appName'),text:t('pw_text'),icon:'award',features:[t('matches')+' ∞',t('saved'),t('alerts')]});
+   api('scSave',{id:d.id,on:on}).then(function(r){if(r.ok){F.savedIds=r.saved;K.render()}})},
+  manage:function(){K.go('schadmin')},
+  schnew:function(){F.admForm={id:'',name:'',provider:'',host:'',url:'',deadline:'',levels:['master'],fields:['any'],eligible:['ALL'],funding:'full',lang_req:'',summary:'',status:'active'};K.go('schform')},
+  schedit:function(el,d){F.admForm=JSON.parse(JSON.stringify(F.adm.filter(function(s){return s.id===d.id})[0]));K.go('schform')},
+  schsave:function(){readSch();var s=F.admForm;if(!s.name||!s.deadline||!s.url){S.err='Name, URL and deadline are required.';return K.render()}api('adminSchSave',{item:s}).then(function(r){if(r.ok)K.back();else{S.err=r.error||t('e_gen');K.render()}})},
+  schdel:function(){if(confirm('Delete?'))api('adminSchDelete',{id:F.admForm.id}).then(function(){K.back()})}
+ },
+ demoSeed:function(){function d(n){return new Date(Date.now()+n*864e5).toISOString().slice(0,10)}
+  function s(id,name,prov,host,lv,fl,el,fund,dl,url,sum,lr){return{id:id,name:name,provider:prov,host:host,levels:lv,fields:fl,eligible:el,funding:fund,deadline:d(dl),url:url,summary:sum,lang_req:lr||'',status:'active'}}
+  return{profile:null,saved:[],items:[
+   s('s1','Chevening Scholarships','UK Government','United Kingdom',['master'],['any'],['ALL'],'full',45,'https://www.chevening.org','One-year master\'s degrees in the UK for future leaders.','IELTS or equivalent'),
+   s('s2','DAAD Development-Related Postgraduate Courses','DAAD','Germany',['master','phd'],['engineering','agriculture','social','science','business'],['AFRICA','SOUTH_ASIA','MENA'],'full',60,'https://www.daad.de','Postgraduate courses with relevance to developing countries.','English or German'),
+   s('s3','Türkiye Scholarships','Government of Türkiye','Türkiye',['bachelor','master','phd'],['any'],['ALL'],'full',20,'https://www.turkiyeburslari.gov.tr','Full scholarships including a Turkish language year.',''),
+   s('s4','Mastercard Foundation Scholars Program','Mastercard Foundation','Partner universities',['bachelor','master'],['any'],['AFRICA'],'full',75,'https://mastercardfdn.org','For academically talented young Africans with financial need.',''),
+   s('s5','Erasmus Mundus Joint Masters','European Union','Europe (multiple)',['master'],['any'],['ALL'],'full',90,'https://www.eacea.ec.europa.eu','Joint master\'s programmes across several European universities.','English'),
+   s('s6','MEXT Scholarship','Government of Japan','Japan',['bachelor','master','phd'],['engineering','science','computing','social'],['ALL'],'full',35,'https://www.studyinjapan.go.jp','Japanese government scholarship via embassy recommendation.',''),
+   s('s7','Commonwealth Shared Scholarships','CSC UK','United Kingdom',['master'],['agriculture','medicine','engineering','education','science'],['SO','KE','UG','TZ','RW','NG','GH','PK','IN','BD','ZM','ZW','MW','CM'],'full',8,'https://cscuk.fcdo.gov.uk','Master\'s study in the UK for students from eligible Commonwealth countries.','IELTS'),
+   s('s8','University Merit Award (example)','Example University','Malaysia',['bachelor','master'],['business','computing'],['ALL'],'partial',50,'https://example.org','Partial tuition waiver for strong applicants.','')]}},
+ demo:{
+  scHome:function(d,s){var p=s.app.profile;if(!p)return{ok:true,profile:null,matches:[],locked:0};var all=s.app.items.filter(function(x){return x.status!=='hidden'}).map(function(x){return Object.assign({score:score(p,x)},x)}).filter(function(x){return x.score>0})
+    .sort(function(a,b){return b.score-a.score||a.deadline.localeCompare(b.deadline)});var a=K.S.me.access,full=a.reason==='sub'||(a.reason==='test');var n=full?all.length:+s.settings.freeAllowance||3;
+   return{ok:true,profile:p,matches:all.slice(0,n),locked:Math.max(0,all.length-n),saved:s.app.saved}},
+  scSaveProfile:function(d,s){s.app.profile=d.profile;return{ok:true}},
+  scSave:function(d,s){var i=s.app.saved.indexOf(d.id);if(d.on&&i<0)s.app.saved.push(d.id);if(!d.on&&i>=0)s.app.saved.splice(i,1);return{ok:true,saved:s.app.saved}},
+  adminSchList:function(d,s){return{ok:true,items:s.app.items}},
+  adminSchSave:function(d,s){var it=d.item;if(it.id){var i=s.app.items.findIndex(function(x){return x.id===it.id});s.app.items[i]=it}else{it.id='s'+K.uid();s.app.items.push(it)}return{ok:true}},
+  adminSchDelete:function(d,s){s.app.items=s.app.items.filter(function(x){return x.id!==d.id});return{ok:true}}
+ }
+});
+function card(s){var dl=daysLeft(s.deadline);return'<button class="chrow" data-a="open" data-id="'+esc(s.id)+'"><div class="av">'+ic('award')+'</div><div class="grow"><div class="fn">'+esc(s.name)+'</div><div class="fs">'+esc(s.provider)+' · '+esc(s.host)+'</div><div><span class="pill ac">'+t('match',{n:s.score})+'</span>'+
+ (s.funding==='full'?'<span class="pill ok">'+t('full')+'</span>':'<span class="pill">'+t('partial')+'</span>')+'<span class="pill '+(dl<=14?'bad':'')+'">'+(dl===0?t('closes_today'):t('days_left',{n:dl}))+'</span>'+(F.savedIds&&F.savedIds.indexOf(s.id)>=0?'<span class="pill ac">'+ic('check','s')+'</span>':'')+'</div></div></button>'}
+function readProfile(){var c=document.getElementById('pcountry');if(!c)return;F.form.country=c.value;F.form.field=document.getElementById('pfield').value;F.form.gpa=document.getElementById('pgpa').value.trim()}
+function readSch(){document.querySelectorAll('[data-sf]').forEach(function(el){var k=el.dataset.sf,v=el.value.trim();F.admForm[k]=['levels','fields','eligible'].indexOf(k)>=0?v.split(',').map(function(x){return x.trim()}).filter(Boolean):v})}
+})();
+</script>
+</body>
+</html>

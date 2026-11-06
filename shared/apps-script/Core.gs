@@ -1,5 +1,7 @@
 /**
- * PORTFOLIO BACKEND — one Google Apps Script project serves ALL Mini Apps.
+ * PORTFOLIO CORE — shared by every Mini App. Each app = its own Apps Script project with
+ * Core.gs (this file, identical everywhere) + the app's own file (sets THIS_APP and its module).
+ * To share ONE master ledger across apps, set the same MASTER_SHEET_ID in each project BEFORE install().
  * Shared core: Telegram initData auth, users, usage/free allowance, subscriptions,
  * payments (Stars, USDT TRC20/BEP20, manual mobile money), admin settings, daily expiry.
  *
@@ -17,7 +19,7 @@
 
 var SCHEMA = {
   Users:         ['user_id','app','username','first_name','language','region','phone','phone_verified','start_param','edition','created_at','last_seen'],
-  Usage:         ['user_id','app','free_used','total_used','last_tool','last_used'],
+  Usage:         ['user_id','app','free_used','total_used','last_tool','last_used','credits'],
   Subscriptions: ['user_id','app','plan','status','start_date','expiry_date','edition','order_id'],
   Payments:      ['order_id','user_id','app','plan','amount','currency','method','status','tx_ref','created_at','paid_at','expiry_date','edition','note'],
   Settings:      ['app','json','updated_at'],
@@ -34,6 +36,9 @@ var ORDER_TTL_HOURS = 6;
 /* App modules register here (see gatekeeper.gs):
    APP_HOOKS[app] = { routes:{action:fn(ctx,req)}, server:{action:fn(req)}, resolvePlan:fn(ctx,planId), planForOrder:fn(order), onPaid:fn(order,plan,exp) } */
 var APP_HOOKS = APP_HOOKS || {};
+var APP_DEFAULTS = APP_DEFAULTS || {};   // per-app default settings, registered by the app file
+var APP_SECRETS = APP_SECRETS || {};     // extra write-only secrets per app, e.g. ['GEMINI_KEY']
+var THIS_APP = THIS_APP || { id: 'converter', url: '', button: 'Open' }; // set in the app file
 
 /* ---------- per-app default settings (extend when adding apps) ---------- */
 function defaultSettings(app) {
@@ -46,11 +51,7 @@ function defaultSettings(app) {
     ],
     methods: { stars: true, usdt_trc20: '', usdt_bep20: '', evc: '', zaad: '', sahal: '', mpesa: '' }
   };
-  var per = {
-    converter: { appName: 'PDF Tools' },
-    gatekeeper: { appName: 'Channel Pass', freeAllowance: 0, x_feePercent: 5, plans: [] }
-  };
-  return Object.assign(base, per[app] || {});
+  return Object.assign(base, JSON.parse(JSON.stringify(APP_DEFAULTS[app] || {})));
 }
 
 /* ======================= ENTRY ======================= */
@@ -70,7 +71,7 @@ function doGet() {
 
 function prop(k) { return PropertiesService.getScriptProperties().getProperty(k) || ''; }
 function setProp(k, v) { PropertiesService.getScriptProperties().setProperty(k, v); }
-function appId(a) { return String(a || 'converter').replace(/[^a-z0-9_]/gi, '').slice(0, 30); }
+function appId(a) { return String(a || THIS_APP.id).replace(/[^a-z0-9_]/gi, '').slice(0, 30); }
 function botToken(app) { return prop('BOT_TOKEN_' + app); }
 function adminIds() { return prop('ADMIN_IDS').split(',').map(function (s) { return s.trim(); }).filter(String); }
 
@@ -105,10 +106,12 @@ function rows(name) {
 }
 function find(name, fn) { var r = rows(name); for (var i = 0; i < r.length; i++) if (fn(r[i])) return r[i]; return null; }
 function schemaOf(name) { return SCHEMA[name] || EXTRA_SCHEMA[name]; }
-function append(name, obj) { var h = schemaOf(name); sh(name).appendRow(h.map(function (k) { return obj[k] === undefined ? '' : obj[k]; })); }
+// Strings that Sheets would coerce (dates, times, +252… phones, leading zeros, formulas) are stored as plain text.
+function cell(v) { return typeof v === 'string' && /^[\d+=\-.@]/.test(v) ? "'" + v : v; }
+function append(name, obj) { var h = schemaOf(name); sh(name).appendRow(h.map(function (k) { return obj[k] === undefined ? '' : cell(obj[k]); })); }
 function update(name, row, obj) {
   var h = schemaOf(name), s = sh(name);
-  Object.keys(obj).forEach(function (k) { var c = h.indexOf(k); if (c >= 0) s.getRange(row._row, c + 1).setValue(obj[k]); });
+  Object.keys(obj).forEach(function (k) { var c = h.indexOf(k); if (c >= 0) { s.getRange(row._row, c + 1).setValue(cell(obj[k])); row[k] = obj[k]; } });
 }
 function log(uid, app, ev, detail) { try { append('Log', { time: new Date(), user_id: uid, app: app, event: ev, detail: String(detail || '').slice(0, 500) }); } catch (e) {} }
 function iso(d) { return d ? new Date(d).toISOString() : ''; }
@@ -138,7 +141,7 @@ function sanitizeSettings(app, st) {
   o.localPrefixes = String(st.localPrefixes || '252').replace(/[^0-9,]/g, '');
   o.plans = (st.plans || []).slice(0, 12).map(function (p) {
     return { id: String(p.id || '').replace(/[^\w-]/g, '').slice(0, 30), label: String(p.label || '').slice(0, 60),
-      days: Math.max(1, Number(p.days) || 30), usd: Math.max(0, Number(p.usd) || 0), stars: Math.max(0, Math.round(Number(p.stars) || 0)),
+      days: Math.max(0, Number(p.days) || 0), credits: Math.max(0, Math.round(Number(p.credits) || 0)), usd: Math.max(0, Number(p.usd) || 0), stars: Math.max(0, Math.round(Number(p.stars) || 0)),
       region: ['GLOBAL', 'LOCAL', 'ALL'].indexOf(p.region) >= 0 ? p.region : 'GLOBAL' };
   }).filter(function (p) { return p.id; });
   var m = st.methods || {};
@@ -172,10 +175,10 @@ function usageRow(uid, app) {
   if (!r) { append('Usage', { user_id: String(uid), app: app, free_used: 0, total_used: 0 }); r = find('Usage', function (x) { return String(x.user_id) === String(uid) && x.app === app; }); }
   return r;
 }
-function computeAccess(st, sub, freeUsed, simFree) {
-  var test = st.testMode && !simFree, allow = Number(st.freeAllowance) || 0, left = Math.max(0, allow - freeUsed);
-  return { entitled: !!(test || sub || left > 0), reason: test ? 'test' : sub ? 'sub' : left > 0 ? 'free' : 'blocked',
-    plan: sub ? sub.plan : null, expiry: sub ? iso(sub.expiry_date) : null, freeUsed: freeUsed, freeAllowance: allow, freeLeft: left,
+function computeAccess(st, sub, freeUsed, simFree, credits) {
+  var test = st.testMode && !simFree, allow = Number(st.freeAllowance) || 0, left = Math.max(0, allow - freeUsed), cr = Number(credits) || 0;
+  return { entitled: !!(test || sub || left > 0 || cr > 0), reason: test ? 'test' : sub ? 'sub' : left > 0 ? 'free' : cr > 0 ? 'credits' : 'blocked',
+    plan: sub ? sub.plan : null, expiry: sub ? iso(sub.expiry_date) : null, freeUsed: freeUsed, freeAllowance: allow, freeLeft: left, credits: cr,
     maxMB: (test || sub) ? Number(st.paidMaxMB) : Number(st.freeMaxMB), paidMaxMB: Number(st.paidMaxMB) };
 }
 function regionOf(u) { return u.region === 'LOCAL' || u.phone_verified === true || u.phone_verified === 'TRUE' ? 'LOCAL' : 'GLOBAL'; }
@@ -212,7 +215,10 @@ function route(req) {
     case 'createOrder': return createOrder(ctx, req);
     case 'checkOrder': return checkOrder(ctx, req);
     case 'submitManual': return submitManual(ctx, req);
-    case 'adminGet': return { ok: true, settings: st, secrets: { BOT_TOKEN: !!token, TRONGRID_KEY: !!prop('TRONGRID_KEY'), ETHERSCAN_KEY: !!prop('ETHERSCAN_KEY') } };
+    case 'adminGet':
+      var sec = { BOT_TOKEN: !!token, TRONGRID_KEY: !!prop('TRONGRID_KEY'), ETHERSCAN_KEY: !!prop('ETHERSCAN_KEY') };
+      (APP_SECRETS[app] || []).forEach(function (k) { sec[k] = !!prop(k); });
+      return { ok: true, settings: st, secrets: sec };
     case 'adminSave': saveSettings(app, req.settings || {}); log(uid, app, 'settings_saved', ''); return { ok: true };
     case 'adminSetSecret': return adminSetSecret(ctx, req);
     case 'adminPending': return { ok: true, items: rows('Payments').filter(function (p) { return p.app === app && p.status === 'review'; }).map(cleanRow) };
@@ -228,7 +234,8 @@ function cleanRow(r) { var o = {}; Object.keys(r).forEach(function (k) { if (k !
 
 function accessFor(ctx) {
   if (!ctx.verified) return computeAccess(ctx.st, null, 0, ctx.simFree);
-  return computeAccess(ctx.st, activeSub(ctx.uid, ctx.app), Number(usageRow(ctx.uid, ctx.app).free_used) || 0, ctx.simFree);
+  var us = usageRow(ctx.uid, ctx.app);
+  return computeAccess(ctx.st, activeSub(ctx.uid, ctx.app), Number(us.free_used) || 0, ctx.simFree, us.credits);
 }
 function initPayload(ctx) {
   return { ok: true, verified: ctx.verified, isAdmin: ctx.isAdmin, user: { id: ctx.u.id, name: ctx.u.first_name || '' },
@@ -239,14 +246,14 @@ function initPayload(ctx) {
 function consume(ctx, req) {
   var lock = LockService.getScriptLock(); lock.waitLock(10000);
   try {
-    var sub = activeSub(ctx.uid, ctx.app), us = usageRow(ctx.uid, ctx.app), fu = Number(us.free_used) || 0;
-    var ac = computeAccess(ctx.st, sub, fu, ctx.simFree);
+    var sub = activeSub(ctx.uid, ctx.app), us = usageRow(ctx.uid, ctx.app), fu = Number(us.free_used) || 0, cr = Number(us.credits) || 0;
+    var ac = computeAccess(ctx.st, sub, fu, ctx.simFree, cr);
     if (!ac.entitled) return { ok: true, allowed: false, access: ac };
-    if (ac.reason === 'free') fu++;
-    update('Usage', us, { free_used: fu, total_used: (Number(us.total_used) || 0) + 1, last_tool: String(req.tool || '').slice(0, 30), last_used: new Date() });
+    if (ac.reason === 'free') fu++; else if (ac.reason === 'credits') cr--;
+    update('Usage', us, { free_used: fu, credits: cr, total_used: (Number(us.total_used) || 0) + 1, last_tool: String(req.tool || '').slice(0, 30), last_used: new Date() });
     var tok = Utilities.getUuid();
     CacheService.getScriptCache().put('dl_' + tok, ctx.uid + '|' + ctx.app, 1800); // 30 min delivery window
-    return { ok: true, allowed: true, token: tok, access: computeAccess(ctx.st, sub, fu, ctx.simFree) };
+    return { ok: true, allowed: true, token: tok, access: computeAccess(ctx.st, sub, fu, ctx.simFree, cr) };
   } finally { lock.releaseLock(); }
 }
 
@@ -337,7 +344,15 @@ function markPaid(o, txRef) {
       log(fresh.user_id, fresh.app, 'paid', fresh.method + ' ' + fresh.amount);
       return true;
     }
-    var cur = activeSub(fresh.user_id, fresh.app), start = cur ? new Date(cur.expiry_date) : new Date(), exp = new Date(start.getTime() + plan.days * 864e5);
+    if (Number(plan.credits) > 0 && !(Number(plan.days) > 0)) {
+      var us = usageRow(fresh.user_id, fresh.app), total = (Number(us.credits) || 0) + Number(plan.credits);
+      update('Usage', us, { credits: total });
+      update('Payments', fresh, { status: 'paid', paid_at: new Date(), tx_ref: txRef || fresh.tx_ref });
+      log(fresh.user_id, fresh.app, 'paid', fresh.method + ' ' + fresh.amount);
+      notify(fresh.app, fresh.user_id, 'Payment confirmed. ' + plan.credits + ' credit(s) added. Balance: ' + total + '.');
+      return true;
+    }
+    var cur = activeSub(fresh.user_id, fresh.app), start = cur ? new Date(cur.expiry_date) : new Date(), exp = new Date(start.getTime() + (Number(plan.days) || 30) * 864e5);
     update('Payments', fresh, { status: 'paid', paid_at: new Date(), expiry_date: exp, tx_ref: txRef || fresh.tx_ref });
     append('Subscriptions', { user_id: String(fresh.user_id), app: fresh.app, plan: fresh.plan, status: 'active', start_date: new Date(), expiry_date: exp, edition: fresh.edition, order_id: fresh.order_id });
     log(fresh.user_id, fresh.app, 'paid', fresh.method + ' ' + fresh.amount);
@@ -374,7 +389,9 @@ function stripZeros(s) { return String(s).replace(/^0+/, '') || '0'; }
 
 /* ======================= ADMIN ======================= */
 function adminSetSecret(ctx, req) {
-  var allowed = { BOT_TOKEN: 'BOT_TOKEN_' + ctx.app, TRONGRID_KEY: 'TRONGRID_KEY', ETHERSCAN_KEY: 'ETHERSCAN_KEY' }, k = allowed[req.key];
+  var allowed = { BOT_TOKEN: 'BOT_TOKEN_' + ctx.app, TRONGRID_KEY: 'TRONGRID_KEY', ETHERSCAN_KEY: 'ETHERSCAN_KEY' };
+  (APP_SECRETS[ctx.app] || []).forEach(function (s) { allowed[s] = s; });
+  var k = allowed[req.key];
   if (!k) return { ok: false, error: 'key' };
   var v = String(req.value || '').trim(); if (!v) return { ok: false, error: 'empty' };
   setProp(k, v); log(ctx.uid, ctx.app, 'secret_set', req.key);
@@ -398,10 +415,24 @@ function adminStats(ctx) {
     pending: rows('Payments').filter(function (r) { return r.app === a && r.status === 'review'; }).length } };
 }
 function adminResetMe(ctx) {
-  var us = usageRow(ctx.uid, ctx.app); update('Usage', us, { free_used: 0 });
+  var us = usageRow(ctx.uid, ctx.app); update('Usage', us, { free_used: 0, credits: 0 });
   rows('Subscriptions').forEach(function (s) { if (String(s.user_id) === ctx.uid && s.app === ctx.app && s.status === 'active') update('Subscriptions', s, { status: 'cancelled' }); });
   update('Users', ctx.urow, { phone_verified: false, phone: '' });
   return { ok: true };
+}
+
+/* ======================= AI (Gemini) — used by the coach and translator apps ======================= */
+// parts: [{text:'...'}, {inline_data:{mime_type:'audio/wav', data: base64}}]. Returns parsed JSON or throws.
+// Model name comes from settings.x_aiModel; key from Script property GEMINI_KEY. Check pricing at ai.google.dev.
+function aiJson(parts, model) {
+  var key = prop('GEMINI_KEY'); if (!key) throw new Error('ai_not_configured');
+  var url = 'https://generativelanguage.googleapis.com/v1beta/models/' + encodeURIComponent(model || 'gemini-2.5-flash') + ':generateContent';
+  var r = UrlFetchApp.fetch(url, { method: 'post', contentType: 'application/json', muteHttpExceptions: true, headers: { 'x-goog-api-key': key },
+    payload: JSON.stringify({ contents: [{ role: 'user', parts: parts }], generationConfig: { temperature: 0.3, responseMimeType: 'application/json' } }) });
+  if (r.getResponseCode() !== 200) throw new Error('ai_http_' + r.getResponseCode());
+  var j = JSON.parse(r.getContentText()), txt = (((j.candidates || [])[0] || {}).content || {}).parts;
+  txt = (txt || []).map(function (x) { return x.text || ''; }).join('');
+  return JSON.parse(txt.replace(/^```(json)?|```$/g, '').trim());
 }
 
 /* ======================= SERVER-TO-SERVER (Netlify webhook) ======================= */
@@ -425,6 +456,7 @@ function serverRoute(req) {
       return { ok: true, local: local };
   }
   var H = APP_HOOKS[app];
+  if (req.action === 'botStart') return H && H.botStart ? H.botStart(req) : { ok: true };
   if (H && H.server && H.server[req.action]) return H.server[req.action](req);
   return { ok: false, error: 'unknown_action' };
 }
@@ -438,7 +470,9 @@ function cronUsdt() {
     checkUsdtOrder(p);
   });
 }
+var DAILY_JOBS = DAILY_JOBS || [];
 function cronDaily() {
+  DAILY_JOBS.forEach(function (fn) { try { fn(); } catch (e) { log('', 'cron', 'error', e); } });
   var now = new Date(), soon = new Date(now.getTime() + 3 * 864e5);
   rows('Subscriptions').forEach(function (s) {
     if (s.status !== 'active') return;
@@ -474,25 +508,19 @@ function install() {
 }
 
 /**
- * Connect a bot to its Mini App: set Script property BOT_TOKEN_<app>, then run connectConverter()
- * or connectGatekeeper(). Registers the webhook (Netlify function), the menu button and commands.
+ * Connect the bot to its Mini App: set Script property BOT_TOKEN_<app> and THIS_APP.url, then run
+ * connectTelegram(). Registers the webhook (Netlify function), the menu button and the commands.
  */
-var BOTS = {
-  converter:  { url: 'https://dtools-1dc82a7c.netlify.app', button: 'PDF Tools' },
-  gatekeeper: { url: 'https://cpass-5cc578be.netlify.app', button: 'Channel Pass' }
-};
-function connectConverter()  { connectTelegram('converter'); }
-function connectGatekeeper() { connectTelegram('gatekeeper'); }
-function connectTelegram(app) {
-  var cfg = BOTS[app], token = botToken(app);
-  if (!cfg || !cfg.url) throw new Error('Set BOTS.' + app + '.url first');
+function connectTelegram() {
+  var app = THIS_APP.id, token = botToken(app);
+  if (!THIS_APP.url) throw new Error('Set THIS_APP.url (the Netlify site URL) in the app file first');
   if (!token) throw new Error('Set Script property BOT_TOKEN_' + app + ' first');
   var whSecret = prop('WEBHOOK_SECRET_' + app);
   if (!whSecret) { whSecret = Utilities.getUuid().replace(/-/g, ''); setProp('WEBHOOK_SECRET_' + app, whSecret); }
-  Logger.log(tgCall(token, 'setWebhook', { url: cfg.url + '/api/telegram', secret_token: whSecret, drop_pending_updates: true,
+  Logger.log(tgCall(token, 'setWebhook', { url: THIS_APP.url + '/api/telegram', secret_token: whSecret, drop_pending_updates: true,
     allowed_updates: ['message', 'pre_checkout_query', 'my_chat_member', 'chat_join_request'] }));
-  Logger.log(tgCall(token, 'setChatMenuButton', { menu_button: { type: 'web_app', text: cfg.button, web_app: { url: cfg.url } } }));
+  Logger.log(tgCall(token, 'setChatMenuButton', { menu_button: { type: 'web_app', text: THIS_APP.button, web_app: { url: THIS_APP.url } } }));
   Logger.log(tgCall(token, 'setMyCommands', { commands: [
     { command: 'start', description: 'Open the app' }, { command: 'paysupport', description: 'Payment support' }, { command: 'terms', description: 'Terms of service' } ] }));
-  Logger.log('Done. Copy WEBHOOK_SECRET_' + app + ' (Script properties) into the Netlify env var WEBHOOK_SECRET of this app.');
+  Logger.log('Done. Copy WEBHOOK_SECRET_' + app + ' and SERVER_SECRET (Script properties) into the Netlify env vars WEBHOOK_SECRET and SERVER_SECRET.');
 }

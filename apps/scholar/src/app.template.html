@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex,nofollow">
+<meta name="color-scheme" content="light dark">
+<title>Scholarship Finder</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<script src="config.js"></script>
+%%STYLE%%
+%%EXTRA%%
+<style>.locked{filter:blur(3px);pointer-events:none;user-select:none}.lockwrap{position:relative}.lockwrap .over{position:absolute;inset:0;display:grid;place-items:center}</style>
+</head>
+<body>
+%%ICONS%%
+<div class="wrap" id="app"></div>
+%%KIT%%
+<script>
+(function(){
+var t=K.t,esc=K.esc,ic=K.ic,S=K.S,api=K.api;
+var COUNTRIES=[['SO','Somalia','AFRICA'],['KE','Kenya','AFRICA'],['ET','Ethiopia','AFRICA'],['DJ','Djibouti','AFRICA'],['UG','Uganda','AFRICA'],['TZ','Tanzania','AFRICA'],['RW','Rwanda','AFRICA'],['SD','Sudan','AFRICA'],['EG','Egypt','AFRICA'],
+ ['NG','Nigeria','AFRICA'],['GH','Ghana','AFRICA'],['SN','Senegal','AFRICA'],['CM','Cameroon','AFRICA'],['ZA','South Africa','AFRICA'],['ZM','Zambia','AFRICA'],['ZW','Zimbabwe','AFRICA'],['MW','Malawi','AFRICA'],
+ ['PK','Pakistan','SOUTH_ASIA'],['IN','India','SOUTH_ASIA'],['BD','Bangladesh','SOUTH_ASIA'],['NP','Nepal','SOUTH_ASIA'],['LK','Sri Lanka','SOUTH_ASIA'],['AF','Afghanistan','SOUTH_ASIA'],['YE','Yemen','MENA'],['OT','Other','OTHER']];
+var FIELDS=['any','engineering','medicine','business','computing','agriculture','education','law','social','science','arts'];
+var LEVELS=['bachelor','master','phd','short'];
+var F={profile:null,list:null,detail:null,adm:null,admForm:null,filter:'all'};
+function region(c){var r=COUNTRIES.filter(function(x){return x[0]===c})[0];return r?r[2]:'OTHER'}
+function daysLeft(d){return Math.ceil((new Date(d+'T23:59:59')-new Date())/864e5)}
+/* same scoring as the server (Scholar.gs) */
+function score(p,s){if(!p)return 0;if(s.levels.indexOf(p.level)<0)return 0;var el=s.eligible;if(!(el.indexOf('ALL')>=0||el.indexOf(p.country)>=0||el.indexOf(region(p.country))>=0))return 0;
+ if(daysLeft(s.deadline)<0)return 0;var sc=50;sc+=s.fields.indexOf(p.field)>=0?25:s.fields.indexOf('any')>=0?15:p.field==='any'?15:0;
+ sc+=p.need==='any'||p.need===s.funding?15:s.funding==='full'?15:5;sc+=!s.lang_req||p.english!=='none'?10:0;return Math.min(100,sc)}
+
+K.app({
+ icon:'award',freeLabel:'Free matches shown (top N)',
+ defaults:{appName:'Scholarship Finder',freeAllowance:3,plans:[{id:'pro_m',label:'Pro · 1 month',days:30,credits:0,usd:1,stars:75,region:'ALL'},{id:'pro_6m',label:'Pro · 6 months',days:180,credits:0,usd:5,stars:350,region:'ALL'}]},
+ startScreen:function(){return'home'},
+ strings:{
+ en:{appName:'Scholarship Finder',tagline:'Matches for your profile, with deadline alerts',profile:'My profile',matches:'Matches',saved:'Saved',setup:'Set up your profile to see scholarships that fit you.',start:'Start',
+  country:'Your country',level:'Study level',field:'Field of study',gpa:'Grade average (optional)',english:'English test',need:'Funding needed',alerts:'Deadline alerts',alerts_sub:'Telegram message 14, 7 and 2 days before deadlines (Pro).',
+  bachelor:'Bachelor',master:'Master',phd:'PhD',short:'Short course',f_any:'Any field',f_engineering:'Engineering',f_medicine:'Medicine & health',f_business:'Business & economics',f_computing:'Computer science',f_agriculture:'Agriculture',f_education:'Education',f_law:'Law',f_social:'Social sciences',f_science:'Natural sciences',f_arts:'Arts & humanities',
+  e_none:'None yet',e_ielts:'IELTS / TOEFL',e_duo:'Duolingo',full:'Fully funded',partial:'Partial',any:'Any',save_profile:'Save and find matches',
+  match:'{n}% match',days_left:'{n} days left',closes_today:'Closes today',deadline:'Deadline',host:'Study in',funding:'Funding',levels:'Levels',apply:'Official website',save_s:'Save',unsave:'Saved',
+  more_locked:'{n} more matches',unlock:'Unlock all matches',no_matches:'No open scholarships match your profile right now. Try “Any field” or check back soon — new programs are added regularly.',
+  sample:'Sample data for the demo. Always confirm details and deadlines on the official website.',lang_req:'Language requirement',none_saved:'Nothing saved yet.',f_all:'All',f_full:'Fully funded',f_soon:'Closing soon',
+  pw_text:'See every match, save scholarships and get deadline alerts.',manage:'Manage scholarships'},
+ so:{appName:'Raadiye Deeqaha',tagline:'Deeqo ku habboon astaantaada, iyo xusuusin waqtiga',profile:'Astaantayda',matches:'Kuwa ku habboon',saved:'La keydiyay',setup:'Buuxi astaantaada si aad u aragto deeqaha kugu habboon.',start:'Bilow',
+  country:'Dalkaaga',level:'Heerka waxbarashada',field:'Qaybta waxbarashada',gpa:'Celceliska darajada (ikhtiyaari)',english:'Imtixaanka Ingiriisiga',need:'Maalgelinta loo baahan yahay',alerts:'Xusuusinta waqtiga',alerts_sub:'Fariin Telegram 14, 7 iyo 2 maalmood ka hor (Pro).',
+  bachelor:'Bachelor',master:'Master',phd:'PhD',short:'Koorso gaaban',f_any:'Qayb kasta',f_engineering:'Injineernimo',f_medicine:'Caafimaad',f_business:'Ganacsi & dhaqaale',f_computing:'Kombiyuutar',f_agriculture:'Beeraha',f_education:'Waxbarasho',f_law:'Sharci',f_social:'Cilmiga bulshada',f_science:'Cilmiga dabiiciga',f_arts:'Fanka & aadanaha',
+  e_none:'Weli ma jiro',e_ielts:'IELTS / TOEFL',e_duo:'Duolingo',full:'Si buuxda loo bixiyo',partial:'Qayb',any:'Mid kasta',save_profile:'Keydi oo raadi',
+  match:'{n}% ku habboon',days_left:'{n} maalmood ayaa haray',closes_today:'Maanta ayuu xirmayaa',deadline:'Waqtiga ugu dambeeya',host:'Waxbarasho',funding:'Maalgelin',levels:'Heerarka',apply:'Bogga rasmiga ah',save_s:'Keydi',unsave:'La keydiyay',
+  more_locked:'{n} kale oo ku habboon',unlock:'Fur dhammaan',no_matches:'Hadda ma jiraan deeqo furan oo ku habboon. Isku day “Qayb kasta” ama dib u eeg — barnaamijyo cusub ayaa la soo daraa.',
+  sample:'Xog tusaale ah oo demo ah. Had iyo jeer ka xaqiiji faahfaahinta iyo waqtiga bogga rasmiga ah.',lang_req:'Shuruudaha luqadda',none_saved:'Weli waxba lama keydin.',f_all:'Dhammaan',f_full:'Si buuxda',f_soon:'Dhowaan xirmaya',
+  pw_text:'Arag dhammaan, keydi deeqaha oo hel xusuusinta waqtiga.',manage:'Maamul deeqaha'}},
+ adminExtra:function(){return'<div class="sec">Scholarships</div><div class="card"><button class="btn sm sec2" style="width:100%" data-a="manage">'+ic('list','s')+t('manage')+'</button></div>'},
+ enter:{
+  home:function(){api('scHome').then(function(r){if(r.ok){F.profile=r.profile;F.list=r.matches;F.locked=r.locked;F.savedIds=r.saved||[]}else{F.list=[]}K.render()})},
+  schadmin:function(){api('adminSchList').then(function(r){F.adm=r.ok?r.items:[];K.render()})}
+ },
+ screens:{
+  home:function(){var h=K.header(t('appName'),t('tagline'))+'<div class="row" style="margin:-4px 0 12px">'+(/^(sub|test)$/.test(S.me.access.reason)?K.planChip():'<button class="chip" data-act="paywall">'+ic('lock','s')+t('unlock')+'</button>')+'<button class="chip" data-a="profile">'+ic('user','s')+t('profile')+'</button></div>'+K.banners();
+   if(!F.list)return h+K.spin();
+   if(!F.profile)return h+K.empty('award',t('setup'),'<button class="btn" style="margin-top:12px" data-a="profile">'+t('start')+'</button>');
+   if(K.DEMO)h+='<div class="note" style="margin-bottom:8px">'+ic('info','s')+'<span>'+t('sample')+'</span></div>';
+   h+='<div class="tabs"><button data-a="filter" data-v="all" class="'+(F.filter==='all'?'on':'')+'">'+t('f_all')+'</button><button data-a="filter" data-v="full" class="'+(F.filter==='full'?'on':'')+'">'+t('f_full')+'</button><button data-a="filter" data-v="soon" class="'+(F.filter==='soon'?'on':'')+'">'+t('f_soon')+'</button><button data-a="filter" data-v="saved" class="'+(F.filter==='saved'?'on':'')+'">'+t('saved')+'</button></div>';
+   var list=F.list.filter(function(s){return F.filter==='all'||F.filter==='full'&&s.funding==='full'||F.filter==='soon'&&daysLeft(s.deadline)<=30||F.filter==='saved'&&F.savedIds.indexOf(s.id)>=0});
+   if(!list.length&&!F.locked)h+=K.empty('search',F.filter==='saved'?t('none_saved'):t('no_matches'));
+   list.forEach(function(s){h+=card(s)});
+   if(F.locked&&F.filter!=='saved')h+='<div class="lockwrap"><div class="locked">'+card({id:'x',name:'██████████ Scholarship',provider:'█████',host:'████',funding:'full',deadline:new Date(Date.now()+40*864e5).toISOString().slice(0,10),score:80,levels:[],fields:[]})+'</div><div class="over"><button class="btn sm" data-act="paywall">'+ic('lock','s')+t('more_locked',{n:F.locked})+' · '+t('unlock')+'</button></div></div>';
+   return h},
+  profile:function(){var p=F.form,h=K.header(t('profile'),'');
+   function sel(id,opts,val){return'<select class="t" id="'+id+'">'+opts.map(function(o){return'<option value="'+esc(o[0])+'" '+(String(val)===String(o[0])?'selected':'')+'>'+esc(o[1])+'</option>'}).join('')+'</select>'}
+   h+='<div class="card"><label class="f">'+t('country')+'</label>'+sel('pcountry',COUNTRIES.map(function(c){return[c[0],c[1]]}),p.country)+'<label class="f">'+t('level')+'</label>'+K.seg('level',p.level,LEVELS.map(function(l){return[l,t(l)]}))+
+    '<label class="f">'+t('field')+'</label>'+sel('pfield',FIELDS.map(function(f){return[f,t('f_'+f)]}),p.field)+'<label class="f">'+t('english')+'</label>'+K.seg('english',p.english,[['none',t('e_none')],['ielts',t('e_ielts')],['duolingo',t('e_duo')]])+
+    '<label class="f">'+t('need')+'</label>'+K.seg('need',p.need,[['full',t('full')],['partial',t('partial')],['any',t('any')]])+'<label class="f">'+t('gpa')+'</label><input class="t" id="pgpa" value="'+esc(p.gpa||'')+'" placeholder="3.2 / 4.0">'+
+    '<div class="sw" style="margin-top:10px"><div><b style="font-size:14px">'+t('alerts')+'</b><div class="fs">'+t('alerts_sub')+'</div></div><button class="tgl '+(p.alerts?'on':'')+'" data-a="alerts"></button></div></div>';
+   return h+'<button class="btn" data-a="saveprofile">'+ic('search')+t('save_profile')+'</button>'+K.errBox()},
+  detail:function(){var s=F.detail,saved=F.savedIds.indexOf(s.id)>=0,dl=daysLeft(s.deadline),h=K.header(s.name,s.provider);
+   h+='<div class="card"><div class="row"><span class="pill ac">'+t('match',{n:s.score})+'</span><span class="pill '+(dl<=14?'bad':'')+'">'+(dl===0?t('closes_today'):t('days_left',{n:dl}))+'</span></div>'+(s.summary?'<p class="m" style="margin-top:10px">'+esc(s.summary)+'</p>':'')+
+    '<table class="tb" style="margin-top:10px"><tr><td>'+t('host')+'</td><td>'+esc(s.host)+'</td></tr><tr><td>'+t('funding')+'</td><td>'+t(s.funding)+'</td></tr><tr><td>'+t('levels')+'</td><td>'+s.levels.map(t).join(', ')+'</td></tr><tr><td>'+t('deadline')+'</td><td>'+esc(s.deadline)+'</td></tr>'+(s.lang_req?'<tr><td>'+t('lang_req')+'</td><td>'+esc(s.lang_req)+'</td></tr>':'')+'</table>'+
+    (K.DEMO?'<div class="note" style="margin-top:8px">'+ic('info','s')+'<span>'+t('sample')+'</span></div>':'')+'</div>';
+   return h+'<button class="btn" data-open="'+esc(s.url)+'">'+ic('ext')+t('apply')+'</button><button class="btn '+(saved?'sec2':'ghost')+'" data-a="save" data-id="'+esc(s.id)+'">'+ic(saved?'check':'star')+(saved?t('unsave'):t('save_s'))+'</button>'},
+  schadmin:function(){var h=K.header(t('manage'),'Admin');if(!F.adm)return h+K.spin();
+   h+='<button class="btn" data-a="schnew">'+ic('plus')+'Add scholarship</button><div style="height:10px"></div>';
+   F.adm.forEach(function(s){h+='<button class="chrow" data-a="schedit" data-id="'+esc(s.id)+'"><div class="grow"><div class="fn">'+esc(s.name)+'</div><div class="fs">'+esc(s.host)+' · '+esc(s.deadline)+' · '+esc(s.status||'active')+'</div></div>'+ic('edit')+'</button>'});return h},
+  schform:function(){var s=F.admForm,h=K.header(s.id?'Edit scholarship':'Add scholarship','Admin');
+   function f(k,l,ph,ty){return'<label class="f">'+l+'</label><input class="t" data-sf="'+k+'" type="'+(ty||'text')+'" value="'+esc(Array.isArray(s[k])?s[k].join(', '):s[k]||'')+'" placeholder="'+esc(ph||'')+'">'}
+   h+='<div class="card">'+f('name','Name')+f('provider','Provider')+f('host','Host country / region')+f('url','Official URL','https://')+f('deadline','Deadline','','date')+
+    f('levels','Levels (comma): bachelor, master, phd, short')+f('fields','Fields (comma) or any: '+FIELDS.slice(1).join(', '))+f('eligible','Eligible (comma): ALL, AFRICA, SOUTH_ASIA, MENA or country codes like SO, KE')+
+    '<label class="f">Funding</label>'+K.seg('sfund',s.funding,[['full','Full'],['partial','Partial']])+f('lang_req','Language requirement (optional)')+'<label class="f">Summary</label><textarea class="t" data-sf="summary">'+esc(s.summary||'')+'</textarea>'+
+    '<label class="f">Status</label>'+K.seg('sstatus',s.status||'active',[['active','Active'],['hidden','Hidden']])+'</div>';
+   return h+'<button class="btn" data-a="schsave">'+ic('check')+'Save</button>'+(s.id?'<button class="btn ghost" style="color:var(--danger)" data-a="schdel">'+ic('trash')+'Delete</button>':'')+K.errBox()}
+ },
+ onSeg:function(n,v){if(n==='sfund'||n==='sstatus'){readSch();F.admForm[n==='sfund'?'funding':'status']=v;return K.render()}readProfile();F.form[n]=v;K.render()},
+ actions:{
+  profile:function(){F.form=Object.assign({country:'SO',level:'bachelor',field:'any',english:'none',need:'full',gpa:'',alerts:true},F.profile||{});K.go('profile')},
+  alerts:function(){readProfile();F.form.alerts=!F.form.alerts;K.render()},
+  saveprofile:function(){readProfile();api('scSaveProfile',{profile:F.form}).then(function(r){if(!r.ok){S.err=t('e_gen');return K.render()}F.profile=F.form;F.list=null;K.home()})},
+  filter:function(el,d){F.filter=d.v;K.render()},
+  open:function(el,d){F.detail=F.list.filter(function(s){return s.id===d.id})[0];K.go('detail')},
+  save:function(el,d){var on=F.savedIds.indexOf(d.id)<0;if(on&&S.me.access.reason!=='sub'&&S.me.access.reason!=='test')return K.paywall({title:t('appName'),text:t('pw_text'),icon:'award',features:[t('matches')+' ∞',t('saved'),t('alerts')]});
+   api('scSave',{id:d.id,on:on}).then(function(r){if(r.ok){F.savedIds=r.saved;K.render()}})},
+  manage:function(){K.go('schadmin')},
+  schnew:function(){F.admForm={id:'',name:'',provider:'',host:'',url:'',deadline:'',levels:['master'],fields:['any'],eligible:['ALL'],funding:'full',lang_req:'',summary:'',status:'active'};K.go('schform')},
+  schedit:function(el,d){F.admForm=JSON.parse(JSON.stringify(F.adm.filter(function(s){return s.id===d.id})[0]));K.go('schform')},
+  schsave:function(){readSch();var s=F.admForm;if(!s.name||!s.deadline||!s.url){S.err='Name, URL and deadline are required.';return K.render()}api('adminSchSave',{item:s}).then(function(r){if(r.ok)K.back();else{S.err=r.error||t('e_gen');K.render()}})},
+  schdel:function(){if(confirm('Delete?'))api('adminSchDelete',{id:F.admForm.id}).then(function(){K.back()})}
+ },
+ demoSeed:function(){function d(n){return new Date(Date.now()+n*864e5).toISOString().slice(0,10)}
+  function s(id,name,prov,host,lv,fl,el,fund,dl,url,sum,lr){return{id:id,name:name,provider:prov,host:host,levels:lv,fields:fl,eligible:el,funding:fund,deadline:d(dl),url:url,summary:sum,lang_req:lr||'',status:'active'}}
+  return{profile:null,saved:[],items:[
+   s('s1','Chevening Scholarships','UK Government','United Kingdom',['master'],['any'],['ALL'],'full',45,'https://www.chevening.org','One-year master\'s degrees in the UK for future leaders.','IELTS or equivalent'),
+   s('s2','DAAD Development-Related Postgraduate Courses','DAAD','Germany',['master','phd'],['engineering','agriculture','social','science','business'],['AFRICA','SOUTH_ASIA','MENA'],'full',60,'https://www.daad.de','Postgraduate courses with relevance to developing countries.','English or German'),
+   s('s3','Türkiye Scholarships','Government of Türkiye','Türkiye',['bachelor','master','phd'],['any'],['ALL'],'full',20,'https://www.turkiyeburslari.gov.tr','Full scholarships including a Turkish language year.',''),
+   s('s4','Mastercard Foundation Scholars Program','Mastercard Foundation','Partner universities',['bachelor','master'],['any'],['AFRICA'],'full',75,'https://mastercardfdn.org','For academically talented young Africans with financial need.',''),
+   s('s5','Erasmus Mundus Joint Masters','European Union','Europe (multiple)',['master'],['any'],['ALL'],'full',90,'https://www.eacea.ec.europa.eu','Joint master\'s programmes across several European universities.','English'),
+   s('s6','MEXT Scholarship','Government of Japan','Japan',['bachelor','master','phd'],['engineering','science','computing','social'],['ALL'],'full',35,'https://www.studyinjapan.go.jp','Japanese government scholarship via embassy recommendation.',''),
+   s('s7','Commonwealth Shared Scholarships','CSC UK','United Kingdom',['master'],['agriculture','medicine','engineering','education','science'],['SO','KE','UG','TZ','RW','NG','GH','PK','IN','BD','ZM','ZW','MW','CM'],'full',8,'https://cscuk.fcdo.gov.uk','Master\'s study in the UK for students from eligible Commonwealth countries.','IELTS'),
+   s('s8','University Merit Award (example)','Example University','Malaysia',['bachelor','master'],['business','computing'],['ALL'],'partial',50,'https://example.org','Partial tuition waiver for strong applicants.','')]}},
+ demo:{
+  scHome:function(d,s){var p=s.app.profile;if(!p)return{ok:true,profile:null,matches:[],locked:0};var all=s.app.items.filter(function(x){return x.status!=='hidden'}).map(function(x){return Object.assign({score:score(p,x)},x)}).filter(function(x){return x.score>0})
+    .sort(function(a,b){return b.score-a.score||a.deadline.localeCompare(b.deadline)});var a=K.S.me.access,full=a.reason==='sub'||(a.reason==='test');var n=full?all.length:+s.settings.freeAllowance||3;
+   return{ok:true,profile:p,matches:all.slice(0,n),locked:Math.max(0,all.length-n),saved:s.app.saved}},
+  scSaveProfile:function(d,s){s.app.profile=d.profile;return{ok:true}},
+  scSave:function(d,s){var i=s.app.saved.indexOf(d.id);if(d.on&&i<0)s.app.saved.push(d.id);if(!d.on&&i>=0)s.app.saved.splice(i,1);return{ok:true,saved:s.app.saved}},
+  adminSchList:function(d,s){return{ok:true,items:s.app.items}},
+  adminSchSave:function(d,s){var it=d.item;if(it.id){var i=s.app.items.findIndex(function(x){return x.id===it.id});s.app.items[i]=it}else{it.id='s'+K.uid();s.app.items.push(it)}return{ok:true}},
+  adminSchDelete:function(d,s){s.app.items=s.app.items.filter(function(x){return x.id!==d.id});return{ok:true}}
+ }
+});
+function card(s){var dl=daysLeft(s.deadline);return'<button class="chrow" data-a="open" data-id="'+esc(s.id)+'"><div class="av">'+ic('award')+'</div><div class="grow"><div class="fn">'+esc(s.name)+'</div><div class="fs">'+esc(s.provider)+' · '+esc(s.host)+'</div><div><span class="pill ac">'+t('match',{n:s.score})+'</span>'+
+ (s.funding==='full'?'<span class="pill ok">'+t('full')+'</span>':'<span class="pill">'+t('partial')+'</span>')+'<span class="pill '+(dl<=14?'bad':'')+'">'+(dl===0?t('closes_today'):t('days_left',{n:dl}))+'</span>'+(F.savedIds&&F.savedIds.indexOf(s.id)>=0?'<span class="pill ac">'+ic('check','s')+'</span>':'')+'</div></div></button>'}
+function readProfile(){var c=document.getElementById('pcountry');if(!c)return;F.form.country=c.value;F.form.field=document.getElementById('pfield').value;F.form.gpa=document.getElementById('pgpa').value.trim()}
+function readSch(){document.querySelectorAll('[data-sf]').forEach(function(el){var k=el.dataset.sf,v=el.value.trim();F.admForm[k]=['levels','fields','eligible'].indexOf(k)>=0?v.split(',').map(function(x){return x.trim()}).filter(Boolean):v})}
+})();
+</script>
+</body>
+</html>

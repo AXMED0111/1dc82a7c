@@ -1,0 +1,167 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex,nofollow">
+<meta name="color-scheme" content="light dark">
+<title>Field Tasks</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<script src="config.js"></script>
+%%STYLE%%
+%%EXTRA%%
+</head>
+<body>
+%%ICONS%%
+<div class="wrap" id="app"></div>
+<input type="file" id="cam" accept="image/*" capture="environment" class="hide">
+%%KIT%%
+<script>
+(function(){
+var t=K.t,esc=K.esc,ic=K.ic,S=K.S,api=K.api;
+var M={tab:K.lsGet('mk_tab','earn'),feed:null,me:null,task:null,form:null,sub:null,mine:null,review:null,wallet:null,photo:null,loc:null,city:K.lsGet('mk_city','')};
+function usd(n){return'$'+(+n||0).toFixed(2)}
+function cost(f,fee){var base=(+f.reward||0)*(+f.slots||0);return{base:base,fee:Math.round(base*fee)/100,total:Math.round(base*(100+fee))/100}}
+function getLoc(cb){function done(lat,lng){M.loc={lat:+lat.toFixed(6),lng:+lng.toFixed(6)};cb()}
+ if(K.IN_TG&&K.TG.LocationManager&&K.TG.isVersionAtLeast('8.0')){var LM=K.TG.LocationManager;LM.init(function(){if(!LM.isLocationAvailable)return fb();LM.getLocation(function(d){if(d)done(d.latitude,d.longitude);else fb()})});return}
+ fb();function fb(){if(!navigator.geolocation){S.err=t('no_gps');return K.render()}navigator.geolocation.getCurrentPosition(function(p){done(p.coords.latitude,p.coords.longitude)},function(){S.err=t('no_gps');K.render()},{enableHighAccuracy:true,timeout:15000})}}
+function statusPill(s){var m={draft:['',t('st_draft')],awaiting_payment:['bad',t('st_pay')],live:['ok',t('st_live')],closed:['',t('st_closed')],pending:['ac',t('st_pending')],approved:['ok',t('st_approved')],rejected:['bad',t('st_rejected')],requested:['ac',t('st_requested')],paid:['ok',t('st_paid')]}[s]||['',s];return'<span class="pill '+m[0]+'">'+m[1]+'</span>'}
+
+K.app({
+ icon:'task',freeLabel:null,showPlans:false,
+ defaults:{appName:'Field Tasks',freeAllowance:0,x_feePercent:20,x_minWithdraw:5,plans:[]},
+ adminFields:[{key:'x_feePercent',label:'Platform fee (%)',type:'number',ph:'20'},{key:'x_minWithdraw',label:'Minimum withdrawal (USD)',type:'number',ph:'5'}],
+ adminLoad:function(){return api('adminMk')},
+ adminExtra:function(x){x=x||{withdrawals:[],tasks:[]};return'<div class="sec">Withdrawals to pay</div><div class="card">'+(x.withdrawals.length?'<ul class="files">'+x.withdrawals.map(function(w){return'<li><div class="grow"><div class="fn">'+usd(w.amount)+' → '+esc(w.address)+'</div><div class="fs">User '+esc(w.user_id)+' · '+K.fmtDate(w.created)+'</div></div><button class="btn sm" data-a="wdpaid" data-id="'+esc(w.id)+'">Mark paid</button><button class="btn sm ghost" data-a="wdreject" data-id="'+esc(w.id)+'">Reject</button></li>'}).join('')+'</ul>':'<p class="m">No withdrawal requests.</p>')+'</div>'+
+  '<div class="sec">Live tasks</div><div class="card">'+(x.tasks.length?'<ul class="files">'+x.tasks.map(function(k){return'<li><div class="grow"><div class="fn">'+esc(k.title)+'</div><div class="fs">'+esc(k.city)+' · '+k.filled+'/'+k.slots+' · '+usd(k.reward)+' · budget '+usd(k.total)+'</div></div>'+statusPill(k.status)+'</li>'}).join('')+'</ul>':'<p class="m">None.</p>')+'</div>'},
+ strings:{
+ en:{appName:'Field Tasks',tagline:'Small paid tasks near you. Real data for businesses.',earn:'Earn',post:'Post tasks',wallet:'Wallet',city:'Your city',city_ph:'e.g. Hargeisa, Nairobi',all_cities:'All cities',
+  no_tasks:'No open tasks in your city right now. Check back soon.',reward:'Reward',left:'{n} left',per:'per submission',start:'Start task',instructions:'Instructions',needs:'Required',photo:'Photo',gps:'Location',answers:'Questions',
+  take_photo:'Take photo',retake:'Retake',get_loc:'Add my location',loc_ok:'Location added',submit:'Submit',submitted:'Submitted. You will be paid when the business approves it.',my_work:'My submissions',none_work:'No submissions yet.',
+  balance:'Available',earned:'Total earned',payout:'USDT TRC20 address for payouts',withdraw:'Withdraw',min_wd:'Minimum withdrawal: {n}',wd_ok:'Withdrawal requested. Payouts are sent within 48 hours.',history:'History',
+  my_tasks:'My tasks',new_task:'Create a task',no_my_tasks:'Post a task to collect photos, prices or answers from local workers.',title:'Task title',title_ph:'Photo of soft-drink shelf prices',instr_ph:'Explain exactly what to do and what a good submission looks like.',
+  t_city:'City',t_reward:'Reward per submission (USD)',t_slots:'Number of submissions',need_photo:'Photo required',need_gps:'Location required',questions:'Questions (optional, one per line)',deadline:'Deadline',
+  cost:'Cost',c_base:'Rewards',c_fee:'Platform fee ({p}%)',c_total:'Total to pay',save_pay:'Save and pay',review:'Review submissions',approve:'Approve',reject:'Reject',reason:'Reason for rejecting',none_subs:'No submissions yet.',
+  progress:'{a} of {b} done',pay_task:'Pay for this task',paid_task:'Payment received. Your task is now live.',map:'Map',
+  st_draft:'Draft',st_pay:'Awaiting payment',st_live:'Live',st_closed:'Closed',st_pending:'Waiting review',st_approved:'Approved',st_rejected:'Rejected',st_requested:'Requested',st_paid:'Paid',
+  e_photo:'Take the photo first.',e_gps:'Add your location first.',e_answers:'Answer all questions.',e_fields:'Fill in title, instructions, city, reward and number of submissions.',e_addr:'Enter your USDT TRC20 address.',e_min:'Your balance is below the minimum.',no_gps:'Location is not available. Turn on location for Telegram.',own:'You cannot do your own task.',full:'This task is full.',already:'You already submitted this task.'},
+ so:{appName:'Hawlo Goob',tagline:'Hawlo yar oo lacag leh oo kuu dhow. Xog dhab ah ganacsiyada.',earn:'Kasbo',post:'Soo dhig hawlo',wallet:'Boorsada',city:'Magaaladaada',city_ph:'tusaale Hargeysa, Muqdisho',all_cities:'Dhammaan magaalooyinka',
+  no_tasks:'Hadda hawl furan kuma jirto magaaladaada. Dib u eeg.',reward:'Abaalmarin',left:'{n} ayaa haray',per:'gudbin kasta',start:'Bilow hawsha',instructions:'Tilmaamaha',needs:'Loo baahan yahay',photo:'Sawir',gps:'Goobta',answers:'Su\'aalo',
+  take_photo:'Sawir qaad',retake:'Dib u qaad',get_loc:'Ku dar goobtayda',loc_ok:'Goobta waa la daray',submit:'Gudbi',submitted:'Waa la gudbiyay. Waa lagu siin doonaa marka ganacsigu oggolaado.',my_work:'Gudbintayda',none_work:'Weli wax gudbin ah ma jiraan.',
+  balance:'La heli karo',earned:'Wadarta la kasbaday',payout:'Cinwaanka USDT TRC20 ee lacag-bixinta',withdraw:'La bax',min_wd:'Ugu yaraan: {n}',wd_ok:'Codsiga waa la diray. Lacagta waxaa la diraa 48 saacadood gudahood.',history:'Taariikhda',
+  my_tasks:'Hawlahayga',new_task:'Samee hawl',no_my_tasks:'Soo dhig hawl si aad uga hesho sawirro, qiimo ama jawaabo shaqaale maxalli ah.',title:'Cinwaanka hawsha',title_ph:'Sawirka qiimaha cabbitaannada qaboojiyaha',instr_ph:'Si cad u sharax waxa la sameeyo iyo sida gudbin wanaagsan u eg tahay.',
+  t_city:'Magaalada',t_reward:'Abaalmarinta gudbin kasta (USD)',t_slots:'Tirada gudbinta',need_photo:'Sawir waa lagama maarmaan',need_gps:'Goobta waa lagama maarmaan',questions:'Su\'aalo (ikhtiyaari, sadar kasta mid)',deadline:'Waqtiga ugu dambeeya',
+  cost:'Kharashka',c_base:'Abaalmarinnada',c_fee:'Khidmadda ({p}%)',c_total:'Wadarta la bixinayo',save_pay:'Keydi oo bixi',review:'Eeg gudbinta',approve:'Oggolow',reject:'Diid',reason:'Sababta diidmada',none_subs:'Weli gudbin ma jiro.',
+  progress:'{a} / {b} la dhammeeyay',pay_task:'Bixi hawshan',paid_task:'Lacagta waa la helay. Hawshaadu hadda way shaqaynaysaa.',map:'Khariidad',
+  st_draft:'Qabyo',st_pay:'Sugaya lacag',st_live:'Furan',st_closed:'Xiran',st_pending:'Sugaya',st_approved:'La oggolaaday',st_rejected:'La diiday',st_requested:'La codsaday',st_paid:'La bixiyay',
+  e_photo:'Marka hore sawirka qaad.',e_gps:'Marka hore goobta ku dar.',e_answers:'Ka jawaab dhammaan su\'aalaha.',e_fields:'Buuxi cinwaanka, tilmaamaha, magaalada, abaalmarinta iyo tirada.',e_addr:'Geli cinwaankaaga USDT TRC20.',e_min:'Haraagaagu wuu ka yar yahay xadka.',no_gps:'Goobta lama heli karo. Shid goobta Telegram.',own:'Ma qaban kartid hawshaada.',full:'Hawshan way buuxsantay.',already:'Horey ayaad u gudbisay hawshan.'}},
+ enter:{
+  home:function(){if(M.tab==='earn')api('mkFeed',{city:M.city}).then(function(r){M.feed=r.ok?r.tasks:[];K.render()});
+   else if(M.tab==='post')api('mkMine').then(function(r){M.mine=r.ok?r.tasks:[];M.fee=r.feePercent;K.render()});
+   else api('mkWallet').then(function(r){M.wallet=r.ok?r:{balance:0,earned:0,subs:[],withdrawals:[],payout:''};K.render()})},
+  review:function(){api('mkSubs',{task:M.task.id}).then(function(r){M.review=r.ok?r.subs:[];K.render()})}
+ },
+ screens:{
+  home:function(){var h=K.header(t('appName'),t('tagline'))+K.banners()+'<div class="tabs">'+[['earn','cash'],['post','briefcase'],['wallet','wallet']].map(function(x){return'<button data-a="tab" data-v="'+x[0]+'" class="'+(M.tab===x[0]?'on':'')+'">'+t(x[0])+'</button>'}).join('')+'</div>';
+   if(M.tab==='earn'){h+='<div class="row" style="margin-bottom:10px"><input class="t" id="city" placeholder="'+t('city_ph')+'" value="'+esc(M.city)+'"><button class="btn sm sec2" data-a="setcity">'+ic('search','s')+'</button></div>';
+    if(!M.feed)return h+K.spin();if(!M.feed.length)return h+K.empty('task',t('no_tasks'));
+    M.feed.forEach(function(k){h+='<button class="chrow" data-a="task" data-id="'+esc(k.id)+'"><div class="av">'+ic('task')+'</div><div class="grow"><div class="fn">'+esc(k.title)+'</div><div class="fs">'+esc(k.city)+' · '+t('left',{n:k.slots-k.filled})+'</div><div>'+(k.needs_photo?'<span class="pill">'+ic('camera','s')+'</span>':'')+(k.needs_gps?'<span class="pill">'+ic('pin','s')+'</span>':'')+(k.questions.length?'<span class="pill">'+ic('list','s')+' '+k.questions.length+'</span>':'')+'</div></div><div class="price">'+usd(k.reward)+'<small>'+t('per')+'</small></div></button>'});return h}
+   if(M.tab==='post'){if(!M.mine)return h+K.spin();if(!M.mine.length)h+=K.empty('briefcase',t('no_my_tasks'));
+    M.mine.forEach(function(k){h+='<button class="chrow" data-a="mytask" data-id="'+esc(k.id)+'"><div class="av">'+ic('briefcase')+'</div><div class="grow"><div class="fn">'+esc(k.title)+'</div><div class="fs">'+esc(k.city)+' · '+t('progress',{a:k.filled,b:k.slots})+(k.pending?' · '+k.pending+' '+t('st_pending'):'')+'</div><div>'+statusPill(k.status)+'</div></div><div class="price">'+usd(k.total)+'</div></button>'});
+    return h+'<button class="btn" data-a="newtask">'+ic('plus')+t('new_task')+'</button>'}
+   var w=M.wallet;if(!w)return h+K.spin();
+   h+='<div class="card"><div class="g2"><div><div class="fs">'+t('balance')+'</div><div class="num">'+usd(w.balance)+'</div></div><div><div class="fs">'+t('earned')+'</div><div class="num" style="color:var(--hint)">'+usd(w.earned)+'</div></div></div>'+
+    '<label class="f">'+t('payout')+'</label><input class="t" id="payout" value="'+esc(w.payout)+'" placeholder="T…"><button class="btn" style="margin-top:10px" data-a="withdraw" '+(w.balance>=w.min?'':'disabled')+'>'+ic('cash')+t('withdraw')+'</button><div class="fs center" style="margin-top:6px">'+t('min_wd',{n:usd(w.min)})+'</div></div>'+K.errBox();
+   if(w.withdrawals.length)h+='<div class="sec">'+t('withdraw')+'</div><div class="card"><ul class="files">'+w.withdrawals.map(function(x){return'<li><div class="grow"><div class="fn">'+usd(x.amount)+'</div><div class="fs">'+K.fmtDate(x.created)+'</div></div>'+statusPill(x.status)+'</li>'}).join('')+'</ul></div>';
+   h+='<div class="sec">'+t('my_work')+'</div><div class="card">'+(w.subs.length?'<ul class="files">'+w.subs.map(function(x){return'<li><div class="grow"><div class="fn">'+esc(x.title)+'</div><div class="fs">'+K.fmtDate(x.created)+(x.reason?' · '+esc(x.reason):'')+'</div></div><b>'+usd(x.reward)+'</b>'+statusPill(x.status)+'</li>'}).join('')+'</ul>':'<p class="m">'+t('none_work')+'</p>')+'</div>';
+   return h},
+  task:function(){var k=M.task,h=K.header(k.title,k.city);
+   h+='<div class="card"><div class="row"><div class="grow"><div class="fs">'+t('reward')+'</div><div class="num">'+usd(k.reward)+'</div></div><span class="pill">'+t('left',{n:k.slots-k.filled})+'</span></div><label class="f">'+t('instructions')+'</label><p class="m" style="color:var(--text);white-space:pre-line">'+esc(k.instructions)+'</p>'+
+    (k.deadline?'<div class="fs" style="margin-top:8px">'+t('deadline')+': '+esc(k.deadline)+'</div>':'')+'</div>';
+   return h+'<button class="btn" data-a="start">'+ic('play')+t('start')+'</button>'+K.errBox()},
+  submit:function(){var k=M.task,h=K.header(k.title,t('submit'));
+   if(k.needs_photo)h+='<div class="card"><label class="f">'+t('photo')+'</label>'+(M.photo?'<img class="photo" src="'+M.photo.dataUrl+'" alt="">':'')+'<button class="btn sm '+(M.photo?'ghost':'sec2')+'" style="width:100%;margin-top:8px" data-a="photo">'+ic('camera','s')+(M.photo?t('retake'):t('take_photo'))+'</button></div>';
+   if(k.needs_gps)h+='<div class="card"><label class="f">'+t('gps')+'</label>'+(M.loc?'<div class="okmsg" style="margin:0">'+ic('pin','s')+t('loc_ok')+' · '+M.loc.lat+', '+M.loc.lng+'</div>':'<button class="btn sm sec2" style="width:100%" data-a="loc">'+ic('pin','s')+t('get_loc')+'</button>')+'</div>';
+   if(k.questions.length)h+='<div class="card">'+k.questions.map(function(q,i){return'<label class="f">'+esc(q)+'</label><input class="t" data-q="'+i+'" value="'+esc((M.answers||[])[i]||'')+'">'}).join('')+'</div>';
+   return h+'<button class="btn" data-a="send">'+ic('send')+t('submit')+'</button>'+K.errBox()},
+  done:function(){return K.header(M.task.title,'')+'<div class="card center"><div class="big good">'+ic('check','l')+'</div><p class="m">'+t('submitted')+'</p></div><button class="btn" data-act="home">'+t('continue')+'</button>'},
+  taskform:function(){var f=M.form,c=cost(f,M.fee||20),h=K.header(t('new_task'),'');
+   function inp(k,ty,ph,ex){return'<input class="t" data-tf="'+k+'" type="'+(ty||'text')+'" value="'+esc(f[k])+'" placeholder="'+esc(ph||'')+'" '+(ex||'')+'>'}
+   h+='<div class="card"><label class="f">'+t('title')+'</label>'+inp('title','text',t('title_ph'))+'<label class="f">'+t('instructions')+'</label><textarea class="t" data-tf="instructions" placeholder="'+esc(t('instr_ph'))+'">'+esc(f.instructions)+'</textarea>'+
+    '<label class="f">'+t('t_city')+'</label>'+inp('city','text',t('city_ph'))+'<div class="g2"><div><label class="f">'+t('t_reward')+'</label>'+inp('reward','number','1','step="0.5" min="0.5"')+'</div><div><label class="f">'+t('t_slots')+'</label>'+inp('slots','number','20','min="1"')+'</div></div>'+
+    '<div class="sw" style="margin-top:8px"><b style="font-size:14px">'+t('need_photo')+'</b><button class="tgl '+(f.needs_photo?'on':'')+'" data-a="tgl" data-k="needs_photo"></button></div><div class="sw"><b style="font-size:14px">'+t('need_gps')+'</b><button class="tgl '+(f.needs_gps?'on':'')+'" data-a="tgl" data-k="needs_gps"></button></div>'+
+    '<label class="f">'+t('questions')+'</label><textarea class="t" data-tf="questions">'+esc(f.questions)+'</textarea><label class="f">'+t('deadline')+'</label>'+inp('deadline','date')+'</div>';
+   h+='<div class="sec">'+t('cost')+'</div><div class="card"><table class="tb"><tr><td>'+t('c_base')+'</td><td>'+usd(c.base)+'</td></tr><tr><td>'+t('c_fee',{p:M.fee||20})+'</td><td>'+usd(c.fee)+'</td></tr><tr><td><b>'+t('c_total')+'</b></td><td><b>'+usd(c.total)+'</b></td></tr></table></div>';
+   return h+'<button class="btn" data-a="savetask">'+ic('cash')+t('save_pay')+'</button>'+K.errBox()},
+  mytask:function(){var k=M.task,h=K.header(k.title,k.city)+K.errBox();
+   h+='<div class="card"><div class="row"><div class="grow">'+statusPill(k.status)+'<div class="fs" style="margin-top:6px">'+t('progress',{a:k.filled,b:k.slots})+' · '+usd(k.reward)+' '+t('per')+'</div></div><b>'+usd(k.total)+'</b></div></div>';
+   if(k.status==='awaiting_payment')h+='<button class="btn" data-a="paytask">'+ic('cash')+t('pay_task')+' · '+usd(k.total)+'</button>';
+   if(k.status==='live'||k.status==='closed')h+='<button class="btn" data-a="review">'+ic('list')+t('review')+(k.pending?' ('+k.pending+')':'')+'</button>';
+   return h},
+  review:function(){var h=K.header(t('review'),M.task.title);if(!M.review)return h+K.spin();if(!M.review.length)return h+K.empty('list',t('none_subs'));
+   M.review.forEach(function(s){h+='<div class="card">'+(s.photo?'<img class="photo" src="'+s.photo+'" alt="">':'')+'<div class="row" style="margin-top:8px"><div class="grow fs">'+K.fmtDate(s.created)+' · '+esc(s.worker)+'</div>'+statusPill(s.status)+'</div>'+
+    (s.lat?'<button class="btn sm ghost" style="margin-top:6px" data-open="https://maps.google.com/?q='+s.lat+','+s.lng+'">'+ic('pin','s')+t('map')+' · '+s.lat+', '+s.lng+'</button>':'')+
+    (s.answers&&s.answers.length?'<table class="tb" style="margin-top:6px">'+s.answers.map(function(a,i){return'<tr><td>'+esc(M.task.questions[i]||'')+'</td><td>'+esc(a)+'</td></tr>'}).join('')+'</table>':'')+
+    (s.status==='pending'?'<div class="g2" style="margin-top:10px"><button class="btn sm" data-a="approve" data-id="'+esc(s.id)+'">'+ic('check','s')+t('approve')+'</button><button class="btn sm ghost" data-a="reject" data-id="'+esc(s.id)+'">'+ic('x','s')+t('reject')+'</button></div>':'')+'</div>'});return h}
+ },
+ actions:{
+  tab:function(el,d){M.tab=d.v;K.lsSet('mk_tab',d.v);M.feed=M.mine=M.wallet=null;K.home()},
+  setcity:function(){M.city=document.getElementById('city').value.trim();K.lsSet('mk_city',M.city);M.feed=null;K.home()},
+  task:function(el,d){M.task=M.feed.filter(function(k){return k.id===d.id})[0];K.go('task')},
+  start:function(){M.photo=null;M.loc=null;M.answers=[];K.go('submit')},
+  photo:function(){keepAnswers();document.getElementById('cam').click()},
+  loc:function(){keepAnswers();getLoc(function(){S.err='';K.render()})},
+  send:function(){keepAnswers();var k=M.task;if(k.needs_photo&&!M.photo){S.err=t('e_photo');return K.render()}if(k.needs_gps&&!M.loc){S.err=t('e_gps');return K.render()}
+   if(k.questions.some(function(q,i){return!(M.answers[i]||'').trim()})){S.err=t('e_answers');return K.render()}
+   api('mkSubmit',{task:k.id,photo:M.photo?M.photo.b64:'',lat:M.loc&&M.loc.lat,lng:M.loc&&M.loc.lng,answers:M.answers}).then(function(r){if(r.ok){K.haptic('ok');K.go('done',{replace:true})}else{S.err=t(r.error)!==r.error?t(r.error):t('e_gen');K.render()}})},
+  newtask:function(){M.form={title:'',instructions:'',city:M.city,reward:1,slots:20,needs_photo:true,needs_gps:true,questions:'',deadline:''};K.go('taskform')},
+  tgl:function(el,d){keepForm();M.form[d.k]=!M.form[d.k];K.render()},
+  savetask:function(){keepForm();var f=M.form;if(!f.title||!f.instructions||!f.city||!(+f.reward>=0.5)||!(+f.slots>=1)){S.err=t('e_fields');return K.render()}
+   api('mkSaveTask',{task:Object.assign({},f,{questions:f.questions.split('\n').map(function(x){return x.trim()}).filter(Boolean).slice(0,3)})}).then(function(r){if(!r.ok){S.err=t('e_gen');return K.render()}M.task=r.task;K.go('mytask',{replace:true});if(r.task.status==='awaiting_payment')payTask()})},
+  mytask:function(el,d){M.task=M.mine.filter(function(k){return k.id===d.id})[0];K.go('mytask')},
+  paytask:function(){payTask()},
+  review:function(){M.review=null;K.go('review')},
+  approve:function(el,d){api('mkDecide',{sub:d.id,approve:true}).then(function(r){if(r.ok){M.review=null;K.render();K.S.screen='review';api('mkSubs',{task:M.task.id}).then(function(x){M.review=x.subs;K.render()})}else K.toast(t('e_gen'))})},
+  reject:function(el,d){var why=prompt(t('reason'))||'';api('mkDecide',{sub:d.id,approve:false,reason:why}).then(function(){api('mkSubs',{task:M.task.id}).then(function(x){M.review=x.subs;K.render()})})},
+  withdraw:function(){var a=document.getElementById('payout').value.trim();if(!/^T[1-9A-HJ-NP-Za-km-z]{33}$/.test(a)){S.err=t('e_addr');return K.render()}
+   api('mkWithdraw',{address:a}).then(function(r){if(r.ok){S.msg=t('wd_ok');M.wallet=null;K.home();S.msg=t('wd_ok')}else{S.err=r.error==='min'?t('e_min'):t('e_gen');K.render()}})},
+  wdpaid:function(el,d){api('adminMkWithdrawal',{id:d.id,paid:true}).then(function(){K.go('settings',{replace:true})})},
+  wdreject:function(el,d){api('adminMkWithdrawal',{id:d.id,paid:false}).then(function(){K.go('settings',{replace:true})})}
+ },
+ demoResolvePlan:function(id,s){var m=/^task:(.+)$/.exec(id);if(!m)return null;var k=s.app.tasks.filter(function(x){return x.id===m[1]})[0];return k?{id:id,label:k.title,days:0,credits:0,usd:k.total,stars:Math.ceil(k.total*75)}:null},
+ demoOnPaid:function(o,p,s){var m=/^task:(.+)$/.exec(o.plan);if(!m)return false;var k=s.app.tasks.filter(function(x){return x.id===m[1]})[0];if(k)k.status='live';return true},
+ demoSeed:function(){var d=function(n){return new Date(Date.now()+n*864e5).toISOString().slice(0,10)};
+  return{tasks:[
+   {id:'k1',owner:'brand',title:'Photo of soft-drink shelf prices',instructions:'Visit a shop near you. Take one clear photo of the soft-drink shelf with prices visible. Answer the two questions.',city:'Hargeisa',reward:1,slots:30,filled:12,needs_photo:true,needs_gps:true,questions:['Shop name','Price of a 330 ml can'],deadline:d(10),status:'live',total:36},
+   {id:'k2',owner:'ngo',title:'Water point check',instructions:'Go to the nearest public water point. Photo of the tap and tell us if it is working today.',city:'Hargeisa',reward:2,slots:15,filled:3,needs_photo:true,needs_gps:true,questions:['Is it working? (yes/no)'],deadline:d(5),status:'live',total:36},
+   {id:'k3',owner:'brand',title:'Phone credit price survey',instructions:'Ask one shop the price of a $1 mobile top-up card. No photo needed.',city:'Mogadishu',reward:0.5,slots:50,filled:20,needs_photo:false,needs_gps:true,questions:['Operator','Price charged'],deadline:d(14),status:'live',total:30},
+   {id:'k9',owner:'me',title:'Bread price in local bakeries',instructions:'Photo of the bread shelf and the price of one standard loaf.',city:'Hargeisa',reward:1,slots:10,filled:1,needs_photo:true,needs_gps:false,questions:['Price of one loaf'],deadline:d(7),status:'live',total:12}],
+   subs:[{id:'u1',task:'k9',worker:'worker42',photo:'',lat:9.56,lng:44.06,answers:['$0.50'],status:'pending',created:new Date().toISOString()},{id:'u2',task:'k1',worker:'me',photo:'',answers:['Hodan Store','$0.60'],status:'approved',created:d(-3)}],
+   wallet:{balance:1,earned:1,payout:'',withdrawals:[]}}},
+ demo:{
+  mkFeed:function(d,s){var c=(d.city||'').toLowerCase();return{ok:true,tasks:s.app.tasks.filter(function(k){return k.status==='live'&&k.filled<k.slots&&k.owner!=='me'&&(!c||k.city.toLowerCase().indexOf(c)>=0)})}},
+  mkMine:function(d,s){return{ok:true,feePercent:s.settings.x_feePercent,tasks:s.app.tasks.filter(function(k){return k.owner==='me'}).map(function(k){return Object.assign({pending:s.app.subs.filter(function(u){return u.task===k.id&&u.status==='pending'}).length},k)})}},
+  mkSaveTask:function(d,s){var f=d.task,fee=+s.settings.x_feePercent||0,k={id:'k'+K.uid(),owner:'me',title:f.title,instructions:f.instructions,city:f.city,reward:+f.reward,slots:+f.slots,filled:0,needs_photo:!!f.needs_photo,needs_gps:!!f.needs_gps,questions:f.questions,deadline:f.deadline,status:'awaiting_payment'};
+   k.total=Math.round(k.reward*k.slots*(100+fee))/100;s.app.tasks.push(k);return{ok:true,task:k}},
+  mkSubmit:function(d,s){var k=s.app.tasks.filter(function(x){return x.id===d.task})[0];if(k.filled>=k.slots)return{ok:false,error:'full'};
+   if(s.app.subs.some(function(u){return u.task===k.id&&u.worker==='me'}))return{ok:false,error:'already'};
+   s.app.subs.push({id:'u'+K.uid(),task:k.id,worker:'me',photo:d.photo?'data:image/jpeg;base64,'+d.photo:'',lat:d.lat,lng:d.lng,answers:d.answers,status:'pending',created:new Date().toISOString()});return{ok:true}},
+  mkSubs:function(d,s){return{ok:true,subs:s.app.subs.filter(function(u){return u.task===d.task})}},
+  mkDecide:function(d,s){var u=s.app.subs.filter(function(x){return x.id===d.sub})[0],k=s.app.tasks.filter(function(x){return x.id===u.task})[0];if(u.status!=='pending')return{ok:false};
+   u.status=d.approve?'approved':'rejected';u.reason=d.reason||'';if(d.approve){k.filled++;if(k.filled>=k.slots)k.status='closed';if(u.worker==='me'){s.app.wallet.balance+=k.reward;s.app.wallet.earned+=k.reward}}return{ok:true}},
+  mkWallet:function(d,s){var w=s.app.wallet;return{ok:true,balance:w.balance,earned:w.earned,payout:w.payout,min:+s.settings.x_minWithdraw||5,withdrawals:w.withdrawals,
+   subs:s.app.subs.filter(function(u){return u.worker==='me'}).map(function(u){var k=s.app.tasks.filter(function(x){return x.id===u.task})[0]||{};return{title:k.title,reward:k.reward,status:u.status,created:u.created,reason:u.reason}})}},
+  mkWithdraw:function(d,s){var w=s.app.wallet,min=+s.settings.x_minWithdraw||5;if(w.balance<min)return{ok:false,error:'min'};w.withdrawals.unshift({id:'w'+K.uid(),amount:w.balance,address:d.address,status:'requested',created:new Date().toISOString()});w.payout=d.address;w.balance=0;return{ok:true}},
+  adminMk:function(d,s){return{ok:true,withdrawals:s.app.wallet.withdrawals.filter(function(w){return w.status==='requested'}).map(function(w){return Object.assign({user_id:'demo'},w)}),tasks:s.app.tasks.filter(function(k){return k.status==='live'})}},
+  adminMkWithdrawal:function(d,s){var w=s.app.wallet.withdrawals.filter(function(x){return x.id===d.id})[0];if(w){w.status=d.paid?'paid':'rejected';if(!d.paid)s.app.wallet.balance+=w.amount}return{ok:true}}
+ }
+});
+function payTask(){var k=M.task;K.paywall({title:t('pay_task'),text:k.title,icon:'briefcase',features:[t('progress',{a:0,b:k.slots}),usd(k.reward)+' '+t('per'),t('c_total')+': '+usd(k.total)],
+ plans:[{id:'task:'+k.id,label:k.title,days:0,credits:0,usd:k.total,stars:Math.ceil(k.total*75)}],paidText:t('paid_task'),after:function(){M.tab='post';K.lsSet('mk_tab','post');M.mine=null;K.home()}})}
+function keepAnswers(){M.answers=[].map.call(document.querySelectorAll('[data-q]'),function(el){return el.value})}
+function keepForm(){document.querySelectorAll('[data-tf]').forEach(function(el){M.form[el.dataset.tf]=el.type==='number'?+el.value:el.value})}
+document.getElementById('cam').addEventListener('change',function(e){var f=e.target.files[0];e.target.value='';if(!f)return;K.fileB64(f,1280,0.75).then(function(r){M.photo=r;S.err='';K.render()})});
+})();
+</script>
+</body>
+</html>

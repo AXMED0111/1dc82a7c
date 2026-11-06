@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex,nofollow">
+<meta name="color-scheme" content="light dark">
+<title>Document Translator</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<script src="config.js"></script>
+%%STYLE%%
+%%EXTRA%%
+<style>.pages{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}.pages .pg{position:relative;border-radius:10px;overflow:hidden;aspect-ratio:3/4;background:var(--bg)}.pages img{width:100%;height:100%;object-fit:cover}.pages .mini{position:absolute;top:4px;right:4px;background:rgba(0,0,0,.55);color:#fff}
+.fld{display:grid;grid-template-columns:1fr 1.4fr;gap:6px;margin-bottom:6px}.fld input{padding:8px 10px;font-size:13px}[dir=rtl] input,[dir=rtl] textarea{text-align:right}</style>
+</head>
+<body>
+%%ICONS%%
+<div class="wrap" id="app"></div>
+<input type="file" id="pick" accept="image/*" class="hide">
+<input type="file" id="cam" accept="image/*" capture="environment" class="hide">
+%%KIT%%
+<script>
+(function(){
+var t=K.t,esc=K.esc,ic=K.ic,S=K.S,api=K.api;
+var DOCS=['birth','passport','diploma','transcript','marriage','other'],LANGS=[['en','English'],['ar','العربية'],['so','Soomaali']];
+var T={doc:'birth',to:'en',pages:[],res:null,history:null,busy:false,token:''};
+function loadScript(src){return new Promise(function(r,j){var s=document.createElement('script');s.src=src;s.onload=r;s.onerror=j;document.head.appendChild(s)})}
+/* Render the translation to A4 canvases (the browser shapes Arabic correctly), then wrap them into a PDF with pdf-lib. */
+function buildPdf(res){var W=1240,H=1754,M=96,rtl=res.target==='ar',pages=[],c,x,y;
+ function newPage(){c=document.createElement('canvas');c.width=W;c.height=H;x=c.getContext('2d');x.fillStyle='#fff';x.fillRect(0,0,W,H);x.fillStyle='#111';x.direction=rtl?'rtl':'ltr';x.textAlign=rtl?'right':'left';y=M;pages.push(c)}
+ function X(){return rtl?W-M:M}
+ function wrap(text,font,lh,maxW,indent){x.font=font;String(text||'').split('\n').forEach(function(par){var words=par.split(' '),line='';words.forEach(function(w){var test=line?line+' '+w:w;if(x.measureText(test).width>maxW&&line){draw(line);line=w}else line=test});draw(line)});
+  function draw(l){if(y+lh>H-M-60)newPage(),x.font=font;x.fillText(l,X()+(rtl?-(indent||0):(indent||0)),y+lh*0.8);y+=lh}}
+ newPage();x.font='600 22px Arial';x.fillStyle='#667';x.fillText((res.labels&&res.labels.header)||'TRANSLATION',X(),y+20);y+=44;x.fillStyle='#111';
+ wrap(res.title||'',"700 40px Georgia, 'Times New Roman', serif",52,W-2*M);y+=8;x.fillStyle='#556';wrap((res.labels&&res.labels.from||'Translated from')+' '+(res.source_language||'')+' → '+(res.target_name||''),'400 22px Arial',32,W-2*M);x.fillStyle='#111';
+ y+=14;x.fillRect(M,y,W-2*M,2);y+=26;
+ (res.fields||[]).forEach(function(f){var lw=(W-2*M)*0.36;x.font='600 24px Arial';var startY=y;x.fillStyle='#556';
+  var savedY=y;wrap(f.label,'600 24px Arial',34,lw-20);var endL=y;y=savedY;x.fillStyle='#111';wrap(f.value,'400 26px Arial',36,W-2*M-lw,lw);y=Math.max(y,endL)+10;x.fillStyle='#e3e6ea';x.fillRect(M,y-4,W-2*M,1);x.fillStyle='#111';y+=8});
+ if(res.body){y+=16;wrap(res.body,'400 26px Arial',38,W-2*M)}
+ pages.forEach(function(pc,i){var cx=pc.getContext('2d');cx.direction=rtl?'rtl':'ltr';cx.textAlign=rtl?'right':'left';cx.fillStyle='#777';cx.font='400 18px Arial';
+  cx.fillText((res.labels&&res.labels.disclaimer)||'Unofficial translation prepared with automated tools. Not a certified translation.',rtl?W-M:M,H-M+10);cx.textAlign=rtl?'left':'right';cx.fillText((i+1)+' / '+pages.length+' · '+new Date().toISOString().slice(0,10),rtl?M:W-M,H-M+40)});
+ return loadScript('vendor/pdf-lib.min.js').then(function(){return PDFLib.PDFDocument.create()}).then(function(doc){var p=Promise.resolve();pages.forEach(function(pc){p=p.then(function(){return fetch(pc.toDataURL('image/jpeg',0.9)).then(function(r){return r.arrayBuffer()}).then(function(b){return doc.embedJpg(b)}).then(function(img){var pg=doc.addPage([595.28,841.89]);pg.drawImage(img,{x:0,y:0,width:595.28,height:841.89})})})});
+  return p.then(function(){return doc.save()})}).then(function(bytes){return new Blob([bytes],{type:'application/pdf'})})}
+function saveBlob(b,n){var u=URL.createObjectURL(b),a=document.createElement('a');a.href=u;a.download=n;document.body.appendChild(a);a.click();a.remove();setTimeout(function(){URL.revokeObjectURL(u)},60000)}
+function readRes(){document.querySelectorAll('[data-fi]').forEach(function(el){T.res.fields[+el.dataset.fi][el.dataset.k]=el.value});var b=document.getElementById('body');if(b)T.res.body=b.value;var ti=document.getElementById('rtitle');if(ti)T.res.title=ti.value}
+
+K.app({
+ icon:'translate',freeLabel:'Free documents (total)',
+ defaults:{appName:'Document Translator',freeAllowance:1,x_aiModel:'gemini-2.5-flash',plans:[{id:'d1',label:'1 document',days:0,credits:1,usd:3,stars:200,region:'ALL'},{id:'d5',label:'5 documents',days:0,credits:5,usd:12,stars:850,region:'ALL'},{id:'pro_m',label:'Unlimited · 1 month',days:30,credits:0,usd:15,stars:1000,region:'ALL'}]},
+ adminFields:[{key:'x_aiModel',label:'AI model (Gemini)',ph:'gemini-2.5-flash',hint:'Check the current model name and price at ai.google.dev before launch.'}],
+ extraSecrets:{GEMINI_KEY:'Gemini API key (reading + translation)'},
+ strings:{
+ en:{appName:'Document Translator',tagline:'Certificates and IDs into English, Arabic or Somali',new_t:'New translation',doc_type:'Document type',d_birth:'Birth certificate',d_passport:'Passport / ID card',d_diploma:'Diploma / certificate',d_transcript:'Transcript',d_marriage:'Marriage certificate',d_other:'Other document',
+  to:'Translate into',photos:'Photos of the document (up to 3 pages)',camera:'Take photo',gallery:'Choose photo',translate:'Translate',working:'Reading and translating… about 20 seconds.',tips:'Flat surface, good light, whole page visible, no glare.',
+  result:'Translation',review:'Check and correct the details before you download.',title_l:'Title',field:'Field',value:'Value',text:'Full text',download:'Download PDF',send:'Send to my Telegram chat',copy_t:'Copy text',again:'Translate another document',
+  history:'Recent translations',disclaimer:'This is an unofficial translation made with automated tools. For official use, have it checked or certified by a sworn translator.',e_pages:'Add at least one photo.',ai_fail:'Translation is not available right now. You were not charged.',
+  demo_fb:'Demo result — no AI connected yet. Real reading and translation start when the server and AI key are set.',sent:'Sent to your chat'},
+ so:{appName:'Turjumaha Dukumentiyada',tagline:'Shahaadooyinka iyo aqoonsiga u turjun Ingiriisi, Carabi ama Soomaali',new_t:'Turjumaad cusub',doc_type:'Nooca dukumentiga',d_birth:'Shahaadada dhalashada',d_passport:'Baasaboor / kaarka aqoonsiga',d_diploma:'Diblooma / shahaado',d_transcript:'Natiijada (transcript)',d_marriage:'Shahaadada guurka',d_other:'Dukumenti kale',
+  to:'U turjun',photos:'Sawirrada dukumentiga (ilaa 3 bog)',camera:'Sawir qaad',gallery:'Dooro sawir',translate:'Turjun',working:'Waa la akhrinayaa oo la turjumayaa… qiyaastii 20 ilbiriqsi.',tips:'Meel siman, iftiin wanaagsan, bogga oo dhan muuqda, iftiin dib u soo noqonaya ma jiro.',
+  result:'Turjumaadda',review:'Hubi oo sax faahfaahinta ka hor intaadan soo dejin.',title_l:'Cinwaanka',field:'Qaybta',value:'Qiimaha',text:'Qoraalka oo dhan',download:'Soo deji PDF',send:'U dir sheekadayda Telegram',copy_t:'Koobi qoraalka',again:'Turjun dukumenti kale',
+  history:'Turjumaadihii ugu dambeeyay',disclaimer:'Kani waa turjumaad aan rasmi ahayn oo lagu sameeyay qalab toos ah. Isticmaal rasmi ah, ha hubiyo turjubaan la shahaadeeyay.',e_pages:'Ku dar ugu yaraan hal sawir.',ai_fail:'Turjumaaddu hadda ma shaqaynayso. Lacag lagaama jarin.',
+  demo_fb:'Natiijo demo ah — AI weli lama xirin. Akhrinta iyo turjumaadda dhabta ah waxay bilaabanayaan marka server-ka iyo furaha AI la dejiyo.',sent:'Waa loo diray sheekadaada'}},
+ enter:{home:function(){api('trHistory').then(function(r){T.history=r.ok?r.items:[];K.render()})}},
+ screens:{
+  home:function(){var h=K.header(t('appName'),t('tagline'))+'<div class="row" style="margin:-4px 0 12px">'+K.planChip()+'</div>'+K.banners();
+   h+='<div class="card"><label class="f">'+t('doc_type')+'</label><select class="t" id="doc">'+DOCS.map(function(d){return'<option value="'+d+'" '+(T.doc===d?'selected':'')+'>'+t('d_'+d)+'</option>'}).join('')+'</select>'+
+    '<label class="f">'+t('to')+'</label>'+K.seg('to',T.to,LANGS)+'<label class="f">'+t('photos')+'</label>';
+   if(T.pages.length)h+='<div class="pages" style="margin-bottom:10px">'+T.pages.map(function(p,i){return'<div class="pg"><img src="'+p.dataUrl+'" alt=""><button class="mini" data-a="rmpage" data-i="'+i+'">'+ic('x','s')+'</button></div>'}).join('')+'</div>';
+   if(T.pages.length<3)h+='<div class="g2"><button class="btn sm sec2" data-a="cam">'+ic('camera','s')+t('camera')+'</button><button class="btn sm ghost" data-a="gallery">'+ic('images','s')+t('gallery')+'</button></div>';
+   h+='<div class="note" style="margin-top:10px;padding:0">'+ic('info','s')+'<span>'+t('tips')+'</span></div></div>';
+   if(T.busy)h+='<div class="card center"><div class="spin" style="margin:6px auto 10px;color:var(--accent)"></div><p class="m">'+t('working')+'</p></div>';
+   else h+='<button class="btn" data-a="translate" '+(T.pages.length?'':'disabled')+'>'+ic('translate')+t('translate')+'</button>';
+   h+=K.errBox();
+   if(T.history&&T.history.length)h+='<div class="sec">'+t('history')+'</div><div class="card"><ul class="files">'+T.history.slice(0,6).map(function(x){return'<li><div class="thumb">'+ic('file')+'</div><div class="grow"><div class="fn">'+esc(x.title||t('d_'+x.doc))+'</div><div class="fs">'+esc(x.from)+' → '+esc(x.to)+' · '+K.fmtDate(x.created)+'</div></div></li>'}).join('')+'</ul></div>';
+   return h+'<div class="note" style="margin-top:10px">'+ic('shield','s')+'<span>'+t('disclaimer')+'</span></div>'},
+  result:function(){var r=T.res,rtl=r.target==='ar',h=K.header(t('result'),(r.source_language||'')+' → '+(r.target_name||''));
+   if(r.demo)h+='<div class="banner">'+ic('info','s')+'<span>'+t('demo_fb')+'</span></div>';
+   h+='<p class="m" style="margin-bottom:10px">'+t('review')+'</p><div class="card" dir="'+(rtl?'rtl':'ltr')+'"><label class="f">'+t('title_l')+'</label><input class="t" id="rtitle" value="'+esc(r.title)+'"><div style="height:10px"></div>'+
+    (r.fields||[]).map(function(f,i){return'<div class="fld"><input class="t" data-fi="'+i+'" data-k="label" value="'+esc(f.label)+'"><input class="t" data-fi="'+i+'" data-k="value" value="'+esc(f.value)+'"></div>'}).join('')+
+    (r.body!=null?'<label class="f">'+t('text')+'</label><textarea class="t" id="body" style="min-height:140px">'+esc(r.body)+'</textarea>':'')+'</div>';
+   h+='<button class="btn" data-a="pdf">'+ic('download')+t('download')+'</button>'+(K.IN_TG&&!K.DEMO?'<button class="btn sec2" data-a="send">'+ic('send')+t('send')+'</button>':'')+'<button class="btn ghost" data-a="copyt">'+ic('copy')+t('copy_t')+'</button><button class="btn ghost" data-a="again">'+ic('refresh')+t('again')+'</button>';
+   return h+'<div class="note" style="margin-top:10px">'+ic('shield','s')+'<span>'+t('disclaimer')+'</span></div>'+K.errBox()}
+ },
+ onSeg:function(n,v){if(n==='to'){T.doc=document.getElementById('doc').value;T.to=v;K.render()}},
+ actions:{
+  cam:function(){T.doc=document.getElementById('doc').value;document.getElementById('cam').click()},
+  gallery:function(){T.doc=document.getElementById('doc').value;document.getElementById('pick').click()},
+  rmpage:function(el,d){T.pages.splice(+d.i,1);K.render()},
+  translate:function(){T.doc=document.getElementById('doc').value;if(!T.pages.length){S.err=t('e_pages');return K.render()}
+   if(!S.me.access.entitled)return K.paywall({title:t('appName'),text:t('tagline'),icon:'translate',features:['PDF','English · العربية · Soomaali',t('send')],after:function(){K.home()}});
+   T.busy=true;S.err='';K.render();
+   api('trTranslate',{doc:T.doc,to:T.to,lang:K.lang(),pages:T.pages.map(function(p){return{data:p.b64,mime:p.mime}})}).then(function(r){T.busy=false;
+    if(r.ok&&r.allowed===false){K.render();return K.paywall({title:t('appName'),text:t('tagline'),icon:'translate',after:function(){K.home()}})}
+    if(!r.ok){S.err=r.error==='network'?t('e_net'):t('ai_fail');return K.render()}
+    if(r.access)S.me.access=r.access;else K.refreshMe();T.res=r.result;T.token=r.token||'';T.pages=[];K.haptic('ok');K.go('result')})},
+  pdf:function(){readRes();buildPdf(T.res).then(function(b){saveBlob(b,(T.res.title||'translation').replace(/[^\w\- ]+/g,'').slice(0,40)+'.pdf')}).catch(function(e){console.error(e);S.err=t('e_gen');K.render()})},
+  send:function(){readRes();K.toast('…');buildPdf(T.res).then(function(b){return new Promise(function(r){var f=new FileReader();f.onload=function(){r(String(f.result).split(',')[1])};f.readAsDataURL(b)})}).then(function(b64){
+   return api('sendFile',{token:T.token,name:'translation.pdf',mime:'application/pdf',data:b64})}).then(function(r){if(r.ok)K.toast(t('sent'));else if(r.error==='write_access'&&K.TG.requestWriteAccess)K.TG.requestWriteAccess();else K.toast(t('e_gen'))})},
+  copyt:function(){readRes();var r=T.res;K.copy([r.title].concat((r.fields||[]).map(function(f){return f.label+': '+f.value}),[r.body||'']).join('\n'))},
+  again:function(){T.res=null;K.home()}
+ },
+ demoSeed:function(){return{history:[]}},
+ demo:{
+  trHistory:function(d,s){return{ok:true,items:s.app.history}},
+  trTranslate:function(d,s){var a=K.S.me.access;if(!a.entitled)return{ok:true,allowed:false};if(a.reason==='free')s.freeUsed++;else if(a.reason==='credits')s.credits--;
+   var ar=d.to==='ar',so=d.to==='so',names={en:'English',ar:'العربية',so:'Soomaali'};
+   var L=ar?['الاسم الكامل','تاريخ الميلاد','مكان الميلاد','اسم الأب','اسم الأم','رقم الشهادة']:so?['Magaca oo buuxa','Taariikhda dhalashada','Goobta dhalashada','Magaca aabbaha','Magaca hooyada','Lambarka shahaadada']:['Full name','Date of birth','Place of birth','Father\'s name','Mother\'s name','Certificate number'];
+   var res={demo:true,target:d.to,target_name:names[d.to],source_language:'Somali',title:ar?'شهادة ميلاد':so?'Shahaadada Dhalashada':'Birth Certificate',
+    fields:[{label:L[0],value:'[Sample] Amina Ali Hassan'},{label:L[1],value:'2001-03-14'},{label:L[2],value:'[Sample city]'},{label:L[3],value:'[Sample] Ali Hassan'},{label:L[4],value:'[Sample] Hodan Ahmed'},{label:L[5],value:'0000000'}],body:'',
+    labels:{header:ar?'ترجمة':so?'TURJUMAAD':'TRANSLATION',from:ar?'مترجم من':so?'Laga turjumay':'Translated from',disclaimer:ar?'ترجمة غير رسمية أُعدت بأدوات آلية. ليست ترجمة معتمدة.':so?'Turjumaad aan rasmi ahayn oo lagu sameeyay qalab toos ah. Ma aha turjumaad la shahaadeeyay.':'Unofficial translation prepared with automated tools. Not a certified translation.'}};
+   s.app.history.unshift({doc:d.doc,title:res.title,from:'Somali',to:names[d.to],created:new Date().toISOString()});return{ok:true,allowed:true,result:res,token:'demo'}}
+ }
+});
+function onPick(e){var fs=[].slice.call(e.target.files||[]).slice(0,3-T.pages.length);e.target.value='';
+ Promise.all(fs.map(function(f){return K.fileB64(f,1800,0.85)})).then(function(list){T.pages=T.pages.concat(list);S.err='';K.render()}).catch(function(){S.err=t('e_gen');K.render()})}
+document.getElementById('pick').addEventListener('change',onPick);document.getElementById('cam').addEventListener('change',onPick);
+})();
+</script>
+</body>
+</html>
