@@ -1,0 +1,441 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex,nofollow">
+<meta name="color-scheme" content="light dark">
+<title>Channel Pass</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<script src="config.js"></script>
+<style>
+:root{
+  --bg:var(--tg-theme-secondary-bg-color,#f2f4f7);
+  --card:var(--tg-theme-section-bg-color,var(--tg-theme-bg-color,#ffffff));
+  --text:var(--tg-theme-text-color,#101828);
+  --hint:var(--tg-theme-hint-color,#667085);
+  --accent:var(--tg-theme-button-color,#2457d6);
+  --accent-text:var(--tg-theme-button-text-color,#ffffff);
+  --link:var(--tg-theme-link-color,#2457d6);
+  --sep:var(--tg-theme-section-separator-color,rgba(128,128,128,.2));
+  --danger:var(--tg-theme-destructive-text-color,#d92d20);
+  --ok:#12b76a;
+  --soft:color-mix(in srgb,var(--accent) 10%,transparent);
+  --r:14px;
+}
+@media (prefers-color-scheme:dark){:root{
+  --bg:var(--tg-theme-secondary-bg-color,#0e1116);
+  --card:var(--tg-theme-section-bg-color,var(--tg-theme-bg-color,#171b22));
+  --text:var(--tg-theme-text-color,#e6e9ef);
+  --hint:var(--tg-theme-hint-color,#8b93a1);
+  --accent:var(--tg-theme-button-color,#4c7cf0);
+  --link:var(--tg-theme-link-color,#6f97f5);
+}}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;background:var(--bg);color:var(--text)}
+body{font:15px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Noto Sans",Arial,sans-serif;min-height:100vh}
+button,input,select{font:inherit;color:inherit}
+.wrap{max-width:560px;margin:0 auto;padding:12px 16px 40px}
+.top{display:flex;align-items:center;gap:10px;padding:6px 0 14px}
+.logo{width:36px;height:36px;border-radius:10px;background:var(--accent);color:var(--accent-text);display:grid;place-items:center;flex:none}
+.top h1{font-size:18px;margin:0;font-weight:650;letter-spacing:-.01em}
+.top .sub{font-size:12px;color:var(--hint)}
+.grow{flex:1;min-width:0}
+.ibtn{width:36px;height:36px;border-radius:10px;border:1px solid var(--sep);background:var(--card);display:grid;place-items:center;cursor:pointer;flex:none}
+.lang{display:flex;border:1px solid var(--sep);border-radius:10px;overflow:hidden;background:var(--card);flex:none}
+.lang button{border:0;background:none;padding:7px 10px;font-size:12px;font-weight:650;color:var(--hint);cursor:pointer}
+.lang button.on{background:var(--accent);color:var(--accent-text)}
+svg.i{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.75;stroke-linecap:round;stroke-linejoin:round;flex:none}
+svg.i.s{width:16px;height:16px}svg.i.l{width:26px;height:26px}
+.chip{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;padding:5px 10px;border-radius:999px;background:var(--soft);color:var(--accent);border:0;cursor:pointer}
+.chip.warn{background:color-mix(in srgb,var(--danger) 12%,transparent);color:var(--danger)}
+.chip.good{background:color-mix(in srgb,var(--ok) 14%,transparent);color:var(--ok)}
+.card{background:var(--card);border-radius:var(--r);padding:16px;margin:0 0 12px;border:1px solid var(--sep)}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px}
+.tool{background:var(--card);border:1px solid var(--sep);border-radius:var(--r);padding:14px;text-align:left;cursor:pointer;display:flex;flex-direction:column;gap:10px;min-height:128px}
+.tool:active{transform:scale(.985)}
+.tool .ic{width:40px;height:40px;border-radius:11px;background:var(--soft);color:var(--accent);display:grid;place-items:center}
+.tool b{font-size:14.5px;font-weight:650}
+.tool span{font-size:12.5px;color:var(--hint);line-height:1.35}
+.tool.dis{opacity:.55;cursor:default}
+.tag{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--hint);border:1px solid var(--sep);border-radius:6px;padding:2px 6px;align-self:flex-start}
+.sec{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--hint);margin:18px 4px 8px}
+.note{display:flex;gap:10px;align-items:flex-start;font-size:12.5px;color:var(--hint);padding:4px 4px}
+.btn{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;border:0;border-radius:12px;padding:13px 16px;font-weight:650;background:var(--accent);color:var(--accent-text);cursor:pointer;text-decoration:none}
+.btn:disabled{opacity:.5;cursor:default}
+.btn.sec2{background:var(--soft);color:var(--accent)}
+.btn.ghost{background:transparent;color:var(--accent);border:1px solid var(--sep)}
+.btn.sm{padding:9px 12px;font-size:13.5px;width:auto}
+.btn+.btn{margin-top:8px}
+.row{display:flex;gap:8px;align-items:center}
+.drop{border:1.5px dashed var(--sep);border-radius:var(--r);padding:26px 16px;text-align:center;cursor:pointer;background:var(--card);display:flex;flex-direction:column;align-items:center;gap:8px;width:100%}
+.drop .ic{width:48px;height:48px;border-radius:14px;background:var(--soft);color:var(--accent);display:grid;place-items:center}
+.drop small{color:var(--hint)}
+.files{list-style:none;margin:0;padding:0}
+.files li{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--sep)}
+.files li:last-child{border-bottom:0}
+.thumb{width:40px;height:40px;border-radius:8px;background:var(--soft);color:var(--accent);display:grid;place-items:center;overflow:hidden;flex:none}
+.thumb img{width:100%;height:100%;object-fit:cover}
+.fn{font-size:13.5px;font-weight:550;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.fs{font-size:12px;color:var(--hint)}
+.mini{width:30px;height:30px;border-radius:8px;border:0;background:transparent;color:var(--hint);display:grid;place-items:center;cursor:pointer;flex:none}
+.mini:disabled{opacity:.3}
+label.f{display:block;font-size:12.5px;font-weight:600;color:var(--hint);margin:12px 0 6px}
+label.f:first-child{margin-top:0}
+.seg{display:flex;background:var(--bg);border-radius:10px;padding:3px;gap:3px}
+.seg button{flex:1;border:0;background:transparent;padding:8px 6px;border-radius:8px;font-size:13px;font-weight:600;color:var(--hint);cursor:pointer}
+.seg button.on{background:var(--card);color:var(--text);box-shadow:0 1px 2px rgba(0,0,0,.08)}
+input.t,select.t,textarea.t{width:100%;border:1px solid var(--sep);background:var(--bg);border-radius:10px;padding:10px 12px;outline:none}
+input.t:focus,select.t:focus{border-color:var(--accent)}
+.opt{display:flex;flex-direction:column;gap:6px}
+.radio{display:flex;align-items:center;gap:10px;padding:11px 12px;border:1px solid var(--sep);border-radius:12px;cursor:pointer;background:var(--card)}
+.radio.on{border-color:var(--accent);background:var(--soft)}
+.dot{width:18px;height:18px;border-radius:50%;border:1.5px solid var(--hint);flex:none;display:grid;place-items:center}
+.radio.on .dot{border-color:var(--accent)}
+.radio.on .dot:after{content:"";width:9px;height:9px;border-radius:50%;background:var(--accent)}
+.bar{height:6px;border-radius:6px;background:var(--bg);overflow:hidden;margin:10px 0 6px}
+.bar i{display:block;height:100%;background:var(--accent);width:0;transition:width .2s}
+.err{color:var(--danger);font-size:13px;display:flex;gap:8px;align-items:flex-start;margin-top:10px}
+.okmsg{color:var(--ok);font-size:13px;display:flex;gap:8px;align-items:center;margin-top:10px}
+.center{text-align:center}
+.big{width:56px;height:56px;border-radius:16px;display:grid;place-items:center;margin:4px auto 10px;background:var(--soft);color:var(--accent)}
+.big.good{background:color-mix(in srgb,var(--ok) 14%,transparent);color:var(--ok)}
+h2{font-size:17px;margin:0 0 4px;font-weight:650}
+p.m{margin:0;color:var(--hint);font-size:13.5px}
+.feat{list-style:none;padding:0;margin:12px 0 0}
+.feat li{display:flex;gap:10px;align-items:center;padding:5px 0;font-size:14px}
+.feat svg{color:var(--ok)}
+.price{font-weight:700;margin-left:auto;text-align:right;font-size:14px}
+.price small{display:block;font-weight:500;color:var(--hint);font-size:11.5px}
+.kv{display:flex;align-items:center;gap:8px;padding:10px 12px;border:1px solid var(--sep);border-radius:10px;background:var(--bg);margin-bottom:8px}
+.kv code{font:600 13px/1.3 ui-monospace,SFMono-Regular,Menlo,monospace;word-break:break-all;flex:1}
+.kv .k{font-size:11.5px;color:var(--hint);display:block;font-weight:600}
+.toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:var(--text);color:var(--card);padding:10px 16px;border-radius:10px;font-size:13.5px;z-index:9;max-width:90%;box-shadow:0 6px 24px rgba(0,0,0,.2)}
+.banner{display:flex;gap:10px;align-items:flex-start;font-size:12.5px;padding:10px 12px;border-radius:12px;background:var(--soft);color:var(--text);margin-bottom:12px}
+.banner svg{color:var(--accent);margin-top:1px}
+table.pl{width:100%;border-collapse:collapse;font-size:13px}
+.plan{border:1px solid var(--sep);border-radius:12px;padding:10px;margin-bottom:8px;display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.plan .full{grid-column:1/-1}
+.plan input,.plan select{padding:8px 10px;font-size:13px}
+.sw{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:6px 0}
+.tgl{width:44px;height:26px;border-radius:13px;background:var(--sep);border:0;position:relative;cursor:pointer;flex:none}
+.tgl:after{content:"";position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:50%;background:#fff;transition:left .15s;box-shadow:0 1px 2px rgba(0,0,0,.2)}
+.tgl.on{background:var(--accent)}.tgl.on:after{left:21px}
+.stat{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
+.stat div{background:var(--bg);border-radius:10px;padding:10px}
+.stat b{display:block;font-size:18px}
+.stat span{font-size:11.5px;color:var(--hint)}
+.spin{width:18px;height:18px;border:2px solid currentColor;border-right-color:transparent;border-radius:50%;animation:sp .7s linear infinite}
+@keyframes sp{to{transform:rotate(360deg)}}
+.hide{display:none!important}
+.foot{text-align:center;color:var(--hint);font-size:11.5px;margin-top:18px}
+</style>
+<style>
+textarea.t{min-height:84px;resize:vertical;font:inherit}
+.chrow{display:flex;align-items:center;gap:12px;padding:12px;border:1px solid var(--sep);border-radius:var(--r);background:var(--card);margin-bottom:10px;cursor:pointer;width:100%;text-align:left}
+.av{width:42px;height:42px;border-radius:12px;background:var(--soft);color:var(--accent);display:grid;place-items:center;font-weight:700;flex:none}
+.tabs{display:flex;gap:6px;margin-bottom:12px}
+.tabs button{flex:1;border:1px solid var(--sep);background:var(--card);border-radius:10px;padding:9px;font-weight:600;font-size:13.5px;color:var(--hint);cursor:pointer}
+.tabs button.on{background:var(--accent);color:var(--accent-text);border-color:var(--accent)}
+ol.steps{margin:0;padding-left:20px}ol.steps li{margin:6px 0;font-size:14px}
+.split{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-logo" viewBox="0 0 24 24"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/><path d="M9 13h6M9 17h4"/></symbol>
+  <symbol id="i-file" viewBox="0 0 24 24"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/></symbol>
+  <symbol id="i-images" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="8.5" cy="10" r="1.5"/><path d="M21 15.5l-4.5-4.5L7 19"/></symbol>
+  <symbol id="i-merge" viewBox="0 0 24 24"><path d="M7 4v4a5 5 0 0 0 5 5 5 5 0 0 0 5-5V4"/><path d="M12 13v7"/><path d="M9 17l3 3 3-3"/></symbol>
+  <symbol id="i-split" viewBox="0 0 24 24"><path d="M12 4v7"/><path d="M12 11a5 5 0 0 0-5 5v4"/><path d="M12 11a5 5 0 0 1 5 5v4"/><path d="M9 7l3-3 3 3"/></symbol>
+  <symbol id="i-pdfimg" viewBox="0 0 24 24"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/><circle cx="10" cy="12" r="1.3"/><path d="M8 18l3.5-3.5 2 2L15 15l1.5 3"/></symbol>
+  <symbol id="i-word" viewBox="0 0 24 24"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/><path d="M8 12l1.3 5 1.7-4 1.7 4 1.3-5"/></symbol>
+  <symbol id="i-compress" viewBox="0 0 24 24"><path d="M4 14h6v6"/><path d="M20 10h-6V4"/><path d="M14 10l7-7"/><path d="M3 21l7-7"/></symbol>
+  <symbol id="i-settings" viewBox="0 0 24 24"><path d="M4 6h9M17 6h3M4 12h3M11 12h9M4 18h11M19 18h1"/><circle cx="15" cy="6" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="17" cy="18" r="2"/></symbol>
+  <symbol id="i-back" viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></symbol>
+  <symbol id="i-up" viewBox="0 0 24 24"><path d="M18 15l-6-6-6 6"/></symbol>
+  <symbol id="i-down" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></symbol>
+  <symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12"/></symbol>
+  <symbol id="i-upload" viewBox="0 0 24 24"><path d="M12 15V4M7 9l5-5 5 5"/><path d="M4 15v4a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-4"/></symbol>
+  <symbol id="i-download" viewBox="0 0 24 24"><path d="M12 4v11M7 10l5 5 5-5"/><path d="M4 15v4a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-4"/></symbol>
+  <symbol id="i-send" viewBox="0 0 24 24"><path d="M21 3L10 14"/><path d="M21 3l-6.5 18-4.5-7-7-4.5z"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></symbol>
+  <symbol id="i-lock" viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7.5a4 4 0 0 1 8 0V11"/></symbol>
+  <symbol id="i-star" viewBox="0 0 24 24"><path d="M12 3.5l2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.9l-5.2 2.7 1-5.8-4.3-4.1 5.9-.9z"/></symbol>
+  <symbol id="i-wallet" viewBox="0 0 24 24"><path d="M19 7V5.5A1.5 1.5 0 0 0 17.5 4H5a2 2 0 0 0 0 4h14a1 1 0 0 1 1 1v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6"/><path d="M16 14h.01"/></symbol>
+  <symbol id="i-phone" viewBox="0 0 24 24"><rect x="7" y="2.5" width="10" height="19" rx="2"/><path d="M11 18h2"/></symbol>
+  <symbol id="i-copy" viewBox="0 0 24 24"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V6a2 2 0 0 1 2-2h8"/></symbol>
+  <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.4-5.7L20 8.5"/><path d="M20 4v4.5h-4.5"/></symbol>
+  <symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 3l7.5 3v6c0 4.6-3.2 7.8-7.5 9-4.3-1.2-7.5-4.4-7.5-9V6z"/><path d="M9 12l2 2 4-4"/></symbol>
+  <symbol id="i-zip" viewBox="0 0 24 24"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/><path d="M10 4v1.5M10 8v1.5M10 12v1.5"/><rect x="8.5" y="15" width="3" height="3" rx=".8"/></symbol>
+  <symbol id="i-alert" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7.5v5.5M12 16.5h.01"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+  <symbol id="i-user" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></symbol>
+  <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></symbol>
+  <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v5.5M12 7.5h.01"/></symbol>
+</svg>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-channel" viewBox="0 0 24 24"><path d="M4 10v4a1 1 0 0 0 1 1h2l5 4V5L7 9H5a1 1 0 0 0-1 1z"/><path d="M16 9a4 4 0 0 1 0 6M18.5 6.5a8 8 0 0 1 0 11"/></symbol>
+  <symbol id="i-users" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><path d="M16 4.5a3.5 3.5 0 0 1 0 7M18 14a6 6 0 0 1 3.5 6"/></symbol>
+  <symbol id="i-link" viewBox="0 0 24 24"><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/></symbol>
+  <symbol id="i-chart" viewBox="0 0 24 24"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></symbol>
+  <symbol id="i-ext" viewBox="0 0 24 24"><path d="M14 4h6v6M20 4l-9 9"/><path d="M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></symbol>
+</svg>
+<div class="wrap" id="app"></div>
+<script>
+(function(){
+'use strict';
+var CFG=Object.assign({appId:'gatekeeper',apiUrl:'',botUsername:'',appShortName:'',defaultLang:'en',version:'1.0.0'},window.APP_CONFIG||{});
+var TG=(window.Telegram&&window.Telegram.WebApp)||null,IN_TG=!!(TG&&TG.initData),TGU=(IN_TG&&TG.initDataUnsafe.user)||null;
+var QS=new URLSearchParams(location.search),START=(IN_TG&&TG.initDataUnsafe.start_param)||QS.get('startapp')||'';
+var KEY=QS.get('c')||(/^c_/.test(START)?START.slice(2):'');
+var EDITION=/local/i.test(START)||QS.get('edition')==='local'?'local':'global',DEMO=!CFG.apiUrl;
+function lsGet(k,d){try{var v=localStorage.getItem(k);return v==null?d:JSON.parse(v)}catch(e){return d}}
+function lsSet(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}
+
+var L={en:{
+ appName:'Channel Pass',tagline:'Sell access to your private channel',
+ t_channels:'My channels',t_subs:'My subscriptions',add:'Add a channel',none_ch:'No channels yet. Add your first private channel to start selling access.',
+ none_sub:'You have no active subscriptions.',members:'{n} members',active:'Live',paused:'Not published',notready:'Bot rights missing',
+ how_title:'Connect a channel',s1:'Open your private channel or group → Administrators → Add admin.',s2:'Search for the bot @{bot} and add it.',
+ s3:'Allow “Invite users via link” and “Ban users”. Save.',s4:'Come back here and tap Refresh. Your channel appears automatically.',refresh:'Refresh',
+ edit:'Channel',desc:'Description shown to buyers',plans:'Plans',plan_label:'Name',days:'Days',usd:'Price USD',stars:'Stars',add_plan:'Add plan',remove:'Remove',
+ payout:'Your payout details (USDT address or mobile money number)',publish:'Published',publish_sub:'Buyers can see and pay for this channel.',
+ save:'Save',saved:'Saved',share:'Share link',share_sub:'Post this link anywhere. Buyers pay, the bot lets them in and removes them when the plan ends.',
+ new_link:'New invite link',earn:'Earnings',gross:'Gross',fee:'Platform fee',net:'You receive',orders:'Orders',
+ choose:'Choose a plan',pay_with:'Pay with',d_days:'{n} days',active_until:'Your access is active until {d}.',join:'Open channel',renew:'Extend access',
+ test_join:'Test mode: get access without paying',not_found:'This channel is not available.',
+ stars_m:'Telegram Stars',usdt_trc20:'USDT · TRC20',usdt_bep20:'USDT · BEP20',evc:'EVC Plus',zaad:'Zaad',sahal:'Sahal',mpesa:'M-Pesa',
+ send_exact:'Send exactly this amount',network:'Network',address:'Address',amount:'Amount',copied:'Copied',check_pay:'I have paid — check now',
+ not_yet:'Not received yet. Blockchain confirmation can take a few minutes.',usdt_note:'Send USDT on the {net} network only. The exact amount identifies your order.',
+ mm_text:'Send {a} to {n} using {m}, then enter the transaction ID below.',txid:'Transaction ID',submit:'Submit',
+ pending:'Submitted. Your access opens as soon as the payment is confirmed.',verify_phone:'Verify phone number',verify_text:'Local payment methods need a verified phone number.',
+ paid_ok:'Payment confirmed. The bot has sent you the join link.',no_methods:'Payments are not set up yet.',
+ demo_banner:'Demo mode — no server connected. Data is saved on this device only.',test_banner:'Test mode is ON.',
+ pay_demo:'Demo: simulate a successful payment?',open_in_tg:'Open this app inside Telegram to pay with Stars.',e_gen:'Something went wrong. Please try again.',e_net:'Connection problem. Please try again.',
+ settings:'Settings',back:'Back',until:'until {d}'
+},so:{
+ appName:'Channel Pass',tagline:'Iibi galitaanka kanaalkaaga gaarka ah',
+ t_channels:'Kanaalladayda',t_subs:'Isdiiwaangelintayda',add:'Ku dar kanaal',none_ch:'Weli kanaal ma jiro. Ku dar kanaalkaaga gaarka ah si aad u bilowdo iibinta.',
+ none_sub:'Ma lihid isdiiwaangelin firfircoon.',members:'{n} xubnood',active:'Shaqaynaya',paused:'Lama daabicin',notready:'Awoodaha bot-ka ayaa maqan',
+ how_title:'Ku xir kanaal',s1:'Fur kanaalkaaga ama kooxdaada → Maamulayaasha → Ku dar maamule.',s2:'Raadi bot-ka @{bot} oo ku dar.',
+ s3:'Oggolow “Ku casuun isticmaalayaal link” iyo “Mamnuuc isticmaalayaal”. Keydi.',s4:'Halkan ku soo noqo oo taabo Cusboonaysii. Kanaalkaagu si toos ah ayuu u soo muuqanayaa.',refresh:'Cusboonaysii',
+ edit:'Kanaalka',desc:'Sharaxaadda iibsadayaasha loo muujinayo',plans:'Qorshayaasha',plan_label:'Magaca',days:'Maalmo',usd:'Qiimaha USD',stars:'Stars',add_plan:'Ku dar qorshe',remove:'Ka saar',
+ payout:'Faahfaahinta lacag-bixintaada (cinwaan USDT ama lambar lacag mobile)',publish:'La daabacay',publish_sub:'Iibsadayaashu way arki karaan oo bixin karaan.',
+ save:'Keydi',saved:'Waa la keydiyay',share:'Link-ga la wadaago',share_sub:'Link-gan meel kasta dhig. Iibsaduhu wuu bixiyaa, bot-ku wuu soo galiyaa, marka qorshuhu dhammaadana wuu saaraa.',
+ new_link:'Link casuumad cusub',earn:'Dakhliga',gross:'Wadarta',fee:'Khidmadda',net:'Waxaad helaysaa',orders:'Dalabyada',
+ choose:'Dooro qorshe',pay_with:'Ku bixi',d_days:'{n} maalmood',active_until:'Galitaankaagu wuu shaqaynayaa ilaa {d}.',join:'Fur kanaalka',renew:'Kordhi muddada',
+ test_join:'Habka tijaabada: hel galitaan lacag la\'aan',not_found:'Kanaalkan lama heli karo.',
+ stars_m:'Telegram Stars',usdt_trc20:'USDT · TRC20',usdt_bep20:'USDT · BEP20',evc:'EVC Plus',zaad:'Zaad',sahal:'Sahal',mpesa:'M-Pesa',
+ send_exact:'Dir qadarkan oo sax ah',network:'Shabakadda',address:'Cinwaanka',amount:'Qadarka',copied:'Waa la koobiyeeyay',check_pay:'Waan bixiyay — hubi hadda',
+ not_yet:'Weli lama helin. Xaqiijintu waxay qaadan kartaa dhowr daqiiqo.',usdt_note:'USDT ku dir shabakadda {net} oo keliya. Qadarka saxda ah ayaa aqoonsanaya dalabkaaga.',
+ mm_text:'U dir {a} lambarka {n} adigoo isticmaalaya {m}, kadib geli aqoonsiga macaamilka hoose.',txid:'Aqoonsiga macaamilka',submit:'Gudbi',
+ pending:'Waa la gudbiyay. Galitaanku wuu furmayaa marka lacagta la xaqiijiyo.',verify_phone:'Xaqiiji lambarka taleefanka',verify_text:'Hababka lacag-bixinta gudaha waxay u baahan yihiin lambar la xaqiijiyay.',
+ paid_ok:'Lacag-bixinta waa la xaqiijiyay. Bot-ku wuxuu kuu soo diray link-ga.',no_methods:'Lacag-bixinta weli lama diyaarin.',
+ demo_banner:'Habka demo — server lama xirin. Xogta waxaa lagu keydiyaa qalabkan oo keliya.',test_banner:'Habka tijaabada waa SHIDAN yahay.',
+ pay_demo:'Demo: ma la jilaa lacag-bixin guulaysatay?',open_in_tg:'App-kan ka fur Telegram si aad Stars ugu bixiso.',e_gen:'Khalad ayaa dhacay. Fadlan isku day mar kale.',e_net:'Dhibaato xiriir. Fadlan isku day mar kale.',
+ settings:'Dejinta',back:'Dib',until:'ilaa {d}'
+}};
+var LANG=lsGet('gk_lang',null)||(EDITION==='local'||(TGU&&TGU.language_code==='so')?'so':CFG.defaultLang);
+function t(k,v){var s=(L[LANG]&&L[LANG][k])||L.en[k]||k;if(v)for(var x in v)s=s.split('{'+x+'}').join(v[x]);return s}
+function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]})}
+function ic(n,c){return'<svg class="i '+(c||'')+'"><use href="#i-'+n+'"/></svg>'}
+function fmtDate(s){var d=new Date(s);return isNaN(d)?'':d.toISOString().slice(0,10)}
+function money(n){return'$'+(+n||0).toFixed(2)}
+var toastT;function toast(m){var el=document.querySelector('.toast');if(!el){el=document.createElement('div');el.className='toast';document.body.appendChild(el)}el.textContent=m;el.classList.remove('hide');clearTimeout(toastT);toastT=setTimeout(function(){el.classList.add('hide')},2400)}
+function copy(x){(navigator.clipboard?navigator.clipboard.writeText(x):Promise.reject()).then(function(){toast(t('copied'))},function(){var ta=document.createElement('textarea');ta.value=x;document.body.appendChild(ta);ta.select();try{document.execCommand('copy');toast(t('copied'))}catch(e){}ta.remove()})}
+function openLink(u){if(!u)return;if(IN_TG&&/^https:\/\/t\.me\//.test(u))TG.openTelegramLink(u);else window.open(u,'_blank')}
+function shareUrl(key){if(CFG.botUsername&&CFG.appShortName)return'https://t.me/'+CFG.botUsername+'/'+CFG.appShortName+'?startapp=c_'+key;
+  if(CFG.botUsername)return'https://t.me/'+CFG.botUsername+'?start=c_'+key;return location.origin+location.pathname+'?c='+key}
+
+/* ---------- DEMO backend ---------- */
+var LOCAL_METHODS=['evc','zaad','sahal','mpesa'];
+function demoDefaults(){return{testMode:true,x_feePercent:5,appName:'Channel Pass',supportContact:'',localPrefixes:'252',plans:[],freeAllowance:0,freeMaxMB:0,paidMaxMB:0,
+  methods:{stars:true,usdt_trc20:'',usdt_bep20:'',evc:'',zaad:'',sahal:'',mpesa:''}}}
+var Demo={
+ st:function(){var s=lsGet('gk_demo_v1',null);if(!s){s={settings:demoDefaults(),channels:[{key:'demo1',title:'Demo Trading Signals',username:'',description:'Daily signals and market notes. Members get every post the moment it is published.',status:'active',botOk:true,
+   plans:[{id:'p1',label:'1 month',days:30,usd:5,stars:350},{id:'p2',label:'3 months',days:90,usd:12,stars:850}],payout:'',inviteLink:'https://t.me/+demoInvite'}],members:[],orders:[]}}return s},
+ sv:function(s){lsSet('gk_demo_v1',s)},
+ ch:function(s,k){return s.channels.filter(function(c){return c.key===k})[0]},
+ mem:function(s,k){var now=new Date();return s.members.filter(function(m){return m.key===k&&new Date(m.expiry)>now})[0]},
+ activate:function(s,k,days){var m=this.mem(s,k),base=m?new Date(m.expiry):new Date();base.setDate(base.getDate()+(+days||30));if(m)m.expiry=base.toISOString();else s.members.push({key:k,expiry:base.toISOString()})},
+ rev:function(s,k){var r={usd:0,stars:0,orders:0};s.orders.forEach(function(o){if(o.status==='paid'&&o.plan.indexOf(k+'|')===0){r.orders++;if(o.currency==='XTR')r.stars+=o.amount;else r.usd+=parseFloat(String(o.amount).replace(/[^\d.]/g,''))||0}});return r},
+ handle:function(a,d){var self=this,s=this.st();return new Promise(function(res){setTimeout(function(){var r;try{r=self.run(a,d,s)}catch(e){r={ok:false,error:e.message}}self.sv(s);res(r)},120)})},
+ run:function(a,d,s){var self=this,st=s.settings,region=(EDITION==='local'||s.phoneVerified)?'LOCAL':'GLOBAL',ch,o,p;
+  switch(a){
+  case'init':var m=st.methods,ms=[];if(m.stars)ms.push({id:'stars'});if(m.usdt_trc20)ms.push({id:'usdt_trc20'});if(m.usdt_bep20)ms.push({id:'usdt_bep20'});
+    if(region==='LOCAL')LOCAL_METHODS.forEach(function(k){if(m[k])ms.push({id:k,local:true})});
+    return{ok:true,demo:true,isAdmin:true,verified:false,user:{id:TGU?TGU.id:0},region:region,phoneVerified:!!s.phoneVerified,methods:ms,access:{reason:st.testMode?'test':'free'}};
+  case'gkMine':return{ok:true,feePercent:st.x_feePercent,channels:s.channels.map(function(c){return Object.assign({},c,{members:s.members.filter(function(x){return x.key===c.key&&new Date(x.expiry)>new Date()}).length,revenue:self.rev(s,c.key)})})};
+  case'gkSave':ch=this.ch(s,d.key);if(!ch)return{ok:false};ch.description=d.description;ch.plans=d.plans.filter(function(p){return p.label&&(p.usd>0||p.stars>0)});ch.payout=d.payout;if(d.status)ch.status=d.status;return{ok:true};
+  case'gkRefreshLink':return{ok:true};
+  case'gkChannel':ch=this.ch(s,d.key);if(!ch)return{ok:false,error:'not_found'};var mm=this.mem(s,d.key);return{ok:true,channel:ch,member:mm?{expiry:mm.expiry}:null,inviteLink:mm?ch.inviteLink:''};
+  case'gkMySubs':return{ok:true,subs:s.members.filter(function(m){return new Date(m.expiry)>new Date()}).map(function(m){var c=self.ch(s,m.key)||{};return{key:m.key,title:c.title,expiry:m.expiry,inviteLink:c.inviteLink}})};
+  case'gkTestJoin':ch=this.ch(s,d.key);this.activate(s,d.key,(ch.plans[0]||{days:1}).days);return{ok:true};
+  case'createOrder':var pr=String(d.plan).split('|');ch=this.ch(s,pr[0]);p=ch&&ch.plans.filter(function(x){return x.id===pr[1]})[0];if(!p)return{ok:false,error:'plan'};
+    o={order_id:'D'+Date.now().toString(36),plan:d.plan,method:d.method,status:'pending',days:p.days};
+    if(d.method==='stars'){o.amount=p.stars;o.currency='XTR'}else if(/^usdt/.test(d.method)){o.amount=(+p.usd+Math.floor(Math.random()*9000+1000)/1e6).toFixed(4);o.currency='USDT';o.address=st.methods[d.method];o.network=d.method==='usdt_trc20'?'TRC20 (Tron)':'BEP20 (BNB Smart Chain)'}
+    else{if(!s.phoneVerified)return{ok:false,error:'phone_required'};o.amount=money(p.usd);o.currency='USD';o.number=st.methods[d.method]}
+    s.orders.push(o);return Object.assign({ok:true},o);
+  case'checkOrder':o=s.orders.filter(function(x){return x.order_id===d.order_id})[0];return{ok:true,status:o?o.status:'pending'};
+  case'demoPay':o=s.orders.filter(function(x){return x.order_id===d.order_id})[0];if(o&&o.status!=='paid'){o.status='paid';this.activate(s,o.plan.split('|')[0],o.days)}return{ok:true,status:'paid'};
+  case'submitManual':o=s.orders.filter(function(x){return x.order_id===d.order_id})[0];o.status='review';o.tx_ref=d.txid;return{ok:true,status:'review'};
+  case'demoVerifyPhone':s.phoneVerified=true;return{ok:true};
+  case'adminGet':return{ok:true,settings:st,secrets:{BOT_TOKEN:false,TRONGRID_KEY:false,ETHERSCAN_KEY:false}};
+  case'adminSave':s.settings=Object.assign(demoDefaults(),d.settings);return{ok:true};
+  case'adminSetSecret':return{ok:true};
+  case'adminPending':return{ok:true,items:s.orders.filter(function(x){return x.status==='review'}).map(function(x){return Object.assign({user_id:'demo'},x)})};
+  case'adminDecide':o=s.orders.filter(function(x){return x.order_id===d.order_id})[0];if(d.approve){o.status='paid';this.activate(s,o.plan.split('|')[0],o.days)}else o.status='rejected';return{ok:true};
+  case'adminGk':return{ok:true,feePercent:st.x_feePercent,channels:s.channels.map(function(c){var r=self.rev(s,c.key);return{key:c.key,title:c.title,owner:'demo',payout:c.payout,members:0,revenue:r,owedUsd:Math.round(r.usd*(100-st.x_feePercent))/100,owedStars:Math.floor(r.stars*(100-st.x_feePercent)/100)}})};
+  case'adminResetMe':s.members=[];s.phoneVerified=false;return{ok:true};
+  }return{ok:false,error:'unknown_action'}}
+};
+function api(action,data){data=Object.assign({},data||{});if(DEMO)return Demo.handle(action,data);
+  return fetch(CFG.apiUrl,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},redirect:'follow',
+    body:JSON.stringify(Object.assign({action:action,app:CFG.appId,edition:EDITION,initData:IN_TG?TG.initData:''},data))}).then(function(r){return r.json()}).catch(function(){return{ok:false,error:'network'}})}
+
+/* ---------- state & nav ---------- */
+var S={screen:KEY?'offer':'home',stack:[],tab:'channels',me:null,mine:null,subs:null,edit:null,offer:null,plan:null,payment:null,admin:null,err:''};
+var $app=document.getElementById('app');
+function go(s){S.stack.push(S.screen);S.screen=s;S.err='';render();window.scrollTo(0,0)}
+function back(){S.screen=S.stack.pop()||'home';S.err='';load(S.screen)}
+if(IN_TG)TG.BackButton.onClick(back);
+function header(title,sub){return'<div class="top">'+(S.screen==='home'||S.screen==='offer'&&!S.stack.length||IN_TG?'<div class="logo">'+ic('channel')+'</div>':'<button class="ibtn" data-act="back">'+ic('back')+'</button>')+
+  '<div class="grow"><h1>'+esc(title)+'</h1>'+(sub?'<div class="sub">'+esc(sub)+'</div>':'')+'</div><div class="lang"><button data-lang="so" class="'+(LANG==='so'?'on':'')+'">SO</button><button data-lang="en" class="'+(LANG==='en'?'on':'')+'">EN</button></div>'+
+  (S.me&&S.me.isAdmin?'<button class="ibtn" data-act="settings">'+ic('settings')+'</button>':'')+'</div>'}
+function banners(){var h='';if(DEMO)h+='<div class="banner">'+ic('info','s')+'<span>'+t('demo_banner')+'</span></div>';
+  if(S.me&&S.me.access&&S.me.access.reason==='test')h+='<div class="banner">'+ic('shield','s')+'<span>'+t('test_banner')+'</span></div>';return h}
+function spin(){return'<div class="card center"><div class="spin" style="margin:0 auto;color:var(--accent)"></div></div>'}
+function errBox(){return S.err?'<div class="err">'+ic('alert','s')+'<span>'+esc(S.err)+'</span></div>':''}
+function load(screen){render();
+  if(screen==='home'){if(S.tab==='channels')api('gkMine').then(function(r){S.mine=r.ok?r:{channels:[],feePercent:0};render()});else api('gkMySubs').then(function(r){S.subs=r.ok?r.subs:[];render()})}
+  if(screen==='offer'){api('gkChannel',{key:KEY}).then(function(r){S.offer=r;if(r.ok&&r.channel.plans[0]&&!S.plan)S.plan=r.channel.plans[0].id;render()})}
+  if(screen==='settings')loadAdmin();}
+
+/* ---------- render ---------- */
+function render(){if(IN_TG){if(S.stack.length)TG.BackButton.show();else TG.BackButton.hide()}
+  if(!S.me){$app.innerHTML=spin();return}var h='';
+  switch(S.screen){case'home':h=rHome();break;case'how':h=rHow();break;case'edit':h=rEdit();break;case'offer':h=rOffer();break;case'pay':h=rPay();break;case'settings':h=rSettings();break}
+  $app.innerHTML=h}
+function statusChip(c){if(!c.botOk)return'<span class="chip warn">'+ic('alert','s')+t('notready')+'</span>';return c.status==='active'?'<span class="chip good">'+ic('check','s')+t('active')+'</span>':'<span class="chip">'+t('paused')+'</span>'}
+function rHome(){var h=header(t('appName'),t('tagline'))+banners()+'<div class="tabs"><button data-tab="channels" class="'+(S.tab==='channels'?'on':'')+'">'+t('t_channels')+'</button><button data-tab="subs" class="'+(S.tab==='subs'?'on':'')+'">'+t('t_subs')+'</button></div>';
+  if(S.tab==='channels'){if(!S.mine)return h+spin();
+    if(!S.mine.channels.length)h+='<div class="card center"><div class="big">'+ic('channel','l')+'</div><p class="m">'+t('none_ch')+'</p></div>';
+    S.mine.channels.forEach(function(c){h+='<button class="chrow" data-edit="'+esc(c.key)+'"><div class="av">'+esc((c.title||'?').charAt(0).toUpperCase())+'</div><div class="grow"><div class="fn">'+esc(c.title)+'</div><div class="fs">'+t('members',{n:c.members||0})+' · '+money(c.revenue.usd)+(c.revenue.stars?' + '+c.revenue.stars+' Stars':'')+'</div></div>'+statusChip(c)+'</button>'});
+    h+='<button class="btn" data-act="how">'+ic('plus')+t('add')+'</button><button class="btn ghost" data-act="reload">'+ic('refresh')+t('refresh')+'</button>'}
+  else{if(!S.subs)return h+spin();if(!S.subs.length)h+='<div class="card center"><div class="big">'+ic('users','l')+'</div><p class="m">'+t('none_sub')+'</p></div>';
+    S.subs.forEach(function(s){h+='<div class="chrow"><div class="av">'+esc((s.title||'?').charAt(0))+'</div><div class="grow"><div class="fn">'+esc(s.title)+'</div><div class="fs">'+t('until',{d:fmtDate(s.expiry)})+'</div></div><button class="btn sm" data-open="'+esc(s.inviteLink)+'">'+ic('ext','s')+t('join')+'</button><button class="btn sm sec2" data-offer="'+esc(s.key)+'">'+t('renew')+'</button></div>'})}
+  return h}
+function rHow(){var bot=CFG.botUsername||'YourBot';return header(t('how_title'),'')+'<div class="card"><ol class="steps"><li>'+t('s1')+'</li><li>'+t('s2',{bot:esc(bot)})+'</li><li>'+t('s3')+'</li><li>'+t('s4')+'</li></ol></div>'+
+  (CFG.botUsername?'<button class="btn sec2" data-open="https://t.me/'+esc(CFG.botUsername)+'?startchannel&admin=invite_users+restrict_members">'+ic('ext')+'@'+esc(CFG.botUsername)+'</button>':'')+'<button class="btn" data-act="back">'+ic('refresh')+t('refresh')+'</button>'}
+function rEdit(){var c=S.edit,fee=S.mine?S.mine.feePercent:0,r=c.revenue||{usd:0,stars:0,orders:0},url=shareUrl(c.key),h=header(c.title,t('edit'));
+  h+='<div class="sec">'+t('share')+'</div><div class="card"><div class="kv"><code>'+esc(url)+'</code><button class="mini" data-copy="'+esc(url)+'">'+ic('copy')+'</button></div><p class="m">'+t('share_sub')+'</p>'+
+    (c.botOk?'':'<div class="err">'+ic('alert','s')+'<span>'+t('s3')+'</span></div>')+'</div>';
+  h+='<div class="card"><div class="sw"><div><b style="font-size:14px">'+t('publish')+'</b><div class="fs">'+t('publish_sub')+'</div></div><button class="tgl '+(c.status==='active'?'on':'')+'" data-act="togglepub"></button></div>'+
+    '<label class="f">'+t('desc')+'</label><textarea class="t" id="desc" maxlength="500">'+esc(c.description)+'</textarea></div>';
+  h+='<div class="sec">'+t('plans')+'</div>'+c.plans.map(function(p,i){return'<div class="plan"><div class="full"><label class="f">'+t('plan_label')+'</label><input class="t" data-pi="'+i+'" data-k="label" value="'+esc(p.label)+'" placeholder="1 month"></div>'+
+    '<div><label class="f">'+t('days')+'</label><input class="t" type="number" data-pi="'+i+'" data-k="days" value="'+esc(p.days)+'"></div><div><label class="f">'+t('usd')+'</label><input class="t" type="number" step="0.01" data-pi="'+i+'" data-k="usd" value="'+esc(p.usd)+'"></div>'+
+    '<div><label class="f">'+t('stars')+'</label><input class="t" type="number" data-pi="'+i+'" data-k="stars" value="'+esc(p.stars)+'"></div><div style="display:flex;align-items:flex-end"><button class="btn sm ghost" style="width:100%" data-prm="'+i+'">'+t('remove')+'</button></div></div>'}).join('')+
+    (c.plans.length<6?'<button class="btn sm sec2" data-act="addplan">'+ic('plus','s')+t('add_plan')+'</button>':'');
+  h+='<div class="card" style="margin-top:12px"><label class="f">'+t('payout')+'</label><input class="t" id="payout" value="'+esc(c.payout)+'"></div>';
+  h+='<button class="btn" data-act="savech">'+ic('check')+t('save')+'</button>'+(S.msg?'<div class="okmsg">'+ic('check','s')+esc(S.msg)+'</div>':'')+errBox();
+  h+='<div class="sec">'+t('earn')+'</div><div class="card stat"><div><b>'+money(r.usd)+'</b><span>'+t('gross')+' (USD)</span></div><div><b>'+(r.stars||0)+'</b><span>'+t('gross')+' (Stars)</span></div>'+
+    '<div><b>'+fee+'%</b><span>'+t('fee')+'</span></div><div><b>'+money(r.usd*(100-fee)/100)+'</b><span>'+t('net')+'</span></div><div><b>'+(r.orders||0)+'</b><span>'+t('orders')+'</span></div><div><b>'+(c.members||0)+'</b><span>'+t('members',{n:''}).trim()+'</span></div></div>';
+  h+='<button class="btn ghost" data-act="newlink">'+ic('link')+t('new_link')+'</button>';return h}
+function rOffer(){var o=S.offer,h;if(!o)return header(t('appName'),'')+spin();
+  if(!o.ok)return header(t('appName'),'')+'<div class="card center"><div class="big">'+ic('alert','l')+'</div><p class="m">'+t('not_found')+'</p></div>';
+  var c=o.channel,me=S.me;h=header(c.title,c.username?'@'+c.username:'')+banners();
+  h+='<div class="card"><div class="row" style="gap:12px"><div class="av">'+esc(c.title.charAt(0).toUpperCase())+'</div><div class="grow"><h2>'+esc(c.title)+'</h2></div></div>'+(c.description?'<p class="m" style="margin-top:10px;white-space:pre-line">'+esc(c.description)+'</p>':'')+'</div>';
+  if(o.member)h+='<div class="card"><div class="okmsg" style="margin:0">'+ic('check','s')+t('active_until',{d:fmtDate(o.member.expiry)})+'</div></div><button class="btn" data-open="'+esc(o.inviteLink)+'">'+ic('ext')+t('join')+'</button><div class="sec">'+t('renew')+'</div>';
+  if(c.status!=='active')return h+'<div class="card"><p class="m">'+t('not_found')+'</p></div>';
+  h+=(o.member?'':'<div class="sec">'+t('choose')+'</div>')+'<div class="opt">'+c.plans.map(function(p){return'<div class="radio '+(S.plan===p.id?'on':'')+'" data-plan="'+esc(p.id)+'"><span class="dot"></span><div><b>'+esc(p.label)+'</b><div class="fs">'+t('d_days',{n:p.days})+'</div></div><div class="price">'+(p.usd?money(p.usd):'')+(p.stars?'<small>'+p.stars+' Stars</small>':'')+'</div></div>'}).join('')+'</div>';
+  h+='<div class="sec">'+t('pay_with')+'</div>';
+  if(!me.methods.length)h+='<div class="card"><p class="m">'+t('no_methods')+'</p></div>';
+  else h+='<div class="opt">'+me.methods.map(function(m){return'<button class="radio" style="width:100%;text-align:left" data-method="'+m.id+'"><span class="thumb" style="width:34px;height:34px">'+ic(m.id==='stars'?'star':/^usdt/.test(m.id)?'wallet':'phone')+'</span><b class="grow">'+t(m.id==='stars'?'stars_m':m.id)+'</b></button>'}).join('')+'</div>';
+  if(me.access&&me.access.reason==='test')h+='<button class="btn ghost" style="margin-top:12px" data-act="testjoin">'+ic('shield')+t('test_join')+'</button>';
+  return h+errBox()}
+function rPay(){var o=S.payment,h=header(t(o.method==='stars'?'stars_m':o.method),'');
+  if(o.status==='paid')return h+'<div class="card center"><div class="big good">'+ic('check','l')+'</div><h2>'+t('paid_ok')+'</h2></div><button class="btn" data-act="tooffer">'+ic('ext')+t('join')+'</button>';
+  if(o.status==='review')return h+'<div class="card center"><div class="big">'+ic('clock','l')+'</div><p class="m">'+t('pending')+'</p></div>';
+  if(o.phoneNeeded)return h+'<div class="card center"><div class="big">'+ic('phone','l')+'</div><p class="m">'+t('verify_text')+'</p></div><button class="btn" data-act="verifyphone">'+ic('phone')+t('verify_phone')+'</button>';
+  if(/^usdt/.test(o.method))h+='<div class="card"><p class="m" style="margin-bottom:12px">'+t('send_exact')+'</p><div class="kv"><div class="grow"><span class="k">'+t('amount')+'</span><code>'+esc(o.amount)+' USDT</code></div><button class="mini" data-copy="'+esc(o.amount)+'">'+ic('copy')+'</button></div>'+
+    '<div class="kv"><div class="grow"><span class="k">'+t('network')+'</span><code>'+esc(o.network)+'</code></div></div><div class="kv"><div class="grow"><span class="k">'+t('address')+'</span><code>'+esc(o.address)+'</code></div><button class="mini" data-copy="'+esc(o.address)+'">'+ic('copy')+'</button></div>'+
+    '<div class="note">'+ic('alert','s')+'<span>'+t('usdt_note',{net:esc(o.network)})+'</span></div></div><button class="btn" data-act="checkpay">'+ic('refresh')+t('check_pay')+'</button>';
+  else h+='<div class="card"><p class="m" style="margin-bottom:12px">'+t('mm_text',{a:esc(o.amount),n:esc(o.number),m:t(o.method)})+'</p><div class="kv"><div class="grow"><span class="k">'+t(o.method)+'</span><code>'+esc(o.number)+'</code></div><button class="mini" data-copy="'+esc(o.number)+'">'+ic('copy')+'</button></div>'+
+    '<label class="f">'+t('txid')+'</label><input class="t" id="txid" autocomplete="off"></div><button class="btn" data-act="submittx">'+t('submit')+'</button>';
+  return h+errBox()}
+
+/* ---------- admin ---------- */
+var SECRETS={BOT_TOKEN:'Telegram bot token',TRONGRID_KEY:'TronGrid API key (TRC20 checks)',ETHERSCAN_KEY:'Etherscan API key (BEP20 checks)'};
+function loadAdmin(){S.admin=null;render();Promise.all([api('adminGet'),api('adminPending'),api('adminGk')]).then(function(r){
+  S.admin={settings:r[0].settings||demoDefaults(),secrets:r[0].secrets||{},pending:r[1].items||[],gk:r[2].ok?r[2]:{channels:[]}};render()})}
+function rSettings(){var A=S.admin,h=header('Settings','Admin only');if(!A)return h+spin();var st=A.settings,m=st.methods;
+  function inp(id,v,ph,ty){return'<input class="t" data-set="'+id+'" type="'+(ty||'text')+'" value="'+esc(v)+'" placeholder="'+esc(ph||'')+'">'}
+  function sw(id,on,l,s){return'<div class="sw"><div><b style="font-size:14px">'+l+'</b>'+(s?'<div class="fs">'+s+'</div>':'')+'</div><button class="tgl '+(on?'on':'')+'" data-toggle="'+id+'"></button></div>'}
+  if(DEMO)h+='<div class="banner">'+ic('info','s')+'<span>Demo mode: set <b>apiUrl</b> in config.js to connect the server.</span></div>';
+  h+='<div class="sec">General</div><div class="card">'+sw('testMode',st.testMode,'Test mode','Shows a “get access without paying” button so you can test the full flow.')+
+    '<label class="f">Platform fee (%)</label>'+inp('x_feePercent',st.x_feePercent,'5','number')+'<label class="f">Support contact</label>'+inp('supportContact',st.supportContact,'@username')+
+    '<label class="f">Local phone prefixes</label>'+inp('localPrefixes',st.localPrefixes,'252')+'</div>';
+  h+='<div class="sec">Payment methods</div><div class="card">'+sw('m_stars',m.stars,'Telegram Stars','Global. Verify fees and payout terms before launch.')+
+    '<label class="f">USDT TRC20 receive address</label>'+inp('m_usdt_trc20',m.usdt_trc20,'T…')+'<label class="f">USDT BEP20 receive address</label>'+inp('m_usdt_bep20',m.usdt_bep20,'0x…')+
+    '<div class="fs" style="margin-top:12px">Local only (hidden from global users):</div><label class="f">EVC Plus</label>'+inp('m_evc',m.evc,'+252…')+'<label class="f">Zaad</label>'+inp('m_zaad',m.zaad,'+252…')+
+    '<label class="f">Sahal</label>'+inp('m_sahal',m.sahal,'+252…')+'<label class="f">M-Pesa</label>'+inp('m_mpesa',m.mpesa,'+254…')+'</div><button class="btn" data-act="savesettings">'+ic('check')+'Save settings</button>'+(S.msg?'<div class="okmsg">'+ic('check','s')+esc(S.msg)+'</div>':'');
+  h+='<div class="sec">Secrets (write-only)</div><div class="card">'+Object.keys(SECRETS).map(function(k){return'<label class="f">'+SECRETS[k]+' — <span style="color:'+(A.secrets[k]?'var(--ok)':'var(--danger)')+'">'+(A.secrets[k]?'set':'not set')+'</span></label><div class="row"><input class="t" type="password" autocomplete="off" id="sec_'+k+'" placeholder="Paste new value"><button class="btn sm sec2" data-secret="'+k+'">Save</button></div>'}).join('')+'</div>';
+  h+='<div class="sec">Payments to review</div><div class="card">'+(A.pending.length?'<ul class="files">'+A.pending.map(function(p){return'<li><div class="grow"><div class="fn">'+esc(p.method)+' · '+esc(p.amount)+'</div><div class="fs">User '+esc(p.user_id)+' · Tx '+esc(p.tx_ref)+'</div></div><button class="btn sm" data-approve="'+esc(p.order_id)+'">Approve</button><button class="btn sm ghost" data-reject="'+esc(p.order_id)+'">Reject</button></li>'}).join('')+'</ul>':'<p class="m">Nothing to review.</p>')+'</div>';
+  h+='<div class="sec">Creators &amp; payouts owed</div><div class="card">'+(A.gk.channels.length?'<ul class="files">'+A.gk.channels.map(function(c){return'<li><div class="grow"><div class="fn">'+esc(c.title)+'</div><div class="fs">Owner '+esc(c.owner)+' · '+c.members+' members · pay to: '+esc(c.payout||'—')+'</div></div><div class="price">'+money(c.owedUsd)+'<small>'+c.owedStars+' Stars</small></div></li>'}).join('')+'</ul>':'<p class="m">No channels yet.</p>')+'</div>';
+  h+='<div class="sec">Testing</div><div class="card"><button class="btn sm ghost" style="width:100%" data-act="resetme">Reset my memberships</button></div>';return h}
+function collectSettings(){var st=JSON.parse(JSON.stringify(S.admin.settings));document.querySelectorAll('[data-set]').forEach(function(el){var k=el.dataset.set,v=el.type==='number'?+el.value:el.value.trim();if(k.indexOf('m_')===0)st.methods[k.slice(2)]=v;else st[k]=v});return st}
+function collectEdit(){var c=S.edit;var d=document.getElementById('desc');if(d)c.description=d.value;var p=document.getElementById('payout');if(p)c.payout=p.value;
+  document.querySelectorAll('[data-pi]').forEach(function(el){c.plans[+el.dataset.pi][el.dataset.k]=el.type==='number'?+el.value:el.value.trim()})}
+
+/* ---------- payments ---------- */
+function startPayment(method){var plan=KEY+'|'+S.plan;S.err='';
+  if(method==='stars'&&!DEMO&&!IN_TG){S.err=t('open_in_tg');return render()}
+  api('createOrder',{plan:plan,method:method}).then(function(r){
+    if(!r.ok){if(r.error==='phone_required'){S.payment={method:method,phoneNeeded:true};return go('pay')}S.err=r.error==='network'?t('e_net'):t('e_gen');return render()}
+    S.payment=r;
+    if(method==='stars'){if(DEMO){if(confirm(t('pay_demo')))api('demoPay',{order_id:r.order_id}).then(paid);return}
+      TG.openInvoice(r.invoiceLink,function(s){if(s==='paid')poll(r.order_id,10)});return}
+    go('pay')})}
+function poll(id,n){api('checkOrder',{order_id:id}).then(function(r){if(r.ok&&r.status==='paid')return paid();if(n>0)setTimeout(function(){poll(id,n-1)},2000)})}
+function paid(){S.payment=Object.assign(S.payment||{},{status:'paid'});try{TG.HapticFeedback.notificationOccurred('success')}catch(e){}if(S.screen!=='pay')go('pay');else render()}
+
+document.addEventListener('click',function(ev){var el=ev.target.closest('[data-act],[data-lang],[data-tab],[data-edit],[data-copy],[data-open],[data-offer],[data-plan],[data-method],[data-prm],[data-toggle],[data-secret],[data-approve],[data-reject]');if(!el)return;var d=el.dataset;
+  if(d.lang){LANG=d.lang;lsSet('gk_lang',LANG);return render()}
+  if(d.tab){S.tab=d.tab;return load('home')}
+  if(d.edit){S.edit=JSON.parse(JSON.stringify(S.mine.channels.filter(function(c){return c.key===d.edit})[0]));S.msg='';return go('edit')}
+  if(d.copy)return copy(d.copy);
+  if(d.open!=null)return openLink(d.open);
+  if(d.offer){KEY=d.offer;S.offer=null;S.plan=null;go('offer');return load('offer')}
+  if(d.plan){S.plan=d.plan;return render()}
+  if(d.method)return startPayment(d.method);
+  if(d.prm!=null){collectEdit();S.edit.plans.splice(+d.prm,1);return render()}
+  if(d.toggle){S.admin.settings=collectSettings();if(d.toggle==='testMode')S.admin.settings.testMode=!S.admin.settings.testMode;else S.admin.settings.methods.stars=!S.admin.settings.methods.stars;return render()}
+  if(d.secret){var i=document.getElementById('sec_'+d.secret);if(!i.value.trim())return;api('adminSetSecret',{key:d.secret,value:i.value.trim()}).then(function(r){i.value='';toast(r.ok?'Saved':(r.error||'Error'));if(r.ok){S.admin.secrets[d.secret]=true;render()}});return}
+  if(d.approve||d.reject){api('adminDecide',{order_id:d.approve||d.reject,approve:!!d.approve}).then(function(){loadAdmin()});return}
+  switch(d.act){
+  case'back':return back();
+  case'how':return go('how');
+  case'reload':S.mine=null;return load('home');
+  case'settings':S.msg='';go('settings');return loadAdmin();
+  case'togglepub':collectEdit();S.edit.status=S.edit.status==='active'?'paused':'active';return render();
+  case'addplan':collectEdit();S.edit.plans.push({id:'p'+Date.now().toString(36).slice(-4),label:'',days:30,usd:1,stars:75});return render();
+  case'savech':collectEdit();var c=S.edit;api('gkSave',{key:c.key,description:c.description,plans:c.plans,payout:c.payout,status:c.status}).then(function(r){if(r.ok){S.msg=t('saved');S.err='';S.mine=null;api('gkMine').then(function(x){S.mine=x;render()})}else{S.err=t('e_gen');render()}});return;
+  case'newlink':api('gkRefreshLink',{key:S.edit.key}).then(function(r){toast(r.ok?t('saved'):t('e_gen'))});return;
+  case'testjoin':api('gkTestJoin',{key:KEY}).then(function(){S.offer=null;load('offer')});return;
+  case'tooffer':S.stack=[];S.screen='offer';S.offer=null;return load('offer');
+  case'savesettings':var st=collectSettings();api('adminSave',{settings:st}).then(function(r){if(r.ok){S.admin.settings=st;S.msg='Saved';init()}else toast(r.error||'Error')});return;
+  case'resetme':api('adminResetMe').then(function(){toast('Reset')});return;
+  case'checkpay':api('checkOrder',{order_id:S.payment.order_id}).then(function(r){if(r.ok&&r.status==='paid')return paid();if(DEMO&&confirm(t('pay_demo')))return api('demoPay',{order_id:S.payment.order_id}).then(paid);S.err=t('not_yet');render()});return;
+  case'submittx':var tx=document.getElementById('txid').value.trim();if(tx.length<4)return;api('submitManual',{order_id:S.payment.order_id,txid:tx}).then(function(r){if(r.ok)S.payment.status='review';else S.err=t('e_gen');render()});return;
+  case'verifyphone':var after=function(){init().then(function(){S.stack=[];S.screen='offer';render()})};
+    if(DEMO){api('demoVerifyPhone').then(after);return}if(IN_TG&&TG.requestContact)TG.requestContact(function(ok){if(ok)setTimeout(after,1500)});return;
+  }});
+
+function init(){return api('init',{start:START}).then(function(r){S.me=r.ok?r:{methods:[],access:{}};return r})}
+if(IN_TG){try{TG.ready();TG.expand();if(TG.isVersionAtLeast('7.7'))TG.disableVerticalSwipes()}catch(e){}}
+render();init().then(function(){load(S.screen)});
+})();
+</script>
+</body>
+</html>

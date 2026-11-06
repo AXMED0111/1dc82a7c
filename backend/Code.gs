@@ -23,12 +23,17 @@ var SCHEMA = {
   Settings:      ['app','json','updated_at'],
   Log:           ['time','user_id','app','event','detail']
 };
+var EXTRA_SCHEMA = EXTRA_SCHEMA || {}; // app modules add sheets here (safe for any file order)
 var LOCAL_METHODS = ['evc','zaad','sahal','mpesa'];
 var USDT = {
   usdt_trc20: { contract: 'TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t', decimals: 6, network: 'TRC20 (Tron)' },
   usdt_bep20: { contract: '0x55d398326f99059fF775485246999027B3197955', decimals: 18, network: 'BEP20 (BNB Smart Chain)' }
 };
 var ORDER_TTL_HOURS = 6;
+
+/* App modules register here (see gatekeeper.gs):
+   APP_HOOKS[app] = { routes:{action:fn(ctx,req)}, server:{action:fn(req)}, resolvePlan:fn(ctx,planId), planForOrder:fn(order), onPaid:fn(order,plan,exp) } */
+var APP_HOOKS = APP_HOOKS || {};
 
 /* ---------- per-app default settings (extend when adding apps) ---------- */
 function defaultSettings(app) {
@@ -42,7 +47,8 @@ function defaultSettings(app) {
     methods: { stars: true, usdt_trc20: '', usdt_bep20: '', evc: '', zaad: '', sahal: '', mpesa: '' }
   };
   var per = {
-    converter: { appName: 'PDF Tools' }
+    converter: { appName: 'PDF Tools' },
+    gatekeeper: { appName: 'Channel Pass', freeAllowance: 0, x_feePercent: 5, plans: [] }
   };
   return Object.assign(base, per[app] || {});
 }
@@ -98,9 +104,10 @@ function rows(name) {
   return v.map(function (r, i) { var o = { _row: i + 2 }; h.forEach(function (k, j) { o[k] = r[j]; }); return o; });
 }
 function find(name, fn) { var r = rows(name); for (var i = 0; i < r.length; i++) if (fn(r[i])) return r[i]; return null; }
-function append(name, obj) { var h = SCHEMA[name]; sh(name).appendRow(h.map(function (k) { return obj[k] === undefined ? '' : obj[k]; })); }
+function schemaOf(name) { return SCHEMA[name] || EXTRA_SCHEMA[name]; }
+function append(name, obj) { var h = schemaOf(name); sh(name).appendRow(h.map(function (k) { return obj[k] === undefined ? '' : obj[k]; })); }
 function update(name, row, obj) {
-  var h = SCHEMA[name], s = sh(name);
+  var h = schemaOf(name), s = sh(name);
   Object.keys(obj).forEach(function (k) { var c = h.indexOf(k); if (c >= 0) s.getRange(row._row, c + 1).setValue(obj[k]); });
 }
 function log(uid, app, ev, detail) { try { append('Log', { time: new Date(), user_id: uid, app: app, event: ev, detail: String(detail || '').slice(0, 500) }); } catch (e) {} }
@@ -213,6 +220,8 @@ function route(req) {
     case 'adminStats': return adminStats(ctx);
     case 'adminResetMe': return adminResetMe(ctx);
   }
+  var H = APP_HOOKS[app];
+  if (H && H.routes && H.routes[a]) return H.routes[a](ctx, req);
   return { ok: false, error: 'unknown_action' };
 }
 function cleanRow(r) { var o = {}; Object.keys(r).forEach(function (k) { if (k !== '_row') o[k] = r[k] instanceof Date ? r[k].toISOString() : r[k]; }); return o; }
@@ -268,8 +277,10 @@ function sendFile(ctx, req) {
 /* ======================= PAYMENTS ======================= */
 function newOrderId() { return 'O' + Date.now().toString(36).toUpperCase() + Math.floor(Math.random() * 1e4).toString(36).toUpperCase(); }
 function createOrder(ctx, req) {
-  var plan = plansFor(ctx.st, ctx.region).filter(function (p) { return p.id === req.plan; })[0];
+  var H = APP_HOOKS[ctx.app];
+  var plan = H && H.resolvePlan ? H.resolvePlan(ctx, req.plan) : plansFor(ctx.st, ctx.region).filter(function (p) { return p.id === req.plan; })[0];
   if (!plan) return { ok: false, error: 'plan' };
+  if (plan.free) return { ok: false, error: 'plan' };
   var method = String(req.method || ''), methods = availMethods(ctx.st, ctx.region, !!ctx.token).map(function (m) { return m.id; });
   if (methods.indexOf(method) < 0) return { ok: false, error: 'method' };
   var o = { order_id: newOrderId(), user_id: ctx.uid, app: ctx.app, plan: plan.id, method: method, status: 'pending', created_at: new Date(), edition: ctx.urow.edition || '' };
@@ -318,7 +329,14 @@ function markPaid(o, txRef) {
   try {
     var fresh = find('Payments', function (p) { return p.order_id === o.order_id; });
     if (!fresh || fresh.status === 'paid') return false;
-    var st = getSettings(fresh.app), plan = (st.plans || []).filter(function (p) { return p.id === fresh.plan; })[0] || { days: 30 };
+    var H = APP_HOOKS[fresh.app], st = getSettings(fresh.app);
+    var plan = (H && H.planForOrder ? H.planForOrder(fresh) : (st.plans || []).filter(function (p) { return p.id === fresh.plan; })[0]) || { days: 30 };
+    if (H && H.onPaid) {
+      var exp2 = H.onPaid(fresh, plan);
+      update('Payments', fresh, { status: 'paid', paid_at: new Date(), expiry_date: exp2 || '', tx_ref: txRef || fresh.tx_ref });
+      log(fresh.user_id, fresh.app, 'paid', fresh.method + ' ' + fresh.amount);
+      return true;
+    }
     var cur = activeSub(fresh.user_id, fresh.app), start = cur ? new Date(cur.expiry_date) : new Date(), exp = new Date(start.getTime() + plan.days * 864e5);
     update('Payments', fresh, { status: 'paid', paid_at: new Date(), expiry_date: exp, tx_ref: txRef || fresh.tx_ref });
     append('Subscriptions', { user_id: String(fresh.user_id), app: fresh.app, plan: fresh.plan, status: 'active', start_date: new Date(), expiry_date: exp, edition: fresh.edition, order_id: fresh.order_id });
@@ -406,6 +424,8 @@ function serverRoute(req) {
       if (u) update('Users', u, { phone: '+' + phone, phone_verified: local, region: local ? 'LOCAL' : u.region });
       return { ok: true, local: local };
   }
+  var H = APP_HOOKS[app];
+  if (H && H.server && H.server[req.action]) return H.server[req.action](req);
   return { ok: false, error: 'unknown_action' };
 }
 
@@ -428,12 +448,17 @@ function cronDaily() {
   });
 }
 
+/* App modules add their own hourly jobs to HOURLY_JOBS. */
+var HOURLY_JOBS = HOURLY_JOBS || [];
+function cronHourly() { HOURLY_JOBS.forEach(function (fn) { try { fn(); } catch (e) { log('', 'cron', 'error', e); } }); }
+
 /* ======================= INSTALL (run once from the editor) ======================= */
 function install() {
   var id = prop('MASTER_SHEET_ID'), book;
   if (id) book = SpreadsheetApp.openById(id);
   else { book = SpreadsheetApp.create('ledger-' + Utilities.getUuid().slice(0, 6)); setProp('MASTER_SHEET_ID', book.getId()); }
   _ss = book;
+  Object.keys(EXTRA_SCHEMA).forEach(function (n) { SCHEMA[n] = EXTRA_SCHEMA[n]; });
   Object.keys(SCHEMA).forEach(function (n) {
     var s = book.getSheetByName(n) || book.insertSheet(n);
     s.getRange(1, 1, 1, SCHEMA[n].length).setValues([SCHEMA[n]]).setFontWeight('bold'); s.setFrozenRows(1);
@@ -443,25 +468,31 @@ function install() {
   ScriptApp.getProjectTriggers().forEach(function (t) { ScriptApp.deleteTrigger(t); });
   ScriptApp.newTrigger('cronUsdt').timeBased().everyMinutes(5).create();
   ScriptApp.newTrigger('cronDaily').timeBased().everyDays(1).atHour(6).create();
+  ScriptApp.newTrigger('cronHourly').timeBased().everyHours(1).create();
   Logger.log('Master sheet: ' + book.getUrl());
   Logger.log('Copy SERVER_SECRET from Project Settings -> Script properties into Netlify env var SERVER_SECRET.');
 }
 
 /**
- * Connect a bot to its Mini App. Set Script properties BOT_TOKEN_<app>, then edit the
- * three values below and run connectTelegram(). It registers the webhook (Netlify function),
- * the menu button that opens the app, and the bot commands.
+ * Connect a bot to its Mini App: set Script property BOT_TOKEN_<app>, then run connectConverter()
+ * or connectGatekeeper(). Registers the webhook (Netlify function), the menu button and commands.
  */
-function connectTelegram() {
-  var APP = 'converter';
-  var APP_URL = 'https://dtools-1dc82a7c.netlify.app';
-  var BUTTON = 'PDF Tools';
-  var token = botToken(APP); if (!token) throw new Error('Set BOT_TOKEN_' + APP + ' first');
-  var whSecret = prop('WEBHOOK_SECRET_' + APP);
-  if (!whSecret) { whSecret = Utilities.getUuid().replace(/-/g, ''); setProp('WEBHOOK_SECRET_' + APP, whSecret); }
-  Logger.log(tgCall(token, 'setWebhook', { url: APP_URL + '/api/telegram', secret_token: whSecret, allowed_updates: ['message', 'pre_checkout_query'], drop_pending_updates: true }));
-  Logger.log(tgCall(token, 'setChatMenuButton', { menu_button: { type: 'web_app', text: BUTTON, web_app: { url: APP_URL } } }));
+var BOTS = {
+  converter:  { url: 'https://dtools-1dc82a7c.netlify.app', button: 'PDF Tools' },
+  gatekeeper: { url: 'https://cpass-5cc578be.netlify.app', button: 'Channel Pass' }
+};
+function connectConverter()  { connectTelegram('converter'); }
+function connectGatekeeper() { connectTelegram('gatekeeper'); }
+function connectTelegram(app) {
+  var cfg = BOTS[app], token = botToken(app);
+  if (!cfg || !cfg.url) throw new Error('Set BOTS.' + app + '.url first');
+  if (!token) throw new Error('Set Script property BOT_TOKEN_' + app + ' first');
+  var whSecret = prop('WEBHOOK_SECRET_' + app);
+  if (!whSecret) { whSecret = Utilities.getUuid().replace(/-/g, ''); setProp('WEBHOOK_SECRET_' + app, whSecret); }
+  Logger.log(tgCall(token, 'setWebhook', { url: cfg.url + '/api/telegram', secret_token: whSecret, drop_pending_updates: true,
+    allowed_updates: ['message', 'pre_checkout_query', 'my_chat_member', 'chat_join_request'] }));
+  Logger.log(tgCall(token, 'setChatMenuButton', { menu_button: { type: 'web_app', text: cfg.button, web_app: { url: cfg.url } } }));
   Logger.log(tgCall(token, 'setMyCommands', { commands: [
     { command: 'start', description: 'Open the app' }, { command: 'paysupport', description: 'Payment support' }, { command: 'terms', description: 'Terms of service' } ] }));
-  Logger.log('Now copy WEBHOOK_SECRET_' + APP + ' from Script properties into Netlify env var WEBHOOK_SECRET.');
+  Logger.log('Done. Copy WEBHOOK_SECRET_' + app + ' (Script properties) into the Netlify env var WEBHOOK_SECRET of this app.');
 }

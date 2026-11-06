@@ -1,4 +1,4 @@
-// Telegram bot webhook. Secrets come ONLY from Netlify environment variables:
+// Shared Telegram bot webhook (same file in every app; APP_ID decides the backend module). Secrets come ONLY from Netlify environment variables:
 // BOT_TOKEN, WEBHOOK_SECRET, GAS_URL (Apps Script /exec URL), SERVER_SECRET, APP_ID, APP_URL
 const env = (k) => (globalThis.Netlify ? Netlify.env.get(k) : process.env[k]) || '';
 
@@ -40,8 +40,26 @@ export default async (req) => {
     return new Response('ok');
   }
 
+  // Bot added to / removed from a channel or group (used by the channel gatekeeper)
+  if (u.my_chat_member) {
+    const c = u.my_chat_member, nm = c.new_chat_member || {};
+    await gas('gkBotStatus', { chat: c.chat, from_id: c.from.id, status: nm.status, can_invite: !!nm.can_invite_users, can_restrict: !!nm.can_restrict_members });
+    return new Response('ok');
+  }
+  // Join request on a paid channel: approve members, send an offer to everyone else
+  if (u.chat_join_request) {
+    const j = u.chat_join_request;
+    const r = await gas('gkJoinRequest', { chat_id: j.chat.id, user_id: j.from.id });
+    if (r.approve) await tg('approveChatJoinRequest', { chat_id: j.chat.id, user_id: j.from.id });
+    else if (r.offer) await tg('sendMessage', {
+      chat_id: j.user_chat_id || j.from.id, text: `${r.title} is a paid channel. Choose a plan to get access.`,
+      reply_markup: { inline_keyboard: [[{ text: 'View plans', web_app: { url: `${env('APP_URL')}?c=${encodeURIComponent(r.key)}` } }]] }
+    });
+    return new Response('ok');
+  }
+
   const m = u.message;
-  if (!m) return new Response('ok');
+  if (!m || !m.chat) return new Response('ok');
   const chat = m.chat.id;
 
   if (m.successful_payment) {
@@ -62,9 +80,12 @@ export default async (req) => {
   if (cmd === '/paysupport') await tg('sendMessage', { chat_id: chat, text: TEXT.paysupport });
   else if (cmd === '/terms') await tg('sendMessage', { chat_id: chat, text: TEXT.terms });
   else if (cmd === '/start' || m.text) {
+    // /start c_KEY  -> open a specific channel offer
+    const arg = cmd === '/start' ? (m.text.split(/\s+/)[1] || '') : '';
+    const url = /^c_[\w]+$/.test(arg) ? `${env('APP_URL')}?c=${arg.slice(2)}` : env('APP_URL');
     await tg('sendMessage', {
       chat_id: chat, text: TEXT.start,
-      reply_markup: { inline_keyboard: [[{ text: TEXT.open, web_app: { url: env('APP_URL') } }]] }
+      reply_markup: { inline_keyboard: [[{ text: TEXT.open, web_app: { url } }]] }
     });
   }
   return new Response('ok');
