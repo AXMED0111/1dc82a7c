@@ -21,6 +21,9 @@ for folder, app, name, what, extra in APPS:
     src = root / 'apps' / app; dst = out / folder
     shutil.copytree(src / 'public', dst / 'public')
     shutil.copytree(src / 'apps-script', dst / 'apps-script')
+    # One file to copy-paste into Apps Script (Core + this app's module), so setup is a single paste.
+    parts = [(src / 'apps-script' / 'Core.gs').read_text()] + [f.read_text() for f in sorted((src / 'apps-script').glob('*.gs')) if f.name != 'Core.gs']
+    (dst / 'apps-script' / 'PASTE-THIS.gs').write_text('/* PASTE THIS WHOLE FILE into Code.gs in Apps Script (replace everything that is there). */\n\n' + '\n\n'.join(parts))
     shutil.copytree(src / 'netlify', dst / 'netlify')
     if (src / 'functions').exists(): shutil.copytree(src / 'functions', dst / 'functions')
     shutil.copy(src / 'netlify.toml', dst / 'netlify.toml')
