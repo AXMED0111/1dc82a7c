@@ -4,6 +4,6 @@
  * Conversions run on the phone; the server only counts the 2 free conversions, checks the plan,
  * and sends finished files to the user's Telegram chat.
  */
-var THIS_APP = { id: 'converter', url: 'https://dtools-1dc82a7c.netlify.app', button: 'PDF Tools' };
+var THIS_APP = { id: 'converter', url: 'https://axm-08.pages.dev', button: 'PDF Tools' };
 var APP_DEFAULTS = APP_DEFAULTS || {};
 APP_DEFAULTS.converter = { appName: 'PDF Tools', freeAllowance: 2, freeMaxMB: 10, paidMaxMB: 100 };

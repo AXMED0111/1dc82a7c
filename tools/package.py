@@ -36,7 +36,7 @@ cards = []
 for folder, app, name, what, gs, props, url in rows:
     cards.append(f"""<div class="card"><h3>{html.escape(name)}</h3><p style="margin:0 0 8px;color:#475467">{html.escape(what)}</p><table>
 <tr><td>Folder</td><td><code>{html.escape(folder)}</code></td></tr>
-<tr><td>Old demo (Netlify)</td><td>{f'<a href="{url}">{url}</a>' if url else '— (deploy pending)'}</td></tr>
+<tr><td>Live app (Cloudflare)</td><td>{f'<a href="{url}">{url}</a>' if url else '— (deploy pending)'}</td></tr>
 <tr><td>Apps Script files</td><td>{' + '.join('<code>'+g+'</code>' for g in gs)} &nbsp;(from <code>apps-script/</code>)</td></tr>
 <tr><td>Script properties</td><td>{' '.join('<code>'+p+'</code>' for p in props)}</td></tr>
 <tr><td>API URL goes in</td><td><code>public/config.js</code> → <code>apiUrl: '…/exec'</code> (app id <code>{app}</code>)</td></tr></table></div>""")

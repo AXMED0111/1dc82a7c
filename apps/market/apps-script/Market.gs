@@ -5,7 +5,7 @@
  * Workers submit photo / GPS / answers; approved work is credited to the worker's balance; the admin pays
  * withdrawals in USDT manually and marks them paid. Photos are stored in a private Google Drive folder.
  */
-var THIS_APP = { id: 'market', url: 'https://mark-4be4295c.netlify.app', button: 'Field Tasks' };
+var THIS_APP = { id: 'market', url: 'https://axm-07.pages.dev', button: 'Field Tasks' };
 var EXTRA_SCHEMA = EXTRA_SCHEMA || {}, APP_HOOKS = APP_HOOKS || {}, APP_DEFAULTS = APP_DEFAULTS || {};
 
 APP_DEFAULTS.market = { appName: 'Field Tasks', freeAllowance: 0, x_feePercent: 20, x_minWithdraw: 5, plans: [], x_refOn: false };

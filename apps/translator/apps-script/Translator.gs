@@ -4,7 +4,7 @@
  * Up to 3 photos per document. Gemini reads and translates in one call; the app builds the PDF on the phone.
  * Charged only when the translation succeeds. Images are NOT stored — only a short history row is kept.
  */
-var THIS_APP = { id: 'translator', url: 'https://tran-49b0be25.netlify.app', button: 'Translate' };
+var THIS_APP = { id: 'translator', url: 'https://axm-03.pages.dev', button: 'Translate' };
 var EXTRA_SCHEMA = EXTRA_SCHEMA || {}, APP_HOOKS = APP_HOOKS || {}, APP_DEFAULTS = APP_DEFAULTS || {}, APP_SECRETS = APP_SECRETS || {};
 
 APP_DEFAULTS.translator = { appName: 'Document Translator', freeAllowance: 1, x_aiModel: 'gemini-2.5-flash', x_aiFallback: 'gemini-2.5-flash-lite', x_aiDailyBudget: 300, x_aiUserDaily: 20, plans: [

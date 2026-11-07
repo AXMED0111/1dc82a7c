@@ -4,7 +4,7 @@
  * The app sends a 16 kHz WAV answer; Gemini transcribes and scores it in one call.
  * A session is charged (free allowance → credits → subscription) ONLY when scoring succeeds.
  */
-var THIS_APP = { id: 'coach', url: 'https://coac-a7c93694.netlify.app', button: 'Practice' };
+var THIS_APP = { id: 'coach', url: 'https://axm-02.pages.dev', button: 'Practice' };
 var EXTRA_SCHEMA = EXTRA_SCHEMA || {}, APP_HOOKS = APP_HOOKS || {}, APP_DEFAULTS = APP_DEFAULTS || {}, APP_SECRETS = APP_SECRETS || {};
 
 APP_DEFAULTS.coach = { appName: 'Interview Coach', freeAllowance: 2, x_aiModel: 'gemini-2.5-flash', x_aiFallback: 'gemini-2.5-flash-lite', x_aiDailyBudget: 500, x_aiUserDaily: 30, plans: [

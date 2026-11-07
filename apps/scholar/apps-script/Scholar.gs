@@ -4,7 +4,7 @@
  * Free users see the top N matches (settings.freeAllowance, default 3). Pro: all matches, saved list, deadline alerts.
  * Admin adds scholarships from the app (Settings → Manage scholarships) or directly in the "Scholarships" sheet.
  */
-var THIS_APP = { id: 'scholar', url: 'https://scho-1c442534.netlify.app', button: 'Scholarships' };
+var THIS_APP = { id: 'scholar', url: 'https://axm-05.pages.dev', button: 'Scholarships' };
 var EXTRA_SCHEMA = EXTRA_SCHEMA || {}, APP_HOOKS = APP_HOOKS || {}, APP_DEFAULTS = APP_DEFAULTS || {}, DAILY_JOBS = DAILY_JOBS || [];
 
 APP_DEFAULTS.scholar = { appName: 'Scholarship Finder', freeAllowance: 3, plans: [

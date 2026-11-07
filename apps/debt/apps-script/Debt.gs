@@ -4,7 +4,7 @@
  * Adding a customer uses the core free allowance (default 10 customers); Pro = unlimited.
  * Customers who open their statement link (t.me/<bot>?start=d_TOKEN) get automatic polite reminders.
  */
-var THIS_APP = { id: 'debt', url: 'https://debt-70e13e91.netlify.app', button: 'Debt Book' };
+var THIS_APP = { id: 'debt', url: 'https://axm-06.pages.dev', button: 'Debt Book' };
 var EXTRA_SCHEMA = EXTRA_SCHEMA || {}, APP_HOOKS = APP_HOOKS || {}, APP_DEFAULTS = APP_DEFAULTS || {}, DAILY_JOBS = DAILY_JOBS || [];
 
 APP_DEFAULTS.debt = { appName: 'Debt Book', freeAllowance: 10, plans: [

@@ -5,7 +5,7 @@
  * join request, and removes them automatically when the period ends. Platform keeps x_feePercent.
  * Apps Script project = Core.gs + this file. Script properties: BOT_TOKEN_gatekeeper, ADMIN_IDS.
  */
-var THIS_APP = { id: 'gatekeeper', url: 'https://cpass-5cc578be.netlify.app', button: 'Channel Pass' };
+var THIS_APP = { id: 'gatekeeper', url: 'https://axm-01.pages.dev', button: 'Channel Pass' };
 var EXTRA_SCHEMA = EXTRA_SCHEMA || {};
 var APP_HOOKS = APP_HOOKS || {};
 var HOURLY_JOBS = HOURLY_JOBS || [];
