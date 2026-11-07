@@ -409,7 +409,16 @@ function initPayload(ctx) {
     access: accessFor(ctx), plans: plansFor(ctx.st, ctx.region), methods: availMethods(ctx.st, ctx.region, !!ctx.token),
     appName: ctx.st.appName, support: ctx.st.supportContact,
     ref: refOn(ctx.st) ? { on: true, arg: 'r' + ctx.uid, newPct: Number(ctx.st.x_refNewPct) || 0, days: Number(ctx.st.x_refDays) || 0, credits: Number(ctx.st.x_refCredits) || 0 } : { on: false },
-    perms: ctx.role ? (ctx.role.super ? ['super'].concat(PERMS) : ctx.role.perms) : [], firstPct: ctx.verified ? refFirstPct(ctx) : 0, maintenance: isMaint(ctx.st) ? (ctx.st.x_maintenanceMsg || true) : false, apiVersion: CORE_VERSION };
+    perms: ctx.role ? (ctx.role.super ? ['super'].concat(PERMS) : ctx.role.perms) : [], firstPct: ctx.verified ? refFirstPct(ctx) : 0, maintenance: isMaint(ctx.st) ? (ctx.st.x_maintenanceMsg || true) : false, apiVersion: CORE_VERSION, edgePass: edgePass(ctx.uid) };
+}
+/* Signed pass for the Cloudflare edge copy (functions/api/app.js): proves "this phone is user X" for 7 days so Cloudflare
+   can serve that person's saved copy without asking Google. Key = HMAC(webhook secret, 'edge-pass-v1'); Cloudflare learns the
+   webhook secret only after Apps Script has accepted a real Telegram update with it. No bot token ever leaves Google. */
+function hmacHexGs(key, msg) { return Utilities.computeHmacSha256Signature(Utilities.newBlob(msg).getBytes(), Utilities.newBlob(key).getBytes()).map(function (b) { return ('0' + ((b + 256) % 256).toString(16)).slice(-2); }).join(''); }
+function edgePass(uid) {
+  var sec = prop('WEBHOOK_SECRET_' + THIS_APP.id); if (!sec || !uid) return '';
+  var p = Utilities.base64Encode(Utilities.newBlob(JSON.stringify({ u: String(uid), a: THIS_APP.id, x: Math.floor(Date.now() / 1000) + 7 * 86400 })).getBytes()).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  return p + '.' + hmacHexGs(hmacHexGs(sec, 'edge-pass-v1'), p);
 }
 function consume(ctx, req) {
   var lock = LockService.getScriptLock(); lock.waitLock(10000); _rc = {};

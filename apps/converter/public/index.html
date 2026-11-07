@@ -389,14 +389,17 @@ function api(action,data){
   if(DEMO)return Demo.handle(action,data);
   // request id: the server answers a retried request from its cache, so a retry never charges twice
   var rid=(window.crypto&&crypto.randomUUID?crypto.randomUUID().replace(/-/g,''):Date.now().toString(36)+Math.random().toString(36).slice(2)).slice(0,24);
-  var body=JSON.stringify(Object.assign({action:action,app:CFG.appId,edition:EDITION,initData:IN_TG?TG.initData:'',rid:rid,v:CFG.version},data));
+  // pass = signed pass for the Cloudflare edge copy (apiUrl /api/app); big file uploads and retries go straight to Apps Script (directUrl)
+  var pk='pass_'+CFG.appId+'_'+(TGU?TGU.id:'');
+  var body=JSON.stringify(Object.assign({action:action,app:CFG.appId,edition:EDITION,initData:IN_TG?TG.initData:'',rid:rid,v:CFG.version,pass:TGU?lsGet(pk,''):''},data));
   if(navigator.onLine===false)return Promise.resolve({ok:false,error:'network'});
-  var slow=action==='sendFile';
-  function once(){var ctl=window.AbortController?new AbortController():null,tm=setTimeout(function(){if(ctl)ctl.abort()},slow?120000:25000);
-    return fetch(CFG.apiUrl,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:body,redirect:'follow',signal:ctl?ctl.signal:undefined})
-      .then(function(r){clearTimeout(tm);if(!r.ok)throw new Error('http');return r.json()},function(e){clearTimeout(tm);throw e})}
+  var slow=action==='sendFile',tries=0;
+  function once(){var url=(slow||tries++)&&CFG.directUrl?CFG.directUrl:CFG.apiUrl;var ctl=window.AbortController?new AbortController():null,tm=setTimeout(function(){if(ctl)ctl.abort()},slow?120000:25000);
+    return fetch(url,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:body,redirect:'follow',signal:ctl?ctl.signal:undefined})
+      .then(function(r){clearTimeout(tm);if(!r.ok)throw new Error('http');return r.json()},function(e){clearTimeout(tm);throw e})
+      .then(function(res){if(res&&res.error==='not_configured'&&CFG.directUrl&&url!==CFG.directUrl)return once();return res})}
   var p=once();if(!slow)p=p.catch(function(){return new Promise(function(r){setTimeout(r,700+Math.random()*900)}).then(once)});
-  return p.catch(function(){return{ok:false,error:'network'}});
+  return p.catch(function(){return{ok:false,error:'network'}}).then(function(res){if(res&&res.edgePass&&TGU)lsSet(pk,res.edgePass);return res});
 }
 
 /* ---------- state ---------- */

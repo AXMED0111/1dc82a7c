@@ -60,7 +60,10 @@ APP_HOOKS.debt = {
     dbAddEntry: function (ctx, req) {
       var c = dbOwnCust(ctx, req.id); if (!c) return { ok: false, error: 'not_found' };
       var amt = Math.round(Number(req.amount) * 100) / 100; if (!(amt > 0)) return { ok: false, error: 'amount' };
-      append('Entries', { entry_id: dbId('e'), cust_id: c.cust_id, owner_id: ctx.uid, type: req.type === 'payment' ? 'payment' : 'debt', amount: amt,
+      // The phone makes the entry id, so a save that is sent twice (queue retry) is stored once.
+      var eid = /^e[a-z0-9]{6,24}$/.test(String(req.entry || '')) ? String(req.entry) : dbId('e');
+      if (find('Entries', function (x) { return x.entry_id === eid; })) return { ok: true, duplicate: true, customer: dbCustOut(c) };
+      append('Entries', { entry_id: eid, cust_id: c.cust_id, owner_id: ctx.uid, type: req.type === 'payment' ? 'payment' : 'debt', amount: amt,
         date: String(req.date || dbDay(new Date())).slice(0, 10), due: String(req.due || '').slice(0, 10), note: String(req.note || '').slice(0, 120), created_at: new Date() });
       return { ok: true, customer: dbCustOut(c) };
     },

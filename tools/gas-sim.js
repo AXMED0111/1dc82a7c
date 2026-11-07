@@ -62,6 +62,6 @@ function makeEnv(app) {
   function server(action, extra) { ctx.__req = JSON.stringify(Object.assign({ action, app, serverSecret: props.SERVER_SECRET }, extra || {})); return JSON.parse(vm.runInContext('doPost({postData:{contents:__req}}).text', ctx)); }
   function run(code) { return vm.runInContext(code, ctx); }
   function setSettings(patch) { const admin = { id: 1001, first_name: 'Ahmed' }; const st = call(admin, 'adminGet').settings; Object.assign(st, patch); return call(admin, 'adminSave', { settings: st }); }
-  return { ctx, props, sheets, sent, fetches, call, server, run, setSettings, TOKEN };
+  return { ctx, props, sheets, sent, fetches, call, server, run, setSettings, TOKEN, initData };
 }
 module.exports = { makeEnv };

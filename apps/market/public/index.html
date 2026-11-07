@@ -131,6 +131,7 @@ table.pl{width:100%;border-collapse:collapse;font-size:13px}
 .foot{text-align:center;color:var(--hint);font-size:11.5px;margin-top:18px}
 </style>
 <style>
+.qpill{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(76px + env(safe-area-inset-bottom));z-index:60;background:var(--card);color:var(--hint);border:1px solid var(--sep);border-radius:999px;padding:6px 12px;font-size:12px;box-shadow:0 2px 10px rgba(0,0,0,.12);pointer-events:none}
 textarea.t{min-height:84px;resize:vertical;font:inherit;width:100%}
 .chrow{display:flex;align-items:center;gap:12px;padding:12px;border:1px solid var(--sep);border-radius:var(--r);background:var(--card);margin-bottom:10px;cursor:pointer;width:100%;text-align:left}
 .av{width:42px;height:42px;border-radius:12px;background:var(--soft);color:var(--accent);display:grid;place-items:center;font-weight:700;flex:none}
@@ -274,6 +275,7 @@ function param(p) { return QS.get(p) || (START.indexOf(p + '_') === 0 ? START.sl
 var L = {
 en: {
   back: 'Back', settings: 'Settings', save: 'Save', saved: 'Saved', cancel: 'Cancel', copied: 'Copied', remove: 'Remove', edit: 'Edit', add: 'Add', done: 'Done', close: 'Close', share: 'Share', search: 'Search',
+  q_saving: 'Saving {n}…', q_wait: '{n} waiting for connection', q_fail: 'A change could not be saved. Please check it.',
   e_gen: 'Something went wrong. Please try again.', e_net: 'Connection problem. Please try again.',
   e_rate: 'Too many requests. Please wait a moment.', e_offline: 'You are offline. Check your internet connection.', e_server: 'The server is not responding right now.', retry: 'Try again', maint: 'Maintenance', maint_text: 'The app is being updated. You can look around; changes are paused for a short time.',
   demo_banner: 'Demo mode — no server connected. Data is saved on this device only.', test_banner: 'Test mode is ON — everyone has full access.',
@@ -300,6 +302,7 @@ en: {
 },
 so: {
   back: 'Dib', settings: 'Dejinta', save: 'Keydi', saved: 'Waa la keydiyay', cancel: 'Jooji', copied: 'Waa la koobiyeeyay', remove: 'Ka saar', edit: 'Wax ka beddel', add: 'Ku dar', done: 'Dhammaad', close: 'Xir', share: 'La wadaag', search: 'Raadi',
+  q_saving: 'Waa la kaydinayaa {n}…', q_wait: '{n} waxay sugayaan xiriir', q_fail: 'Isbeddel lama kaydin karin. Fadlan hubi.',
   e_gen: 'Khalad ayaa dhacay. Fadlan isku day mar kale.', e_net: 'Dhibaato xiriir. Fadlan isku day mar kale.',
   e_rate: 'Codsiyo badan. Fadlan sug daqiiqad.', e_offline: 'Internet kuma xirnid. Hubi xiriirkaaga.', e_server: 'Server-ku hadda ma jawaabayo.', retry: 'Isku day mar kale', maint: 'Dayactir', maint_text: 'App-ka waa la cusboonaysiinayaa. Waad eegi kartaa; isbeddellada waa la hakiyay muddo gaaban.',
   demo_banner: 'Habka demo — server lama xirin. Xogta waxaa lagu keydiyaa qalabkan oo keliya.', test_banner: 'Habka tijaabada waa SHIDAN yahay — qof walba wuu isticmaali karaa.',
@@ -613,21 +616,61 @@ var refreshTimer = null;
 function scheduleRefresh() { clearTimeout(refreshTimer); refreshTimer = setTimeout(function () { if (canAutoRefresh()) enter(); }, 120); }
 function callServer(action, data) {
   if (navigator.onLine === false) return Promise.resolve({ ok: false, error: 'offline' });
-  var body = JSON.stringify(Object.assign({ action: action, app: CFG.appId, edition: EDITION, initData: IN_TG ? TG.initData : '', start: START, rid: newRid(), v: CFG.version }, data));
+  var passKey = 'pass_' + CFG.appId + '_' + (TGU ? TGU.id : '');   // signed pass for the Cloudflare edge copy (see shared/edge-proxy.js)
+  var body = JSON.stringify(Object.assign({ action: action, app: CFG.appId, edition: EDITION, initData: IN_TG ? TG.initData : '', start: START, rid: newRid(), v: CFG.version, pass: TGU ? lsGet(passKey, '') : '' }, data));
   var slow = SLOW.test(action), tmo = slow ? 120000 : 25000;
-  function once() {
+  var tries = 0;
+  function once() {   // 1st try: the edge copy (apiUrl); a retry goes straight to Apps Script (directUrl) when the edge fails
+    var url = tries++ && CFG.directUrl ? CFG.directUrl : CFG.apiUrl;
     var ctl = window.AbortController ? new AbortController() : null, timer = setTimeout(function () { if (ctl) ctl.abort(); }, tmo);
-    return fetch(CFG.apiUrl, { method: 'POST', redirect: 'follow', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: body, signal: ctl ? ctl.signal : undefined })
-      .then(function (r) { clearTimeout(timer); if (!r.ok) throw new Error('http_' + r.status); return r.json(); }, function (e) { clearTimeout(timer); throw e; });
+    return fetch(url, { method: 'POST', redirect: 'follow', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: body, signal: ctl ? ctl.signal : undefined })
+      .then(function (r) { clearTimeout(timer); if (!r.ok) throw new Error('http_' + r.status); return r.json(); }, function (e) { clearTimeout(timer); throw e; })
+      .then(function (res) { if (res && res.error === 'not_configured' && CFG.directUrl && url !== CFG.directUrl) return once(); return res; });
   }
   var p = once();
   if (!slow) p = p.catch(function () { return new Promise(function (r) { setTimeout(r, 700 + Math.random() * 900); }).then(once); });
   return p.catch(function () { return { ok: false, error: navigator.onLine === false ? 'offline' : 'network' }; }).then(function (res) {
+    if (res && res.edgePass && TGU) lsSet(passKey, res.edgePass);
     if (res && res.error === 'maintenance' && S.me) { S.me.maintenance = res.message || true; }
     if (res && res.error === 'rate_limited') toast(t('e_rate'));
     return res;
   });
 }
+/* Phone save queue: a save shows as done at once and is sent in the background, in order, surviving app restarts.
+   Each item keeps its own request id (rid) and its own record id, so a retry can never create a duplicate. */
+var QKEY = 'q_' + CFG.appId + '_' + (TGU ? TGU.id : '0'), qBusy = false, qTimer = null, qWait = 2000, qHandlers = {};
+var Q_TRANSIENT = /^(network|offline|rate_limited|server_error|maintenance|not_configured|unauthorized)$/;
+function qList() { var l = lsGet(QKEY, []); return Array.isArray(l) ? l : []; }
+function queueSave(action, data) {
+  if (DEMO) return api(action, data);
+  var l = qList(); l.push({ action: action, data: Object.assign({}, data || {}, { rid: newRid() }), at: Date.now() }); lsSet(QKEY, l);
+  qWait = 2000; qRun(); return Promise.resolve({ ok: true, queued: true });
+}
+function qRun() {
+  if (qBusy || DEMO) return; clearTimeout(qTimer);
+  var l = qList(); while (l.length && Date.now() - l[0].at > 7 * 864e5) { l.shift(); toast(t('q_fail')); } lsSet(QKEY, l);   // give up after 7 days
+  qPaint(); if (!l.length) return;
+  var it = l[0]; qBusy = true;
+  callServer(it.action, it.data).then(function (res) {
+    qBusy = false;
+    if (!res || (res.ok === false && Q_TRANSIENT.test(res.error || ''))) { qTimer = setTimeout(qRun, qWait); qWait = Math.min(qWait * 2, 60000); qPaint(); return; }
+    var l2 = qList(); if (l2.length && l2[0].data.rid === it.data.rid) l2.shift(); lsSet(QKEY, l2); qWait = 2000;
+    if (res.ok !== false) cacheClear(); else toast(t('q_fail'));
+    var h = qHandlers[it.action]; if (h) try { h(res, it.data); } catch (e) {}
+    if (!qList().length && canAutoRefresh()) enter();   // all saved: re-read the screen from the server
+    qRun();
+  });
+}
+function qPaint() {
+  var n = qList().length, el = document.querySelector('.qpill');
+  if (!n) { if (el) el.remove(); return; }
+  if (!el) { el = document.createElement('div'); el.className = 'qpill'; el.setAttribute('role', 'status'); document.body.appendChild(el); }
+  el.textContent = t(navigator.onLine === false || qWait > 2000 ? 'q_wait' : 'q_saving', { n: n });
+}
+function onSaved(action, fn) { qHandlers[action] = fn; }
+window.addEventListener('online', function () { qWait = 2000; qRun(); });
+document.addEventListener('visibilitychange', function () { if (!document.hidden) qRun(); });
+
 /* Report unexpected front-end errors (max 5 per session) so problems show up in the admin health panel. */
 var errCount = 0;
 function reportError(msg, where) { if (DEMO || !CFG.apiUrl || errCount++ >= 5) return; try { api('clientError', { msg: String(msg).slice(0, 300), where: S.screen + ' ' + (where || '') }); } catch (e) {} }
@@ -955,12 +998,12 @@ function app(def) {
   if (def.startScreen) S.screen = def.startScreen();
   render();
   try { var f0 = APP.enter[S.screen]; if (f0 && !DEMO) f0(); } catch (e) {}   // start the screen's data request now, in parallel with init
-  refreshMe().then(function () { enter(); });
+  refreshMe().then(function () { enter(); qRun(); });   // then send any saves left from last time
 }
 
 return { app: app, insight: insight, codesBlock: codesBlock, dCode: dCode, dCodeSave: dCodeSave, reloadCodes: reloadCodes, report: report, showReport: showReport, saveBlob: saveBlob, loadScript: loadScript, isPro: function () { return S.me && /^(sub|test)$/.test(S.me.access.reason); }, CFG: CFG, TG: TG, IN_TG: IN_TG, TGU: TGU, QS: QS, START: START, EDITION: EDITION, DEMO: DEMO, MB: MB, S: S,
   t: t, esc: esc, ic: ic, fmtDate: fmtDate, money: money, uid: uid, toast: toast, copy: copy, openLink: openLink, shareTg: shareTg, haptic: haptic, appLink: appLink, param: param, fileB64: fileB64,
-  lsGet: lsGet, lsSet: lsSet, api: api, refreshMe: refreshMe, go: go, back: back, home: home, render: render, header: header, banners: banners, planChip: planChip, spin: spin, errBox: errBox, empty: empty, kv: kv, seg: seg,
+  lsGet: lsGet, lsSet: lsSet, api: api, queueSave: queueSave, onSaved: onSaved, pending: function () { return qList(); }, refreshMe: refreshMe, go: go, back: back, home: home, render: render, header: header, banners: banners, planChip: planChip, spin: spin, errBox: errBox, empty: empty, kv: kv, seg: seg,
   paywall: paywall, needAccess: needAccess, consume: consume, lang: function () { return LANG; } };
 })();
 

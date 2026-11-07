@@ -229,6 +229,10 @@ r = E.call(U, 'dbSaveCustomer', { name: 'Abdi', phone: '+252610000001' }); ok('c
 const cid = r.customer.id, tok = r.customer.token;
 r = E.call(U, 'dbAddEntry', { id: cid, type: 'debt', amount: 45, date: '2026-10-01', due: '2026-10-20' }); r = E.call(U, 'dbAddEntry', { id: cid, type: 'payment', amount: 15 });
 ok('balance 30 + overdue', r.customer.balance === 30 && r.customer.overdue === true, r.customer);
+r = E.call(U, 'dbAddEntry', { id: cid, entry: 'eq1x2y3z4', type: 'debt', amount: 5 }); E.call(U, 'dbAddEntry', { id: cid, entry: 'eq1x2y3z4', type: 'debt', amount: 5, rid: 'other' });
+ok('queued save sent twice is stored once', E.call(U, 'dbCustomer', { id: cid }).customer.balance === 35 && r.customer.entries.some((e) => e.id === 'eq1x2y3z4'), r.customer);
+E.call(U, 'dbDeleteEntry', { id: cid, entry: 'eq1x2y3z4' }); ok('delete twice is harmless', E.call(U, 'dbDeleteEntry', { id: cid, entry: 'eq1x2y3z4' }).customer.balance === 30);
+ok('edge pass in init', /^[\w-]+\.[0-9a-f]{64}$/.test(E.call(U, 'init').edgePass || '') || !E.props['WEBHOOK_SECRET_debt']);
 E.call(U, 'dbSaveCustomer', { name: 'B' }); ok('3rd customer blocked', E.call(U, 'dbSaveCustomer', { name: 'C' }).allowed === false);
 ok('other shop cannot read', E.call(V, 'dbCustomer', { id: cid }).ok === false);
 r = E.server('botStart', { arg: 'd_' + tok, user_id: 3003 }); ok('bot /start links customer', /Hodan Store/.test(r.text) && r.query === 'd=' + tok, r);

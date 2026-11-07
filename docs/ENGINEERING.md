@@ -80,6 +80,20 @@ Each app is a **modular monolith** (book 1.6): one deployable Apps Script projec
 
 Front ends + webhook run on **Cloudflare Pages** (free, no credits, commercial use allowed), deployed from GitHub. Root directory `apps/<app>`, output `public`, webhook `functions/api/telegram.js`. The Netlify copy (`netlify/functions/telegram.mjs`) is kept, generated from the same source by `tools/build.py`.
 
+## 6b. Speed: edge copy, signed pass, phone save queue
+
+Apps Script answers in 1.5–3 s even for tiny requests, so phones should rarely wait for it.
+
+| Piece | Where | What it does |
+|---|---|---|
+| Phone copy | `shared/kit.js` `api()` | Shows the last answer at once and checks the server in the background (60 s fresh, kept 24 h). |
+| Edge copy | `shared/edge-proxy.js` → `functions/api/app.js`, D1 `axm-edge` | Cloudflare keeps each person's answers. Under 2 min old: Google is not asked. Under 30 min: answered at once, refreshed in background. Older: waits at most 8 s for Google, else the old copy. Writes always go to Google, clear that person's copies and mark everyone else's "check again". Admin data and payment checks are always live. |
+| Signed pass | `edgePass()` in `Core.gs` | 7-day pass `{u, a, x}` signed with a key derived from `WEBHOOK_SECRET_<app>`. Cloudflare learns that secret only after Apps Script accepts a real Telegram update (`telegram-forwarder.js`), so no bot token is stored at Cloudflare. The pass must match the user in `initData`. |
+| Phone save queue | `K.queueSave()` | Saves show as done at once, are sent in order in the background and survive closing the app. Each keeps its request id, and records carry a phone-made id (Debt Book `entry`), so a retry is stored once. A small "Saving 1…" pill shows anything waiting. |
+| Fallback | `directUrl` in `config.js` | If Cloudflare fails, the retry goes straight to Apps Script. |
+
+Tests: `node tools/test-edge.mjs` (edge copy against the simulator and an in-memory D1) and `node tools/test-backends.js`.
+
 ## 7. Growth path (scale only under proven pressure — book 7.16)
 
 1. **Now:** one Apps Script project + one sheet per app. Comfortable for thousands of users per app.

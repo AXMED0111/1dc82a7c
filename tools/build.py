@@ -23,10 +23,12 @@ for app in apps:
 
 # Cloudflare Pages Function: secret-free forwarder (Apps Script verifies Telegram's secret header itself)
 CF = (root / 'shared/telegram-forwarder.js').read_text()
+EDGE = (root / 'shared/edge-proxy.js').read_text()   # edge copy in front of Apps Script: /api/app
 for d in (root / 'apps').iterdir():
     if (d / 'public').is_dir():
         (d / 'functions/api').mkdir(parents=True, exist_ok=True)
         (d / 'functions/api/telegram.js').write_text(CF)
+        (d / 'functions/api/app.js').write_text(EDGE)
 print('webhook forwarder written to every app')
 
 # English bot descriptions into each app's Apps Script module (block between markers is regenerated)
