@@ -3,7 +3,7 @@
  * Apps Script project = Core.gs + this file. Script properties: BOT_TOKEN_rsvp, ADMIN_IDS.
  * Publishing an event uses the core free allowance / credits / subscription (consume).
  */
-var THIS_APP = { id: 'rsvp', url: 'https://axm-04.pages.dev', button: 'Invitations' };   // url = your Netlify site, then run connectTelegram()
+var THIS_APP = { id: 'rsvp', url: 'https://axm-04.pages.dev', button: 'Invitations' };   // url = this app's Cloudflare Pages site; then run connectTelegram()
 var EXTRA_SCHEMA = EXTRA_SCHEMA || {}, APP_HOOKS = APP_HOOKS || {}, APP_DEFAULTS = APP_DEFAULTS || {};
 
 APP_DEFAULTS.rsvp = { appName: 'Invitations', freeAllowance: 1, plans: [
