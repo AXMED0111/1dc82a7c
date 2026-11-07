@@ -68,7 +68,7 @@ function doPost(e) {
   var out;
   try {
     var req = JSON.parse(e.postData.contents);
-    out = req.serverSecret ? serverRoute(req) : route(req);
+    out = req.tgUpdate ? tgRoute(req) : req.serverSecret ? serverRoute(req) : route(req);
   } catch (err) {
     // Unexpected failure: record evidence with the request id so it can be traced, return a stable error to the client.
     try { var rq = JSON.parse(e.postData.contents); log('', appId(rq.app), 'exception', (rq.action || '') + ' rid=' + (rq.rid || '') + ' ' + String(err && err.stack || err).slice(0, 400)); metric(appId(rq.app), 0, true); } catch (x) {}
@@ -757,6 +757,49 @@ function aiJson(parts, model, withUsage) {
   var out = JSON.parse(txt.replace(/^```(json)?|```$/g, '').trim());
   if (withUsage && out && typeof out === 'object') out._tokens = (j.usageMetadata && j.usageMetadata.totalTokenCount) || 0;
   return out;
+}
+
+/* ======================= TELEGRAM UPDATES (forwarded by the Cloudflare function) =======================
+   The Cloudflare function holds NO secrets: it forwards Telegram's update plus Telegram's secret header.
+   Apps Script checks that header against WEBHOOK_SECRET_<app> (set by connectTelegram) and talks to Telegram with its own token. */
+var TG_TEXT = { start: 'Welcome. Tap the button below to open the app.', open: 'Open app',
+  paysupport: 'For payment questions, reply here with your order ID and a short description. We answer within 24 hours.',
+  terms: 'Purchases give access to premium features for the stated period. Digital goods are delivered immediately; refunds are handled case by case via /paysupport.',
+  phoneOk: 'Thank you. Your phone number is verified. Return to the app to continue.', phoneNo: 'Thank you. Local payment methods are only available for supported countries.' };
+function tgRoute(req) {
+  var app = THIS_APP.id, sec = prop('WEBHOOK_SECRET_' + app), tok = botToken(app);
+  if (!sec || String(req.whSecret || '') !== sec || !tok) return { ok: false, error: 'forbidden' };
+  var u = req.tgUpdate || {}, base = { serverSecret: prop('SERVER_SECRET'), app: app }, call = function (action, data) { return serverRoute(Object.assign({ action: action }, base, data)); };
+  var send = function (chat, text, extra) { return tgCall(tok, 'sendMessage', Object.assign({ chat_id: chat, text: text }, extra || {})); };
+  var openBtn = function (url) { return { reply_markup: { inline_keyboard: [[{ text: TG_TEXT.open, web_app: { url: url || THIS_APP.url } }]] } }; };
+  if (u.pre_checkout_query) {   // Stars: must be answered within 10 seconds
+    var q = u.pre_checkout_query, r = call('precheckout', { order_id: q.invoice_payload, user_id: q.from.id, total: q.total_amount, currency: q.currency }), ok = !!(r.ok && r.valid);
+    tgCall(tok, 'answerPreCheckoutQuery', ok ? { pre_checkout_query_id: q.id, ok: true } : { pre_checkout_query_id: q.id, ok: false, error_message: r.error || 'Order could not be verified.' });
+    return { ok: true };
+  }
+  if (u.my_chat_member) { var c = u.my_chat_member, nm = c.new_chat_member || {}; call('gkBotStatus', { chat: c.chat, from_id: c.from.id, status: nm.status, can_invite: !!nm.can_invite_users, can_restrict: !!nm.can_restrict_members }); return { ok: true }; }
+  if (u.chat_join_request) {
+    var j = u.chat_join_request, jr = call('gkJoinRequest', { chat_id: j.chat.id, user_id: j.from.id });
+    if (jr.approve) tgCall(tok, 'approveChatJoinRequest', { chat_id: j.chat.id, user_id: j.from.id });
+    else if (jr.offer) send(j.user_chat_id || j.from.id, jr.title + ' is a paid channel. Choose a plan to get access.', { reply_markup: { inline_keyboard: [[{ text: 'View plans', web_app: { url: THIS_APP.url + '?c=' + encodeURIComponent(jr.key) } }]] } });
+    return { ok: true };
+  }
+  var m = u.message; if (!m || !m.chat) return { ok: true };
+  var chat = m.chat.id;
+  if (m.successful_payment) { var sp = m.successful_payment; call('starsPaid', { order_id: sp.invoice_payload, user_id: m.from.id, charge_id: sp.telegram_payment_charge_id, total: sp.total_amount }); return { ok: true }; }
+  if (m.contact) { if (m.contact.user_id === m.from.id) { var cr = call('contact', { user_id: m.from.id, phone: m.contact.phone_number }); send(chat, cr.local ? TG_TEXT.phoneOk : TG_TEXT.phoneNo, { reply_markup: { remove_keyboard: true } }); } return { ok: true }; }
+  var text = String(m.text || ''), cmd = text.split(/[\s@]/)[0];
+  if (cmd === '/paysupport') send(chat, TG_TEXT.paysupport);
+  else if (cmd === '/terms') send(chat, TG_TEXT.terms);
+  else if (text && cmd !== '/start' && cmd.charAt(0) !== '/') { var bt = call('botText', { user_id: m.from.id, first_name: m.from.first_name || '', text: text.slice(0, 2000) }); if (bt && bt.text) send(chat, bt.text, openBtn()); }
+  else if (cmd === '/start' || text) {
+    var arg = cmd === '/start' ? (text.split(/\s+/)[1] || '') : '', msg = TG_TEXT.start, query = '';
+    if (/^r\d{3,15}$/.test(arg)) query = 'startapp=' + arg;
+    else if (/^[a-z]_[\w-]+$/i.test(arg)) { var bs = call('botStart', { arg: arg, user_id: m.from.id, first_name: m.from.first_name || '' }); if (bs && bs.text) msg = bs.text; query = (bs && bs.query) || (arg.charAt(0) + '=' + encodeURIComponent(arg.slice(2))); }
+    else if (APP_HOOKS[app] && APP_HOOKS[app].botStart && cmd === '/start') { var b0 = APP_HOOKS[app].botStart({ arg: '', user_id: m.from.id }); if (b0 && b0.text) msg = b0.text; }
+    send(chat, msg, openBtn(THIS_APP.url + (query ? '?' + query : '')));
+  }
+  return { ok: true };
 }
 
 /* ======================= SERVER-TO-SERVER (Netlify webhook) ======================= */

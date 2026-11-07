@@ -118,6 +118,20 @@ r = E.server('botText', { user_id: 2002, first_name: 'H', text: 'Hello? any upda
 ok('ticket rate limit', (() => { let x; for (let i = 0; i < 8; i++) x = E.call(V, 'ticketCreate', { type: 'question', text: 'spam ' + i }); return x.error === 'rate_limited'; })());
 ok('app registered itself', E.sheets.Apps.data.some((x) => x[0] === 'converter'));
 
+// --- Telegram updates handled in Apps Script (secret-free forwarder)
+E.props.WEBHOOK_SECRET_converter = 'whs';
+const tgu = (u, sec) => { E.ctx.__req = JSON.stringify({ tgUpdate: u, whSecret: sec, app: 'converter' }); return JSON.parse(E.run('doPost({postData:{contents:__req}}).text')); };
+ok('forwarded update with wrong secret rejected', tgu({ message: { chat: { id: 1 }, from: { id: 1 }, text: '/start' } }, 'bad').error === 'forbidden');
+let before = E.sent.length; tgu({ message: { chat: { id: 4242 }, from: { id: 4242, first_name: 'Z' }, text: '/start' } }, 'whs');
+ok('/start answered with open-app button', E.sent.slice(before).some((x) => x.method === 'sendMessage' && /web_app/.test(x.payload)));
+before = E.sent.length; tgu({ message: { chat: { id: 4242 }, from: { id: 4242, first_name: 'Z' }, text: 'My PDF is broken' } }, 'whs');
+ok('plain message becomes support ticket + reply', E.sent.slice(before).some((x) => /support team/.test(x.payload)) && E.sheets.Tickets.data.some((x) => x[2] === '4242'));
+r = E.call({ id: 4343, first_name: 'Q' }, 'createOrder', { plan: 'pro_m', method: 'stars' });
+before = E.sent.length; tgu({ pre_checkout_query: { id: 'pq1', from: { id: 4343 }, invoice_payload: r.order_id, total_amount: 150, currency: 'XTR' } }, 'whs');
+ok('pre-checkout answered by Apps Script', E.sent.slice(before).some((x) => x.method === 'answerPreCheckoutQuery' && /"ok":true/.test(x.payload)), E.sent.slice(before));
+tgu({ message: { chat: { id: 4343 }, from: { id: 4343 }, successful_payment: { invoice_payload: r.order_id, telegram_payment_charge_id: 'c9', total_amount: 150 } } }, 'whs');
+ok('successful payment activates plan', E.call({ id: 4343, first_name: 'Q' }, 'init').access.reason === 'sub');
+
 section('control center');
 E = makeEnv('control');
 E.run(`var now=new Date(), last=new Date(Date.UTC(now.getUTCFullYear(),now.getUTCMonth()-1,10));
