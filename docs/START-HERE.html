@@ -5,55 +5,55 @@ ol li{margin:4px 0}.tag{display:inline-block;font-size:12px;font-weight:600;back
 table{border-collapse:collapse;width:100%;font-size:14px}td{border-top:1px solid #e4e7ec;padding:7px 6px;vertical-align:top}td:first-child{color:#667085;width:34%}
 .warn{background:#fff6ed;border-color:#fddcab}a{color:#2457d6}</style></head><body>
 <h1>Telegram Mini Apps — start here</h1><p class="sub">8 apps · each = front end (Netlify) + its own Google Apps Script backend (its own API URL) + a Telegram bot.</p>
-<div class="card warn"><b>Never put secrets</b> (bot tokens, API keys, wallet private keys) in <code>config.js</code>, in chat, or in GitHub. They go only in <b>Apps Script → Project Settings → Script properties</b> and in <b>Netlify → Environment variables</b>.</div>
+<div class="card warn"><b>Never put secrets</b> (bot tokens, API keys, wallet private keys) in <code>config.js</code>, in chat, or in GitHub. They go only in <b>Apps Script → Project Settings → Script properties</b> and in <b>Cloudflare Pages → Settings → Variables and Secrets</b>.</div>
 <h2>Do this for each app (about 10 minutes per app)</h2><div class="card"><ol>
 <li><b>Backend.</b> Go to <a href="https://script.google.com">script.google.com</a> → <b>New project</b>. Rename it after the app. Delete the sample code, then create one file per <code>.gs</code> file in the app's <code>apps-script/</code> folder (names as shown) and paste each file's contents.</li>
 <li><b>Script properties.</b> Project Settings (gear) → Script properties → add <code>ADMIN_IDS</code> = your Telegram user ID (get it from @userinfobot) and the bot token as <code>BOT_TOKEN_&lt;app id&gt;</code>. AI apps also need <code>GEMINI_KEY</code> (from aistudio.google.com).<br><small>Optional: to use ONE ledger for all apps, copy <code>MASTER_SHEET_ID</code> from the first project into the others before step 3.</small></li>
 <li><b>Install.</b> Select the function <code>install</code> → <b>Run</b> → approve permissions. It creates the private master sheet and the daily/hourly jobs.</li>
 <li><b>Deploy the API.</b> Deploy → New deployment → type <b>Web app</b> → Execute as <b>Me</b> → Who has access <b>Anyone</b> → Deploy. Copy the <b>Web app URL</b> (ends with <code>/exec</code>). <b>This is the app's API — send it to Claude.</b> It is not a secret.</li>
 <li><b>Bot.</b> In Telegram open <b>@BotFather</b> → <code>/newbot</code>. Put the token only in Script properties (step 2) and Netlify (step 7). Optional: <code>/newapp</code> to get a short name for direct <code>t.me/bot/app</code> links (set <code>botUsername</code> + <code>appShortName</code> in <code>config.js</code>).</li>
-<li><b>Connect the bot.</b> In the app's Apps Script file set <code>THIS_APP.url</code> to the app's Netlify URL, save, then run <code>connectTelegram</code>. It sets the webhook, the menu button and the commands.</li>
-<li><b>Netlify environment variables</b> (site → Project configuration → Environment variables, mark secret): <code>BOT_TOKEN</code>, <code>WEBHOOK_SECRET</code> (copy <code>WEBHOOK_SECRET_&lt;app&gt;</code> from Script properties), <code>SERVER_SECRET</code> (copy from Script properties), <code>GAS_URL</code> (the /exec URL), <code>APP_ID</code> (the app id), <code>APP_URL</code> (the site URL).</li>
-<li><b>Link GitHub → Netlify</b> so the bot webhook function deploys: site → Link repository → <code>AXMED0111/1dc82a7c</code> → base directory <code>apps/&lt;app id&gt;</code>, publish <code>public</code>, functions <code>netlify/functions</code>, no build command.</li>
+<li><b>Connect the bot.</b> In the app's Apps Script file set <code>THIS_APP.url</code> to the app's Cloudflare URL (<code>https://&lt;project&gt;.pages.dev</code>), save, then run <code>connectTelegram</code>. It sets the webhook, the menu button and the commands.</li>
+<li><b>Hosting (free): Cloudflare Pages.</b> dash.cloudflare.com → Workers &amp; Pages → Create → Pages → <b>Connect to Git</b> → repo <code>AXMED0111/1dc82a7c</code>. Project name e.g. <code>debt-book</code>. Build command: <i>none</i>. <b>Root directory:</b> <code>apps/&lt;app id&gt;</code>. <b>Build output directory:</b> <code>public</code>. The bot webhook in <code>functions/api/telegram.js</code> is deployed automatically. Every future update I push to GitHub goes live by itself — no credits.</li>
+<li><b>Cloudflare variables</b> (project → Settings → Variables and Secrets, type <i>Secret</i> for the first three): <code>BOT_TOKEN</code>, <code>WEBHOOK_SECRET</code> (copy <code>WEBHOOK_SECRET_&lt;app&gt;</code> from Script properties), <code>SERVER_SECRET</code> (from Script properties), <code>GAS_URL</code> (the /exec URL), <code>APP_ID</code> (the app id), <code>APP_URL</code> (e.g. https://debt-book.pages.dev). Then <b>Deployments → Retry deployment</b> once so they apply. Put the same URL in <code>THIS_APP.url</code> and run <code>connectTelegram</code> again.</li>
 <li><b>Launch.</b> Open the app as admin → Settings (sliders icon): set prices, USDT addresses, EVC/Zaad/Sahal numbers, then turn <b>Test mode OFF</b>.</li></ol></div>
 <h2>The 8 apps</h2><div class="card"><h3>Channel Pass — paid-channel gatekeeper</h3><p style="margin:0 0 8px;color:#475467">Creators sell access to private channels. Bot lets buyers in and removes them when the plan ends.</p><table>
 <tr><td>Folder</td><td><code>01 Channel Pass</code></td></tr>
-<tr><td>Live demo</td><td><a href="https://cpass-5cc578be.netlify.app">https://cpass-5cc578be.netlify.app</a></td></tr>
+<tr><td>Old demo (Netlify)</td><td><a href="https://cpass-5cc578be.netlify.app">https://cpass-5cc578be.netlify.app</a></td></tr>
 <tr><td>Apps Script files</td><td><code>Core.gs</code> + <code>Gatekeeper.gs</code> &nbsp;(from <code>apps-script/</code>)</td></tr>
 <tr><td>Script properties</td><td><code>ADMIN_IDS</code> <code>BOT_TOKEN_gatekeeper</code></td></tr>
 <tr><td>API URL goes in</td><td><code>public/config.js</code> → <code>apiUrl: '…/exec'</code> (app id <code>gatekeeper</code>)</td></tr></table></div><div class="card"><h3>Interview Coach</h3><p style="margin:0 0 8px;color:#475467">Voice answers to interview questions, scored by AI with clear feedback.</p><table>
 <tr><td>Folder</td><td><code>02 Interview Coach</code></td></tr>
-<tr><td>Live demo</td><td><a href="https://coac-a7c93694.netlify.app">https://coac-a7c93694.netlify.app</a></td></tr>
+<tr><td>Old demo (Netlify)</td><td><a href="https://coac-a7c93694.netlify.app">https://coac-a7c93694.netlify.app</a></td></tr>
 <tr><td>Apps Script files</td><td><code>Coach.gs</code> + <code>Core.gs</code> &nbsp;(from <code>apps-script/</code>)</td></tr>
 <tr><td>Script properties</td><td><code>ADMIN_IDS</code> <code>BOT_TOKEN_coach</code> <code>GEMINI_KEY</code></td></tr>
 <tr><td>API URL goes in</td><td><code>public/config.js</code> → <code>apiUrl: '…/exec'</code> (app id <code>coach</code>)</td></tr></table></div><div class="card"><h3>Document Translator</h3><p style="margin:0 0 8px;color:#475467">Photo of a certificate or ID in, formatted English / Arabic / Somali PDF out.</p><table>
 <tr><td>Folder</td><td><code>03 Document Translator</code></td></tr>
-<tr><td>Live demo</td><td><a href="https://tran-49b0be25.netlify.app">https://tran-49b0be25.netlify.app</a></td></tr>
+<tr><td>Old demo (Netlify)</td><td><a href="https://tran-49b0be25.netlify.app">https://tran-49b0be25.netlify.app</a></td></tr>
 <tr><td>Apps Script files</td><td><code>Core.gs</code> + <code>Translator.gs</code> &nbsp;(from <code>apps-script/</code>)</td></tr>
 <tr><td>Script properties</td><td><code>ADMIN_IDS</code> <code>BOT_TOKEN_translator</code> <code>GEMINI_KEY</code></td></tr>
 <tr><td>API URL goes in</td><td><code>public/config.js</code> → <code>apiUrl: '…/exec'</code> (app id <code>translator</code>)</td></tr></table></div><div class="card"><h3>Invitations — event / wedding RSVP</h3><p style="margin:0 0 8px;color:#475467">Invitations, guest list, RSVP replies, QR tickets and door check-in.</p><table>
 <tr><td>Folder</td><td><code>04 Invitations RSVP</code></td></tr>
-<tr><td>Live demo</td><td><a href="https://rsvp-f8e2b81e.netlify.app">https://rsvp-f8e2b81e.netlify.app</a></td></tr>
+<tr><td>Old demo (Netlify)</td><td><a href="https://rsvp-f8e2b81e.netlify.app">https://rsvp-f8e2b81e.netlify.app</a></td></tr>
 <tr><td>Apps Script files</td><td><code>Core.gs</code> + <code>Rsvp.gs</code> &nbsp;(from <code>apps-script/</code>)</td></tr>
 <tr><td>Script properties</td><td><code>ADMIN_IDS</code> <code>BOT_TOKEN_rsvp</code></td></tr>
 <tr><td>API URL goes in</td><td><code>public/config.js</code> → <code>apiUrl: '…/exec'</code> (app id <code>rsvp</code>)</td></tr></table></div><div class="card"><h3>Scholarship Finder</h3><p style="margin:0 0 8px;color:#475467">Profile-based scholarship matches with deadline alerts.</p><table>
 <tr><td>Folder</td><td><code>05 Scholarship Finder</code></td></tr>
-<tr><td>Live demo</td><td><a href="https://scho-1c442534.netlify.app">https://scho-1c442534.netlify.app</a></td></tr>
+<tr><td>Old demo (Netlify)</td><td><a href="https://scho-1c442534.netlify.app">https://scho-1c442534.netlify.app</a></td></tr>
 <tr><td>Apps Script files</td><td><code>Core.gs</code> + <code>Scholar.gs</code> &nbsp;(from <code>apps-script/</code>)</td></tr>
 <tr><td>Script properties</td><td><code>ADMIN_IDS</code> <code>BOT_TOKEN_scholar</code></td></tr>
 <tr><td>API URL goes in</td><td><code>public/config.js</code> → <code>apiUrl: '…/exec'</code> (app id <code>scholar</code>)</td></tr></table></div><div class="card"><h3>Debt Book — reminders for traders</h3><p style="margin:0 0 8px;color:#475467">Shops record customer credit; polite reminders by WhatsApp, SMS or the bot.</p><table>
 <tr><td>Folder</td><td><code>06 Debt Book</code></td></tr>
-<tr><td>Live demo</td><td><a href="https://debt-70e13e91.netlify.app">https://debt-70e13e91.netlify.app</a></td></tr>
+<tr><td>Old demo (Netlify)</td><td><a href="https://debt-70e13e91.netlify.app">https://debt-70e13e91.netlify.app</a></td></tr>
 <tr><td>Apps Script files</td><td><code>Core.gs</code> + <code>Debt.gs</code> &nbsp;(from <code>apps-script/</code>)</td></tr>
 <tr><td>Script properties</td><td><code>ADMIN_IDS</code> <code>BOT_TOKEN_debt</code></td></tr>
 <tr><td>API URL goes in</td><td><code>public/config.js</code> → <code>apiUrl: '…/exec'</code> (app id <code>debt</code>)</td></tr></table></div><div class="card"><h3>Field Tasks — field data marketplace</h3><p style="margin:0 0 8px;color:#475467">Businesses post small paid tasks; local workers submit photos/GPS/answers and earn USDT.</p><table>
 <tr><td>Folder</td><td><code>07 Field Tasks</code></td></tr>
-<tr><td>Live demo</td><td><a href="https://mark-4be4295c.netlify.app">https://mark-4be4295c.netlify.app</a></td></tr>
+<tr><td>Old demo (Netlify)</td><td><a href="https://mark-4be4295c.netlify.app">https://mark-4be4295c.netlify.app</a></td></tr>
 <tr><td>Apps Script files</td><td><code>Core.gs</code> + <code>Market.gs</code> &nbsp;(from <code>apps-script/</code>)</td></tr>
 <tr><td>Script properties</td><td><code>ADMIN_IDS</code> <code>BOT_TOKEN_market</code></td></tr>
 <tr><td>API URL goes in</td><td><code>public/config.js</code> → <code>apiUrl: '…/exec'</code> (app id <code>market</code>)</td></tr></table></div><div class="card"><h3>PDF Tools — file converter</h3><p style="margin:0 0 8px;color:#475467">Images to PDF, merge, split, PDF to images. 2 free conversions, then subscription.</p><table>
 <tr><td>Folder</td><td><code>08 PDF Tools</code></td></tr>
-<tr><td>Live demo</td><td><a href="https://dtools-1dc82a7c.netlify.app">https://dtools-1dc82a7c.netlify.app</a></td></tr>
+<tr><td>Old demo (Netlify)</td><td><a href="https://dtools-1dc82a7c.netlify.app">https://dtools-1dc82a7c.netlify.app</a></td></tr>
 <tr><td>Apps Script files</td><td><code>Converter.gs</code> + <code>Core.gs</code> &nbsp;(from <code>apps-script/</code>)</td></tr>
 <tr><td>Script properties</td><td><code>ADMIN_IDS</code> <code>BOT_TOKEN_converter</code></td></tr>
 <tr><td>API URL goes in</td><td><code>public/config.js</code> → <code>apiUrl: '…/exec'</code> (app id <code>converter</code>)</td></tr></table></div>

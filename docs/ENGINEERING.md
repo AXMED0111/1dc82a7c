@@ -68,7 +68,11 @@ Each app is a **modular monolith** (book 1.6): one deployable Apps Script projec
 - [ ] `node tools/test-backends.js` passes; Somali texts reviewed by a native speaker
 - [ ] Telegram Stars fees/payout and iOS payment rules verified on official pages
 
-## 6. Growth path (scale only under proven pressure — book 7.16)
+## 6. Hosting
+
+Front ends + webhook run on **Cloudflare Pages** (free, no credits, commercial use allowed), deployed from GitHub. Root directory `apps/<app>`, output `public`, webhook `functions/api/telegram.js`. The Netlify copy (`netlify/functions/telegram.mjs`) is kept, generated from the same source by `tools/build.py`.
+
+## 7. Growth path (scale only under proven pressure — book 7.16)
 
 1. **Now:** one Apps Script project + one sheet per app. Comfortable for thousands of users per app.
 2. **When an app's sheet passes ~50 % or p95 > 3 s:** archive old rows monthly; split heavy tabs into their own spreadsheet.
