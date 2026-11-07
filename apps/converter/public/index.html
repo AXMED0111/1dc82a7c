@@ -668,7 +668,10 @@ function collectSettings(){var st=JSON.parse(JSON.stringify(S.admin.settings));
   return st}
 
 /* ---------- actions ---------- */
-function refreshMe(){return api('init',{start:START}).then(function(r){if(r.ok)S.me=r;else if(!S.me)S.me={access:computeAccess(defaultSettings(),null,0,false),plans:[],methods:[],error:r.error};return r})}
+/* Speed: open instantly with the last known account state, refresh in the background (server still checks every action) */
+var ME_KEY='pdft_me_'+(TGU?TGU.id:'0');
+if(!DEMO&&!S.me){var cm=lsGet(ME_KEY,null);if(cm&&Date.now()-cm.t<864e5)S.me=cm.v}
+function refreshMe(){return api('init',{start:START}).then(function(r){if(r.ok){S.me=r;if(!DEMO)lsSet(ME_KEY,{t:Date.now(),v:r})}else if(!S.me)S.me={access:computeAccess(defaultSettings(),null,0,false),plans:[],methods:[],error:r.error};return r})}
 function addFiles(list){var T=TOOLS[S.tool],arr=[].slice.call(list||[]);
   arr=arr.filter(function(f){return T.kind==='img'?/^image\//.test(f.type)||/\.(jpe?g|png|webp|gif|bmp)$/i.test(f.name):(f.type==='application/pdf'||/\.pdf$/i.test(f.name))});
   if(!T.multi){resetTool();arr=arr.slice(0,1)}
