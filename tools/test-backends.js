@@ -53,6 +53,10 @@ const W = { id: 4004, first_name: 'W' }; E.call(W, 'consume'); E.call(W, 'consum
 r = E.call(W, 'createOrder', { plan: 'c3', method: 'stars' }); E.server('starsPaid', { order_id: r.order_id, user_id: 4004, charge_id: 'c' });
 r = E.call(W, 'init'); ok('credits added', r.access.reason === 'credits' && r.access.credits === 3, r.access);
 E.call(W, 'consume'); ok('credit used', E.call(W, 'init').access.credits === 2);
+r = E.call(ADMIN, 'adminRevenue', {}); const cm = r.months[11];
+ok('revenue: stars + usd this month', r.ok && cm.stars === 75 + 150 && cm.usd > 2 && r.totals.orders === 4 && r.byMethod.length === 3, { cm, t: r.totals, m: r.byMethod });
+ok('revenue: admin only', E.call(U, 'adminRevenue', {}).error === 'forbidden');
+ok('revenue: all-apps scope', E.call(ADMIN, 'adminRevenue', { scope: 'all' }).byApp[0].app === 'converter');
 E.run('cronDaily(); cronHourly(); cronUsdt();'); ok('crons run', true);
 
 section('gatekeeper');

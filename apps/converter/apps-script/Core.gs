@@ -226,6 +226,7 @@ function route(req) {
     case 'adminDecide': return adminDecide(ctx, req);
     case 'adminStats': return adminStats(ctx);
     case 'adminResetMe': return adminResetMe(ctx);
+    case 'adminRevenue': return adminRevenue(ctx, req);
   }
   var H = APP_HOOKS[app];
   if (H && H.routes && H.routes[a]) return H.routes[a](ctx, req);
@@ -430,6 +431,35 @@ function adminStats(ctx) {
     conversions: rows('Usage').filter(function (r) { return r.app === a; }).reduce(function (s, r) { return s + (Number(r.total_used) || 0); }, 0),
     paidOrders: rows('Payments').filter(function (r) { return r.app === a && r.status === 'paid'; }).length,
     pending: rows('Payments').filter(function (r) { return r.app === a && r.status === 'review'; }).length } };
+}
+/* Revenue report: last 12 months. scope 'all' covers every app that writes to the same master sheet (shared MASTER_SHEET_ID).
+   USD = USDT + mobile money (dollar amounts). Stars are reported separately (their USD value depends on Telegram's payout rate). */
+function adminRevenue(ctx, req) {
+  var all = req.scope === 'all', now = new Date(), months = [], idx = {};
+  for (var i = 11; i >= 0; i--) { var d = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - i, 1)), k = d.toISOString().slice(0, 7); idx[k] = months.length; months.push({ month: k, orders: 0, usd: 0, stars: 0, newUsers: 0 }); }
+  var byMethod = {}, byPlan = {}, byApp = {}, T = { orders: 0, usd: 0, stars: 0, users: 0, activeSubs: 0, pendingReview: 0 };
+  function app(a) { return byApp[a] || (byApp[a] = { app: a, orders: 0, usd: 0, stars: 0, users: 0, activeSubs: 0 }); }
+  function amt(p) { return p.currency === 'XTR' ? { usd: 0, stars: Number(p.amount) || 0 } : { usd: Number(String(p.amount).replace(/[^\d.]/g, '')) || 0, stars: 0 }; }
+  rows('Payments').forEach(function (p) {
+    if (!all && p.app !== ctx.app) return;
+    if (p.status === 'review') T.pendingReview++;
+    if (p.status !== 'paid') return;
+    var a = amt(p), k = new Date(p.paid_at || p.created_at).toISOString().slice(0, 7), A = app(p.app);
+    T.orders++; T.usd += a.usd; T.stars += a.stars; A.orders++; A.usd += a.usd; A.stars += a.stars;
+    if (idx[k] !== undefined) { var m = months[idx[k]]; m.orders++; m.usd += a.usd; m.stars += a.stars; }
+    var bm = byMethod[p.method] || (byMethod[p.method] = { method: p.method, orders: 0, usd: 0, stars: 0 }); bm.orders++; bm.usd += a.usd; bm.stars += a.stars;
+    var pk = (all ? p.app + ' · ' : '') + String(p.plan).replace(/^task:.*/, 'task funding').replace(/^\w+\|.*/, 'channel access');
+    var bp = byPlan[pk] || (byPlan[pk] = { plan: pk, orders: 0, usd: 0, stars: 0 }); bp.orders++; bp.usd += a.usd; bp.stars += a.stars;
+  });
+  rows('Users').forEach(function (u) {
+    if (!all && u.app !== ctx.app) return;
+    T.users++; app(u.app).users++;
+    var k = new Date(u.created_at).toISOString().slice(0, 7); if (idx[k] !== undefined) months[idx[k]].newUsers++;
+  });
+  rows('Subscriptions').forEach(function (s) { if ((all || s.app === ctx.app) && s.status === 'active' && new Date(s.expiry_date) > now) { T.activeSubs++; app(s.app).activeSubs++; } });
+  function r2(o) { ['usd'].forEach(function (k) { if (k in o) o[k] = Math.round(o[k] * 100) / 100; }); return o; }
+  function vals(o) { return Object.keys(o).map(function (k) { return r2(o[k]); }).sort(function (a, b) { return (b.usd + b.stars / 100) - (a.usd + a.stars / 100); }); }
+  return { ok: true, scope: all ? 'all' : ctx.app, appName: ctx.st.appName, months: months.map(r2), byMethod: vals(byMethod), byPlan: vals(byPlan), byApp: vals(byApp), totals: r2(T) };
 }
 function adminResetMe(ctx) {
   var us = usageRow(ctx.uid, ctx.app); update('Usage', us, { free_used: 0, credits: 0 });
