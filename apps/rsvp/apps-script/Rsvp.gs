@@ -61,7 +61,7 @@ APP_HOOKS.rsvp = {
     rsvGuestDel: function (ctx, req) {
       var e = rsvOwn(ctx, req.key); if (!e) return { ok: false, error: 'forbidden' };
       var g = find('Guests', function (x) { return x.guest_key === req.guest && x.event_key === e.event_key; });
-      if (g) sh('Guests').deleteRow(g._row);
+      if (g) delRow('Guests', g);
       return { ok: true, event: rsvFull(e) };
     },
     rsvInvite: function (ctx, req) {

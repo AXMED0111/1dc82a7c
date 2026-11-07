@@ -66,7 +66,7 @@ APP_HOOKS.debt = {
     },
     dbDeleteEntry: function (ctx, req) {
       var c = dbOwnCust(ctx, req.id); if (!c) return { ok: false, error: 'not_found' };
-      var e = find('Entries', function (x) { return x.entry_id === req.entry && x.cust_id === c.cust_id; }); if (e) sh('Entries').deleteRow(e._row);
+      var e = find('Entries', function (x) { return x.entry_id === req.entry && x.cust_id === c.cust_id; }); if (e) delRow('Entries', e);
       return { ok: true, customer: dbCustOut(c) };
     },
     dbSaveShop: function (ctx, req) {

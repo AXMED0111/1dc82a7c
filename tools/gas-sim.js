@@ -27,7 +27,7 @@ function makeEnv(app) {
       newBlob: (d, mime, name) => ({ getBytes: () => (typeof d === 'string' ? toBytes(Buffer.from(d, 'utf8')) : d), mime, name, isBlob: true }),
       computeHmacSha256Signature: (v, k) => toBytes(crypto.createHmac('sha256', fromBytes(k)).update(fromBytes(v)).digest()),
       base64Decode: (s) => toBytes(Buffer.from(s, 'base64')), base64Encode: (a) => fromBytes(a).toString('base64'),
-      getUuid: () => crypto.randomUUID(), formatDate: (d, tz, f) => (f === 'HH:mm' ? d.toISOString().slice(11, 16) : d.toISOString().slice(0, 10))
+      getUuid: () => crypto.randomUUID(), sleep: () => {}, formatDate: (d, tz, f) => (f === 'HH:mm' ? d.toISOString().slice(11, 16) : d.toISOString().slice(0, 10))
     },
     UrlFetchApp: { fetch: (url, o) => { fetches.push({ url, o }); const m = /bot[^/]+\/(\w+)/.exec(url); if (m) sent.push({ method: m[1], payload: o && o.payload });
       const body = m && m[1] === 'createInvoiceLink' ? { ok: true, result: 'https://t.me/$invoice' } : m && m[1] === 'createChatInviteLink' ? { ok: true, result: { invite_link: 'https://t.me/+abc' } } : { ok: true, result: {} };

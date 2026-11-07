@@ -131,15 +131,61 @@ table.pl{width:100%;border-collapse:collapse;font-size:13px}
 .foot{text-align:center;color:var(--hint);font-size:11.5px;margin-top:18px}
 </style>
 <style>
-textarea.t{min-height:84px;resize:vertical;font:inherit}
+textarea.t{min-height:84px;resize:vertical;font:inherit;width:100%}
 .chrow{display:flex;align-items:center;gap:12px;padding:12px;border:1px solid var(--sep);border-radius:var(--r);background:var(--card);margin-bottom:10px;cursor:pointer;width:100%;text-align:left}
 .av{width:42px;height:42px;border-radius:12px;background:var(--soft);color:var(--accent);display:grid;place-items:center;font-weight:700;flex:none}
 .tabs{display:flex;gap:6px;margin-bottom:12px}
-.tabs button{flex:1;border:1px solid var(--sep);background:var(--card);border-radius:10px;padding:9px;font-weight:600;font-size:13.5px;color:var(--hint);cursor:pointer}
+.tabs button{flex:1;border:1px solid var(--sep);background:var(--card);border-radius:10px;padding:9px 6px;font-weight:600;font-size:13px;color:var(--hint);cursor:pointer}
 .tabs button.on{background:var(--accent);color:var(--accent-text);border-color:var(--accent)}
 ol.steps{margin:0;padding-left:20px}ol.steps li{margin:6px 0;font-size:14px}
-.split{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
+.g2 .btn+.btn,.g3 .btn+.btn{margin-top:0}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:8px}.g3{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.pill{display:inline-flex;align-items:center;gap:4px;font-size:11.5px;font-weight:600;padding:3px 8px;border-radius:999px;background:var(--bg);color:var(--hint);margin:2px 4px 2px 0}
+.pill.ok{background:color-mix(in srgb,var(--ok) 14%,transparent);color:var(--ok)}.pill.bad{background:color-mix(in srgb,var(--danger) 12%,transparent);color:var(--danger)}.pill.ac{background:var(--soft);color:var(--accent)}
+.num{font-size:26px;font-weight:700;letter-spacing:-.02em}
+.stepper{display:flex;align-items:center;gap:10px}.stepper button{width:38px;height:38px;border-radius:10px;border:1px solid var(--sep);background:var(--card);font-size:18px;cursor:pointer}
+.stepper b{min-width:28px;text-align:center;font-size:18px}
+.score{width:86px;height:86px;border-radius:50%;display:grid;place-items:center;margin:4px auto 8px;font-size:26px;font-weight:700;border:6px solid var(--accent);color:var(--accent)}
+.meter{height:8px;border-radius:8px;background:var(--bg);overflow:hidden;margin-top:4px}.meter i{display:block;height:100%;background:var(--accent)}
+.photo{width:100%;border-radius:12px;display:block;max-height:320px;object-fit:cover;background:var(--bg)}
+.rec{width:84px;height:84px;border-radius:50%;border:0;background:var(--danger);color:#fff;display:grid;place-items:center;margin:8px auto;cursor:pointer}
+.rec.on{animation:pulse 1.2s infinite}@keyframes pulse{50%{box-shadow:0 0 0 12px color-mix(in srgb,var(--danger) 25%,transparent)}}
+.inv{border-radius:18px;padding:26px 20px;text-align:center;border:1px solid var(--sep);background:var(--card);margin-bottom:12px}
+.inv .eyebrow{font-size:11.5px;letter-spacing:.18em;text-transform:uppercase;color:var(--hint)}
+.inv h2{font-family:Georgia,"Times New Roman",serif;font-weight:500;font-size:26px;margin:10px 0 6px;line-height:1.2}
+.inv .line{width:48px;height:1px;background:var(--accent);margin:14px auto}
+.qrbox{background:#fff;border-radius:14px;padding:14px;display:inline-block}
+.qrbox svg,.qrbox img{display:block;width:200px;height:200px}
+table.tb{width:100%;border-collapse:collapse;font-size:13px}table.tb td{padding:8px 4px;border-bottom:1px solid var(--sep);vertical-align:top}table.tb td:first-child{color:var(--hint);width:38%}
 </style>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-calendar" viewBox="0 0 24 24"><rect x="3.5" y="5" width="17" height="15" rx="2"/><path d="M3.5 10h17M8 3v4M16 3v4"/></symbol>
+  <symbol id="i-pin" viewBox="0 0 24 24"><path d="M12 21s-7-6.2-7-11.5a7 7 0 0 1 14 0C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/></symbol>
+  <symbol id="i-qr" viewBox="0 0 24 24"><rect x="3.5" y="3.5" width="6" height="6" rx="1"/><rect x="14.5" y="3.5" width="6" height="6" rx="1"/><rect x="3.5" y="14.5" width="6" height="6" rx="1"/><path d="M14.5 14.5h2v2h-2zM18.5 18.5h2v2h-2zM18.5 14.5h2M14.5 18.5v2"/></symbol>
+  <symbol id="i-scan" viewBox="0 0 24 24"><path d="M4 8V5a1 1 0 0 1 1-1h3M16 4h3a1 1 0 0 1 1 1v3M20 16v3a1 1 0 0 1-1 1h-3M8 20H5a1 1 0 0 1-1-1v-3"/><path d="M4 12h16"/></symbol>
+  <symbol id="i-mic" viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21"/></symbol>
+  <symbol id="i-stop" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="2"/></symbol>
+  <symbol id="i-play" viewBox="0 0 24 24"><path d="M7 4.5v15l12-7.5z"/></symbol>
+  <symbol id="i-globe" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/></symbol>
+  <symbol id="i-award" viewBox="0 0 24 24"><circle cx="12" cy="9" r="5.5"/><path d="M8.5 13.5L7 21l5-2.5 5 2.5-1.5-7.5"/></symbol>
+  <symbol id="i-cash" viewBox="0 0 24 24"><rect x="2.5" y="6" width="19" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/><path d="M6 9v.01M18 15v.01"/></symbol>
+  <symbol id="i-task" viewBox="0 0 24 24"><rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 4V3h6v1M9 11l2 2 4-4M9 17h6"/></symbol>
+  <symbol id="i-camera" viewBox="0 0 24 24"><path d="M4 8a2 2 0 0 1 2-2h2l1.5-2h5L16 6h2a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z"/><circle cx="12" cy="13" r="3.5"/></symbol>
+  <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4.2-4.2"/></symbol>
+  <symbol id="i-bell" viewBox="0 0 24 24"><path d="M6 16V11a6 6 0 0 1 12 0v5l1.5 2h-15z"/><path d="M10 20.5a2 2 0 0 0 4 0"/></symbol>
+  <symbol id="i-edit" viewBox="0 0 24 24"><path d="M4 20h4L19 9a2.8 2.8 0 0 0-4-4L4 16z"/><path d="M13.5 6.5l4 4"/></symbol>
+  <symbol id="i-trash" viewBox="0 0 24 24"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/></symbol>
+  <symbol id="i-users" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><path d="M16 4.5a3.5 3.5 0 0 1 0 7M18 14a6 6 0 0 1 3.5 6"/></symbol>
+  <symbol id="i-chart" viewBox="0 0 24 24"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></symbol>
+  <symbol id="i-ext" viewBox="0 0 24 24"><path d="M14 4h6v6M20 4l-9 9"/><path d="M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></symbol>
+  <symbol id="i-link" viewBox="0 0 24 24"><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/></symbol>
+  <symbol id="i-list" viewBox="0 0 24 24"><path d="M9 6h11M9 12h11M9 18h11"/><path d="M4.5 6h.01M4.5 12h.01M4.5 18h.01"/></symbol>
+  <symbol id="i-message" viewBox="0 0 24 24"><path d="M4 5h16v11H9l-5 4z"/></symbol>
+  <symbol id="i-briefcase" viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M9 7V5h6v2M3 12.5h18"/></symbol>
+  <symbol id="i-translate" viewBox="0 0 24 24"><path d="M4 5h9M8.5 3v2M6 5c.5 3 2.5 5.5 5 7M11 5c-.5 3-3 6-6.5 7.5"/><path d="M13 21l4-9 4 9M14.5 18h5"/></symbol>
+  <symbol id="i-store" viewBox="0 0 24 24"><path d="M4 9l1.5-5h13L20 9M4 9v11h16V9M4 9a2.7 2.7 0 0 0 5.3 0 2.7 2.7 0 0 0 5.4 0 2.7 2.7 0 0 0 5.3 0"/><path d="M10 20v-5h4v5"/></symbol>
+</svg>
+
 </head>
 <body>
 <svg width="0" height="0" style="position:absolute" aria-hidden="true">
@@ -176,265 +222,662 @@ ol.steps{margin:0;padding-left:20px}ol.steps li{margin:6px 0;font-size:14px}
 </svg>
 <svg width="0" height="0" style="position:absolute" aria-hidden="true">
   <symbol id="i-channel" viewBox="0 0 24 24"><path d="M4 10v4a1 1 0 0 0 1 1h2l5 4V5L7 9H5a1 1 0 0 0-1 1z"/><path d="M16 9a4 4 0 0 1 0 6M18.5 6.5a8 8 0 0 1 0 11"/></symbol>
-  <symbol id="i-users" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><path d="M16 4.5a3.5 3.5 0 0 1 0 7M18 14a6 6 0 0 1 3.5 6"/></symbol>
-  <symbol id="i-link" viewBox="0 0 24 24"><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/></symbol>
-  <symbol id="i-chart" viewBox="0 0 24 24"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></symbol>
-  <symbol id="i-ext" viewBox="0 0 24 24"><path d="M14 4h6v6M20 4l-9 9"/><path d="M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></symbol>
 </svg>
 <div class="wrap" id="app"></div>
 <script>
-(function(){
+/* Shared Mini App kit: Telegram, i18n (SO/EN), API + DEMO backend, payments, admin settings.
+   Injected into every app by tools/build.py. Apps call K.app({...}). */
+var K = (function () {
 'use strict';
-var CFG=Object.assign({appId:'gatekeeper',apiUrl:'',botUsername:'',appShortName:'',defaultLang:'en',version:'1.0.0'},window.APP_CONFIG||{});
-var TG=(window.Telegram&&window.Telegram.WebApp)||null,IN_TG=!!(TG&&TG.initData),TGU=(IN_TG&&TG.initDataUnsafe.user)||null;
-var QS=new URLSearchParams(location.search),START=(IN_TG&&TG.initDataUnsafe.start_param)||QS.get('startapp')||'';
-var KEY=QS.get('c')||(/^c_/.test(START)?START.slice(2):'');
-var EDITION=/local/i.test(START)||QS.get('edition')==='local'?'local':'global',DEMO=!CFG.apiUrl;
-function lsGet(k,d){try{var v=localStorage.getItem(k);return v==null?d:JSON.parse(v)}catch(e){return d}}
-function lsSet(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}
+var CFG = Object.assign({ appId: 'app', apiUrl: '', defaultLang: 'en', version: '1.0.0', botUsername: '', appShortName: '' }, window.APP_CONFIG || {});
+var TG = (window.Telegram && window.Telegram.WebApp) || null, IN_TG = !!(TG && TG.initData), TGU = (IN_TG && TG.initDataUnsafe.user) || null;
+var QS = new URLSearchParams(location.search), START = (IN_TG && TG.initDataUnsafe.start_param) || QS.get('startapp') || '';
+var EDITION = /local/i.test(START) || QS.get('edition') === 'local' ? 'local' : 'global', DEMO = !CFG.apiUrl, MB = 1048576;
+var LOCAL_METHODS = ['evc', 'zaad', 'sahal', 'mpesa'];
+var APP = { strings: { en: {}, so: {} }, screens: {}, actions: {}, enter: {}, demo: {}, adminFields: [], extraSecrets: {} };
+var S = { screen: 'home', stack: [], me: null, err: '', msg: '', pw: null, payPlan: null, payment: null, admin: null };
 
-var L={en:{
- appName:'Channel Pass',tagline:'Sell access to your private channel',
- t_channels:'My channels',t_subs:'My subscriptions',add:'Add a channel',none_ch:'No channels yet. Add your first private channel to start selling access.',
- none_sub:'You have no active subscriptions.',members:'{n} members',active:'Live',paused:'Not published',notready:'Bot rights missing',
- how_title:'Connect a channel',s1:'Open your private channel or group → Administrators → Add admin.',s2:'Search for the bot @{bot} and add it.',
- s3:'Allow “Invite users via link” and “Ban users”. Save.',s4:'Come back here and tap Refresh. Your channel appears automatically.',refresh:'Refresh',
- edit:'Channel',desc:'Description shown to buyers',plans:'Plans',plan_label:'Name',days:'Days',usd:'Price USD',stars:'Stars',add_plan:'Add plan',remove:'Remove',
- payout:'Your payout details (USDT address or mobile money number)',publish:'Published',publish_sub:'Buyers can see and pay for this channel.',
- save:'Save',saved:'Saved',share:'Share link',share_sub:'Post this link anywhere. Buyers pay, the bot lets them in and removes them when the plan ends.',
- new_link:'New invite link',earn:'Earnings',gross:'Gross',fee:'Platform fee',net:'You receive',orders:'Orders',
- choose:'Choose a plan',pay_with:'Pay with',d_days:'{n} days',active_until:'Your access is active until {d}.',join:'Open channel',renew:'Extend access',
- test_join:'Test mode: get access without paying',not_found:'This channel is not available.',
- stars_m:'Telegram Stars',usdt_trc20:'USDT · TRC20',usdt_bep20:'USDT · BEP20',evc:'EVC Plus',zaad:'Zaad',sahal:'Sahal',mpesa:'M-Pesa',
- send_exact:'Send exactly this amount',network:'Network',address:'Address',amount:'Amount',copied:'Copied',check_pay:'I have paid — check now',
- not_yet:'Not received yet. Blockchain confirmation can take a few minutes.',usdt_note:'Send USDT on the {net} network only. The exact amount identifies your order.',
- mm_text:'Send {a} to {n} using {m}, then enter the transaction ID below.',txid:'Transaction ID',submit:'Submit',
- pending:'Submitted. Your access opens as soon as the payment is confirmed.',verify_phone:'Verify phone number',verify_text:'Local payment methods need a verified phone number.',
- paid_ok:'Payment confirmed. The bot has sent you the join link.',no_methods:'Payments are not set up yet.',
- demo_banner:'Demo mode — no server connected. Data is saved on this device only.',test_banner:'Test mode is ON.',
- pay_demo:'Demo: simulate a successful payment?',open_in_tg:'Open this app inside Telegram to pay with Stars.',e_gen:'Something went wrong. Please try again.',e_net:'Connection problem. Please try again.',
- settings:'Settings',back:'Back',until:'until {d}'
-},so:{
- appName:'Channel Pass',tagline:'Iibi galitaanka kanaalkaaga gaarka ah',
- t_channels:'Kanaalladayda',t_subs:'Isdiiwaangelintayda',add:'Ku dar kanaal',none_ch:'Weli kanaal ma jiro. Ku dar kanaalkaaga gaarka ah si aad u bilowdo iibinta.',
- none_sub:'Ma lihid isdiiwaangelin firfircoon.',members:'{n} xubnood',active:'Shaqaynaya',paused:'Lama daabicin',notready:'Awoodaha bot-ka ayaa maqan',
- how_title:'Ku xir kanaal',s1:'Fur kanaalkaaga ama kooxdaada → Maamulayaasha → Ku dar maamule.',s2:'Raadi bot-ka @{bot} oo ku dar.',
- s3:'Oggolow “Ku casuun isticmaalayaal link” iyo “Mamnuuc isticmaalayaal”. Keydi.',s4:'Halkan ku soo noqo oo taabo Cusboonaysii. Kanaalkaagu si toos ah ayuu u soo muuqanayaa.',refresh:'Cusboonaysii',
- edit:'Kanaalka',desc:'Sharaxaadda iibsadayaasha loo muujinayo',plans:'Qorshayaasha',plan_label:'Magaca',days:'Maalmo',usd:'Qiimaha USD',stars:'Stars',add_plan:'Ku dar qorshe',remove:'Ka saar',
- payout:'Faahfaahinta lacag-bixintaada (cinwaan USDT ama lambar lacag mobile)',publish:'La daabacay',publish_sub:'Iibsadayaashu way arki karaan oo bixin karaan.',
- save:'Keydi',saved:'Waa la keydiyay',share:'Link-ga la wadaago',share_sub:'Link-gan meel kasta dhig. Iibsaduhu wuu bixiyaa, bot-ku wuu soo galiyaa, marka qorshuhu dhammaadana wuu saaraa.',
- new_link:'Link casuumad cusub',earn:'Dakhliga',gross:'Wadarta',fee:'Khidmadda',net:'Waxaad helaysaa',orders:'Dalabyada',
- choose:'Dooro qorshe',pay_with:'Ku bixi',d_days:'{n} maalmood',active_until:'Galitaankaagu wuu shaqaynayaa ilaa {d}.',join:'Fur kanaalka',renew:'Kordhi muddada',
- test_join:'Habka tijaabada: hel galitaan lacag la\'aan',not_found:'Kanaalkan lama heli karo.',
- stars_m:'Telegram Stars',usdt_trc20:'USDT · TRC20',usdt_bep20:'USDT · BEP20',evc:'EVC Plus',zaad:'Zaad',sahal:'Sahal',mpesa:'M-Pesa',
- send_exact:'Dir qadarkan oo sax ah',network:'Shabakadda',address:'Cinwaanka',amount:'Qadarka',copied:'Waa la koobiyeeyay',check_pay:'Waan bixiyay — hubi hadda',
- not_yet:'Weli lama helin. Xaqiijintu waxay qaadan kartaa dhowr daqiiqo.',usdt_note:'USDT ku dir shabakadda {net} oo keliya. Qadarka saxda ah ayaa aqoonsanaya dalabkaaga.',
- mm_text:'U dir {a} lambarka {n} adigoo isticmaalaya {m}, kadib geli aqoonsiga macaamilka hoose.',txid:'Aqoonsiga macaamilka',submit:'Gudbi',
- pending:'Waa la gudbiyay. Galitaanku wuu furmayaa marka lacagta la xaqiijiyo.',verify_phone:'Xaqiiji lambarka taleefanka',verify_text:'Hababka lacag-bixinta gudaha waxay u baahan yihiin lambar la xaqiijiyay.',
- paid_ok:'Lacag-bixinta waa la xaqiijiyay. Bot-ku wuxuu kuu soo diray link-ga.',no_methods:'Lacag-bixinta weli lama diyaarin.',
- demo_banner:'Habka demo — server lama xirin. Xogta waxaa lagu keydiyaa qalabkan oo keliya.',test_banner:'Habka tijaabada waa SHIDAN yahay.',
- pay_demo:'Demo: ma la jilaa lacag-bixin guulaysatay?',open_in_tg:'App-kan ka fur Telegram si aad Stars ugu bixiso.',e_gen:'Khalad ayaa dhacay. Fadlan isku day mar kale.',e_net:'Dhibaato xiriir. Fadlan isku day mar kale.',
- settings:'Dejinta',back:'Dib',until:'ilaa {d}'
+function lsGet(k, d) { try { var v = localStorage.getItem(k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } }
+function lsSet(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} }
+/* start param helper: param('e') reads ?e=KEY or start_param e_KEY */
+function param(p) { return QS.get(p) || (START.indexOf(p + '_') === 0 ? START.slice(p.length + 1) : ''); }
+
+var L = {
+en: {
+  back: 'Back', settings: 'Settings', save: 'Save', saved: 'Saved', cancel: 'Cancel', copied: 'Copied', remove: 'Remove', edit: 'Edit', add: 'Add', done: 'Done', close: 'Close', share: 'Share', search: 'Search',
+  e_gen: 'Something went wrong. Please try again.', e_net: 'Connection problem. Please try again.',
+  demo_banner: 'Demo mode — no server connected. Data is saved on this device only.', test_banner: 'Test mode is ON — everyone has full access.',
+  sim_banner: 'Simulating a free user on this device.',
+  p_test: 'Test mode', p_pro: 'Pro', p_free: '{n} free left', p_credits: '{n} credits', p_none: 'Upgrade',
+  pw_title: 'Upgrade', pw_text: 'Get full access.', f_unl: 'Unlimited use', f_all: 'All features included',
+  choose_plan: 'Choose a plan', pay_with: 'Pay with', days: '{n} days', credits: '{n} credits', credit1: '1 credit',
+  stars: 'Telegram Stars', usdt_trc20: 'USDT · TRC20', usdt_bep20: 'USDT · BEP20', evc: 'EVC Plus', zaad: 'Zaad', sahal: 'Sahal', mpesa: 'M-Pesa',
+  send_exact: 'Send exactly this amount', network: 'Network', address: 'Address', amount: 'Amount',
+  check_pay: 'I have paid — check now', not_yet: 'Not received yet. Blockchain confirmation can take a few minutes.',
+  usdt_note: 'Send USDT on the {net} network only. The exact amount identifies your order.',
+  mm_text: 'Send {a} to {n} using {m}, then enter the transaction ID below.', txid: 'Transaction ID', submit: 'Submit',
+  pending: 'Submitted. Your access opens as soon as the payment is confirmed.',
+  verify_phone: 'Verify phone number', verify_text: 'Local payment methods need a verified phone number.',
+  paid_ok: 'Payment confirmed. Thank you.', no_methods: 'Payments are not set up yet. Please check back soon.',
+  pay_demo: 'Demo: simulate a successful payment?', open_in_tg: 'Open this app inside Telegram to pay with Stars.', continue: 'Continue',
+  my_plan: 'My plan', acc_status: 'Status', acc_free: 'Free plan', acc_used: 'Free uses', acc_exp: 'Expires', acc_id: 'Telegram ID', support: 'Support', upgrade: 'Upgrade',
+  rep_ready: 'Your report is ready', rep_making: 'Preparing your PDF…', rep_dl: 'Download PDF', rep_send: 'Send to my Telegram chat', rep_sent: 'Sent to your Telegram chat', rep_hint: 'If the download does not start inside Telegram, use “Send to my Telegram chat”.', rep_pro: 'PDF reports are part of Pro.', generated: 'Generated', page: 'Page'
+},
+so: {
+  back: 'Dib', settings: 'Dejinta', save: 'Keydi', saved: 'Waa la keydiyay', cancel: 'Jooji', copied: 'Waa la koobiyeeyay', remove: 'Ka saar', edit: 'Wax ka beddel', add: 'Ku dar', done: 'Dhammaad', close: 'Xir', share: 'La wadaag', search: 'Raadi',
+  e_gen: 'Khalad ayaa dhacay. Fadlan isku day mar kale.', e_net: 'Dhibaato xiriir. Fadlan isku day mar kale.',
+  demo_banner: 'Habka demo — server lama xirin. Xogta waxaa lagu keydiyaa qalabkan oo keliya.', test_banner: 'Habka tijaabada waa SHIDAN yahay — qof walba wuu isticmaali karaa.',
+  sim_banner: 'Qalabkan wuxuu u dhaqmayaa sidii isticmaale bilaash ah.',
+  p_test: 'Tijaabo', p_pro: 'Pro', p_free: '{n} bilaash ah ayaa haray', p_credits: '{n} dhibcood', p_none: 'U gudub Pro',
+  pw_title: 'U gudub Pro', pw_text: 'Hel adeegga oo dhan.', f_unl: 'Isticmaal aan xad lahayn', f_all: 'Dhammaan adeegyada waa ku jiraan',
+  choose_plan: 'Dooro qorshe', pay_with: 'Ku bixi', days: '{n} maalmood', credits: '{n} dhibcood', credit1: '1 dhibic',
+  stars: 'Telegram Stars', usdt_trc20: 'USDT · TRC20', usdt_bep20: 'USDT · BEP20', evc: 'EVC Plus', zaad: 'Zaad', sahal: 'Sahal', mpesa: 'M-Pesa',
+  send_exact: 'Dir qadarkan oo sax ah', network: 'Shabakadda', address: 'Cinwaanka', amount: 'Qadarka',
+  check_pay: 'Waan bixiyay — hubi hadda', not_yet: 'Weli lama helin. Xaqiijintu waxay qaadan kartaa dhowr daqiiqo.',
+  usdt_note: 'USDT ku dir shabakadda {net} oo keliya. Qadarka saxda ah ayaa aqoonsanaya dalabkaaga.',
+  mm_text: 'U dir {a} lambarka {n} adigoo isticmaalaya {m}, kadib geli aqoonsiga macaamilka hoose.', txid: 'Aqoonsiga macaamilka', submit: 'Gudbi',
+  pending: 'Waa la gudbiyay. Adeeggu wuu kuu furmayaa marka lacagta la xaqiijiyo.',
+  verify_phone: 'Xaqiiji lambarka taleefanka', verify_text: 'Hababka lacag-bixinta gudaha waxay u baahan yihiin lambar la xaqiijiyay.',
+  paid_ok: 'Lacag-bixinta waa la xaqiijiyay. Mahadsanid.', no_methods: 'Lacag-bixinta weli lama diyaarin. Fadlan dib u eeg.',
+  pay_demo: 'Demo: ma la jilaa lacag-bixin guulaysatay?', open_in_tg: 'App-kan ka fur Telegram si aad Stars ugu bixiso.', continue: 'Sii wad',
+  my_plan: 'Qorshahayga', acc_status: 'Xaaladda', acc_free: 'Qorshe bilaash', acc_used: 'Isticmaalka bilaashka', acc_exp: 'Wuxuu dhacayaa', acc_id: 'Aqoonsiga Telegram', support: 'Taageero', upgrade: 'U gudub Pro',
+  rep_ready: 'Warbixintaadu waa diyaar', rep_making: 'PDF-ka ayaa la diyaarinayaa…', rep_dl: 'Soo deji PDF', rep_send: 'U dir sheekadayda Telegram', rep_sent: 'Waa loo diray sheekadaada Telegram', rep_hint: 'Haddii soo dejintu aysan ka bilaabmin Telegram, isticmaal “U dir sheekadayda Telegram”.', rep_pro: 'Warbixinnada PDF waxay ka mid yihiin Pro.', generated: 'La sameeyay', page: 'Bogga'
 }};
-var LANG=lsGet('gk_lang',null)||(EDITION==='local'||(TGU&&TGU.language_code==='so')?'so':CFG.defaultLang);
-function t(k,v){var s=(L[LANG]&&L[LANG][k])||L.en[k]||k;if(v)for(var x in v)s=s.split('{'+x+'}').join(v[x]);return s}
-function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]})}
-function ic(n,c){return'<svg class="i '+(c||'')+'"><use href="#i-'+n+'"/></svg>'}
-function fmtDate(s){var d=new Date(s);return isNaN(d)?'':d.toISOString().slice(0,10)}
-function money(n){return'$'+(+n||0).toFixed(2)}
-var toastT;function toast(m){var el=document.querySelector('.toast');if(!el){el=document.createElement('div');el.className='toast';document.body.appendChild(el)}el.textContent=m;el.classList.remove('hide');clearTimeout(toastT);toastT=setTimeout(function(){el.classList.add('hide')},2400)}
-function copy(x){(navigator.clipboard?navigator.clipboard.writeText(x):Promise.reject()).then(function(){toast(t('copied'))},function(){var ta=document.createElement('textarea');ta.value=x;document.body.appendChild(ta);ta.select();try{document.execCommand('copy');toast(t('copied'))}catch(e){}ta.remove()})}
-function openLink(u){if(!u)return;if(IN_TG&&/^https:\/\/t\.me\//.test(u))TG.openTelegramLink(u);else window.open(u,'_blank')}
-function shareUrl(key){if(CFG.botUsername&&CFG.appShortName)return'https://t.me/'+CFG.botUsername+'/'+CFG.appShortName+'?startapp=c_'+key;
-  if(CFG.botUsername)return'https://t.me/'+CFG.botUsername+'?start=c_'+key;return location.origin+location.pathname+'?c='+key}
+var LANG;
+function t(k, v) {
+  var s = (APP.strings[LANG] && APP.strings[LANG][k]) || (L[LANG] && L[LANG][k]) || APP.strings.en[k] || L.en[k] || k;
+  if (v) for (var x in v) s = s.split('{' + x + '}').join(v[x]);
+  return s;
+}
+function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+function ic(n, c) { return '<svg class="i ' + (c || '') + '"><use href="#i-' + n + '"/></svg>'; }
+function fmtDate(s) { var d = new Date(s); return isNaN(d) ? '' : d.toISOString().slice(0, 10); }
+function money(n, cur) { n = +n || 0; return (cur && cur !== 'USD' ? cur + ' ' : '$') + n.toFixed(2).replace(/\.00$/, ''); }
+function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
+var toastT; function toast(m) { var el = document.querySelector('.toast'); if (!el) { el = document.createElement('div'); el.className = 'toast'; document.body.appendChild(el); } el.textContent = m; el.classList.remove('hide'); clearTimeout(toastT); toastT = setTimeout(function () { el.classList.add('hide'); }, 2400); }
+function copy(x) { (navigator.clipboard ? navigator.clipboard.writeText(x) : Promise.reject()).then(function () { toast(t('copied')); }, function () { var ta = document.createElement('textarea'); ta.value = x; document.body.appendChild(ta); ta.select(); try { document.execCommand('copy'); toast(t('copied')); } catch (e) {} ta.remove(); }); }
+function openLink(u) { if (!u) return; if (IN_TG && /^https:\/\/t\.me\//.test(u)) TG.openTelegramLink(u); else if (IN_TG) TG.openLink(u); else window.open(u, '_blank'); }
+function shareTg(url, text) { openLink('https://t.me/share/url?url=' + encodeURIComponent(url) + '&text=' + encodeURIComponent(text || '')); }
+function haptic(k) { try { if (IN_TG) { if (k === 'ok') TG.HapticFeedback.notificationOccurred('success'); else TG.HapticFeedback.impactOccurred('light'); } } catch (e) {} }
+function appLink(arg) {
+  if (CFG.botUsername && CFG.appShortName) return 'https://t.me/' + CFG.botUsername + '/' + CFG.appShortName + (arg ? '?startapp=' + arg : '');
+  if (CFG.botUsername) return 'https://t.me/' + CFG.botUsername + (arg ? '?start=' + arg : '');
+  var i = arg ? arg.indexOf('_') : -1;
+  return location.origin + location.pathname + (arg ? '?' + (i > 0 ? arg.slice(0, i) + '=' + arg.slice(i + 1) : 'startapp=' + arg) : '');
+}
+/* ---------------- PDF reports (shared engine) ----------------
+   K.report({title, subtitle, meta:[[k,v]], rtl, blocks:[{h}, {kpis:[[label,value,tone]]}, {table:{cols:[{label,w,align}], rows:[[...]], total:[...]}},
+   {text}, {images:[{src,caption}]}]}) -> Promise<Blob>. Pages are drawn on canvas (correct Arabic/Somali text) and wrapped with pdf-lib. */
+var scriptCache = {};
+function loadScript(src) { return scriptCache[src] || (scriptCache[src] = new Promise(function (r, j) { var s = document.createElement('script'); s.src = src; s.onload = r; s.onerror = function () { delete scriptCache[src]; j(new Error('load')); }; document.head.appendChild(s); })); }
+function loadImg(src) { return new Promise(function (r) { if (!src) return r(null); var im = new Image(); im.onload = function () { r(im); }; im.onerror = function () { r(null); }; im.src = src; }); }
+function report(R) {
+  var W = 1240, H = 1754, M = 90, rtl = !!R.rtl, ACC = '#2457d6', pages = [], c, x, y, pageNo = 0, FONT = 'Arial, "Noto Sans", sans-serif';
+  var imgs = [];
+  (R.blocks || []).forEach(function (b) { if (b.images) b.images.forEach(function (i) { imgs.push(i); }); });
+  return Promise.all(imgs.map(function (i) { return loadImg(i.src).then(function (im) { i._im = im; }); })).then(function () {
+    function X(px) { return rtl ? W - px : px; }
+    function txt(s, px, py, font, color, align) { x.font = font; x.fillStyle = color || '#101828'; x.textAlign = align ? (rtl ? (align === 'left' ? 'right' : align === 'right' ? 'left' : 'center') : align) : (rtl ? 'right' : 'left'); x.fillText(String(s == null ? '' : s), X(px), py); }
+    function fit(s, maxW, font) { x.font = font; s = String(s == null ? '' : s); if (x.measureText(s).width <= maxW) return s; while (s.length > 1 && x.measureText(s + '…').width > maxW) s = s.slice(0, -1); return s + '…'; }
+    function page() {
+      c = document.createElement('canvas'); c.width = W; c.height = H; x = c.getContext('2d'); x.direction = rtl ? 'rtl' : 'ltr'; x.fillStyle = '#fff'; x.fillRect(0, 0, W, H);
+      pages.push(c); pageNo++; x.fillStyle = ACC; x.fillRect(0, 0, W, 14);
+      if (pageNo === 1) {
+        txt(R.brand || '', M, 70, '600 22px ' + FONT, '#667085');
+        txt(R.title, M, 128, '700 46px ' + FONT, '#101828'); var yy = 170;
+        if (R.subtitle) { txt(R.subtitle, M, yy, '400 26px ' + FONT, '#475467'); yy += 38; }
+        (R.meta || []).forEach(function (m) { txt(m[0] + ': ' + m[1], M, yy, '400 22px ' + FONT, '#667085'); yy += 32; });
+        y = yy + 16; x.fillStyle = '#e4e7ec'; x.fillRect(M, y, W - 2 * M, 2); y += 34;
+      } else { txt(R.title, M, 64, '600 22px ' + FONT, '#667085'); y = 100; }
+    }
+    function need(h) { if (y + h > H - M - 50) { page(); return true; } return false; }
+    function wrapText(s, font, lh, maxW) { x.font = font; String(s || '').split('\n').forEach(function (par) { var line = ''; par.split(' ').forEach(function (w) { var tt = line ? line + ' ' + w : w; if (x.measureText(tt).width > maxW && line) { need(lh); txt(line, M, y + lh * 0.75, font); y += lh; line = w; } else line = tt; }); need(lh); txt(line, M, y + lh * 0.75, font); y += lh; }); }
+    page();
+    (R.blocks || []).forEach(function (b) {
+      if (b.h) { need(80); y += 12; txt(b.h, M, y + 30, '700 28px ' + FONT, '#101828'); y += 52; }
+      if (b.text) { wrapText(b.text, '400 23px ' + FONT, 34, W - 2 * M); y += 10; }
+      if (b.kpis) {
+        var n = Math.min(4, b.kpis.length), gap = 18, bw = (W - 2 * M - gap * (n - 1)) / n;
+        for (var i = 0; i < b.kpis.length; i += n) { need(130);
+          b.kpis.slice(i, i + n).forEach(function (k, j) { var bx = M + j * (bw + gap); x.fillStyle = '#f2f5fb'; x.fillRect(rtl ? W - bx - bw : bx, y, bw, 112);
+            txt(fit(k[0], bw - 36, '600 20px ' + FONT), bx + 18, y + 38, '600 20px ' + FONT, '#667085');
+            txt(fit(k[1], bw - 36, '700 34px ' + FONT), bx + 18, y + 88, '700 34px ' + FONT, k[2] === 'bad' ? '#d92d20' : k[2] === 'good' ? '#079455' : '#101828'); });
+          y += 130; }
+      }
+      if (b.table) {
+        var T = b.table, tw = W - 2 * M, cols = T.cols, tot = cols.reduce(function (a, cc) { return a + (cc.w || 1); }, 0), xs = [], acc = 0;
+        cols.forEach(function (cc) { xs.push(M + acc / tot * tw); acc += cc.w || 1; });
+        function head() { x.fillStyle = '#101828'; x.fillRect(M, y, tw, 44); cols.forEach(function (cc, i) { var cw = (cc.w || 1) / tot * tw; txt(fit(cc.label, cw - 20, '600 19px ' + FONT), cc.align === 'right' ? xs[i] + cw - 10 : xs[i] + 10, y + 29, '600 19px ' + FONT, '#fff', cc.align === 'right' ? 'right' : null); }); y += 44; }
+        function row(r, bold, idx) { if (need(40)) head(); if (idx % 2) { x.fillStyle = '#f8f9fb'; x.fillRect(M, y, tw, 40); }
+          var f = (bold ? '700 ' : '400 ') + '20px ' + FONT; cols.forEach(function (cc, i) { var cw = (cc.w || 1) / tot * tw, v = r[i], tone = null;
+            if (v && typeof v === 'object') { tone = v.tone; v = v.v; }
+            txt(fit(v, cw - 20, f), cc.align === 'right' ? xs[i] + cw - 10 : xs[i] + 10, y + 27, f, tone === 'bad' ? '#d92d20' : tone === 'good' ? '#079455' : '#101828', cc.align === 'right' ? 'right' : null); });
+          y += 40; }
+        need(90); head(); (T.rows || []).forEach(function (r, i) { row(r, false, i); });
+        if (!T.rows || !T.rows.length) { need(40); txt(T.empty || '—', M + 10, y + 27, '400 20px ' + FONT, '#667085'); y += 40; }
+        if (T.total) { x.fillStyle = '#101828'; x.fillRect(M, y, tw, 2); y += 4; row(T.total, true, 0); }
+        y += 22;
+      }
+      if (b.images) {
+        var per = 3, g = 16, iw = (W - 2 * M - g * (per - 1)) / per, ih = iw * 0.75;
+        for (var k = 0; k < b.images.length; k += per) { need(ih + 50);
+          b.images.slice(k, k + per).forEach(function (im, j) { var ix = M + j * (iw + g), rx = rtl ? W - ix - iw : ix; x.fillStyle = '#f2f4f7'; x.fillRect(rx, y, iw, ih);
+            if (im._im) { var sc = Math.max(iw / im._im.width, ih / im._im.height), sw = iw / sc, shh = ih / sc; x.drawImage(im._im, (im._im.width - sw) / 2, (im._im.height - shh) / 2, sw, shh, rx, y, iw, ih); }
+            txt(fit(im.caption || '', iw, '400 18px ' + FONT), ix, y + ih + 26, '400 18px ' + FONT, '#475467'); });
+          y += ih + 44; }
+      }
+    });
+    var stamp = t('generated') + ' ' + new Date().toISOString().slice(0, 16).replace('T', ' ') + ' UTC';
+    pages.forEach(function (pc, i) { x = pc.getContext('2d'); x.direction = rtl ? 'rtl' : 'ltr'; x.fillStyle = '#e4e7ec'; x.fillRect(M, H - M - 20, W - 2 * M, 1);
+      txt(R.footer || stamp, M, H - M + 14, '400 18px ' + FONT, '#98a2b3'); txt(t('page') + ' ' + (i + 1) + ' / ' + pages.length, W - M, H - M + 14, '400 18px ' + FONT, '#98a2b3', 'right'); if (R.footer) txt(stamp, M, H - M + 40, '400 16px ' + FONT, '#98a2b3'); });
+    return loadScript('vendor/pdf-lib.min.js');
+  }).then(function () { return PDFLib.PDFDocument.create(); }).then(function (doc) {
+    doc.setTitle(R.title); doc.setProducer(R.brand || 'Mini App'); var p = Promise.resolve();
+    pages.forEach(function (pc) { p = p.then(function () { return fetch(pc.toDataURL('image/jpeg', 0.88)).then(function (r) { return r.arrayBuffer(); }).then(function (b) { return doc.embedJpg(b); })
+      .then(function (im) { doc.addPage([595.28, 841.89]).drawImage(im, { x: 0, y: 0, width: 595.28, height: 841.89 }); pc.width = pc.height = 0; }); }); });
+    return p.then(function () { return doc.save(); });
+  }).then(function (bytes) { return new Blob([bytes], { type: 'application/pdf' }); });
+}
+function revenueReport(r) {
+  var usd = function (n) { return '$' + (+n || 0).toFixed(2); }, cm = r.months[r.months.length - 1], T = r.totals, all = r.scope === 'all';
+  var mrows = r.months.slice().reverse();
+  var blocks = [{ kpis: [['This month (USD)', usd(cm.usd), 'good'], ['This month (Stars)', cm.stars], ['12 months (USD)', usd(r.months.reduce(function (a, m) { return a + m.usd; }, 0))], ['12 months (Stars)', r.months.reduce(function (a, m) { return a + m.stars; }, 0)],
+      ['Paid orders (all time)', T.orders], ['Users', T.users], ['Active subscriptions', T.activeSubs], ['Waiting review', T.pendingReview, T.pendingReview ? 'bad' : null]] },
+    { h: 'By month' }, { table: { cols: [{ label: 'Month', w: 1.4 }, { label: 'Paid orders', w: 1.1, align: 'right' }, { label: 'USD (USDT + local)', w: 1.6, align: 'right' }, { label: 'Stars', w: 1.1, align: 'right' }, { label: 'New users', w: 1.1, align: 'right' }],
+      rows: mrows.map(function (m) { return [m.month, m.orders, usd(m.usd), m.stars, m.newUsers]; }),
+      total: ['12 months', mrows.reduce(function (a, m) { return a + m.orders; }, 0), usd(mrows.reduce(function (a, m) { return a + m.usd; }, 0)), mrows.reduce(function (a, m) { return a + m.stars; }, 0), mrows.reduce(function (a, m) { return a + m.newUsers; }, 0)] } }];
+  if (all) blocks.push({ h: 'By app' }, { table: { cols: [{ label: 'App', w: 1.6 }, { label: 'Orders', w: 1, align: 'right' }, { label: 'USD', w: 1.2, align: 'right' }, { label: 'Stars', w: 1, align: 'right' }, { label: 'Users', w: 1, align: 'right' }, { label: 'Active subs', w: 1.1, align: 'right' }],
+    rows: r.byApp.map(function (a) { return [a.app, a.orders, usd(a.usd), a.stars, a.users, a.activeSubs]; }) } });
+  blocks.push({ h: 'By payment method' }, { table: { cols: [{ label: 'Method', w: 2 }, { label: 'Orders', w: 1, align: 'right' }, { label: 'USD', w: 1.3, align: 'right' }, { label: 'Stars', w: 1.1, align: 'right' }], empty: 'No paid orders yet.',
+    rows: r.byMethod.map(function (m) { return [L.en[m.method] || m.method, m.orders, usd(m.usd), m.stars]; }) } },
+    { h: 'By plan' }, { table: { cols: [{ label: 'Plan', w: 2.4 }, { label: 'Orders', w: 1, align: 'right' }, { label: 'USD', w: 1.3, align: 'right' }, { label: 'Stars', w: 1.1, align: 'right' }], empty: 'No paid orders yet.',
+    rows: r.byPlan.map(function (m) { return [m.plan, m.orders, usd(m.usd), m.stars]; }) } },
+    { text: 'USD = USDT and local mobile-money payments. Stars are shown separately; their value in USD depends on Telegram\'s payout rate at withdrawal time. ' + (all ? 'All-apps totals include every app that uses the same master sheet (MASTER_SHEET_ID).' : '') });
+  return { brand: 'Admin report', title: 'Revenue report', subtitle: (all ? 'All apps' : r.appName) + ' · last 12 months', blocks: blocks };
+}
+function saveBlob(blob, name) { var u = URL.createObjectURL(blob), a = document.createElement('a'); a.href = u; a.download = name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(function () { URL.revokeObjectURL(u); }, 60000); }
+/* Build a report and show the "report ready" screen. def = K.report() definition (or a function returning a Promise of one). */
+function showReport(def, name) {
+  S.rep = { busy: true, name: name }; go('report');
+  Promise.resolve(typeof def === 'function' ? def() : def).then(report).then(function (b) { S.rep = { blob: b, name: name }; haptic('ok'); render(); })
+    .catch(function (e) { console.error(e); S.rep = null; S.err = t('e_gen'); back(); });
+}
+function fileB64(file, maxPx, q) { // images are downscaled to save data on low-end phones
+  return new Promise(function (res, rej) {
+    if (!/^image\//.test(file.type) || !maxPx) { var fr = new FileReader(); fr.onload = function () { res({ b64: String(fr.result).split(',')[1], mime: file.type }); }; fr.onerror = rej; fr.readAsDataURL(file); return; }
+    var u = URL.createObjectURL(file), im = new Image();
+    im.onload = function () { var sc = Math.min(1, maxPx / Math.max(im.naturalWidth, im.naturalHeight)), c = document.createElement('canvas');
+      c.width = Math.round(im.naturalWidth * sc); c.height = Math.round(im.naturalHeight * sc); var x = c.getContext('2d'); x.fillStyle = '#fff'; x.fillRect(0, 0, c.width, c.height); x.drawImage(im, 0, 0, c.width, c.height);
+      URL.revokeObjectURL(u); var d = c.toDataURL('image/jpeg', q || 0.82); c.width = c.height = 0; res({ b64: d.split(',')[1], mime: 'image/jpeg', dataUrl: d }); };
+    im.onerror = function () { URL.revokeObjectURL(u); rej(new Error('img')); };
+    im.src = u;
+  });
+}
 
-/* ---------- DEMO backend ---------- */
-var LOCAL_METHODS=['evc','zaad','sahal','mpesa'];
-function demoDefaults(){return{testMode:true,x_feePercent:5,appName:'Channel Pass',supportContact:'',localPrefixes:'252',plans:[],freeAllowance:0,freeMaxMB:0,paidMaxMB:0,
-  methods:{stars:true,usdt_trc20:'',usdt_bep20:'',evc:'',zaad:'',sahal:'',mpesa:''}}}
-var Demo={
- st:function(){var s=lsGet('gk_demo_v1',null);if(!s){s={settings:demoDefaults(),channels:[{key:'demo1',title:'Demo Trading Signals',username:'',description:'Daily signals and market notes. Members get every post the moment it is published.',status:'active',botOk:true,
-   plans:[{id:'p1',label:'1 month',days:30,usd:5,stars:350},{id:'p2',label:'3 months',days:90,usd:12,stars:850}],payout:'',inviteLink:'https://t.me/+demoInvite'}],members:[],orders:[]}}return s},
- sv:function(s){lsSet('gk_demo_v1',s)},
- ch:function(s,k){return s.channels.filter(function(c){return c.key===k})[0]},
- mem:function(s,k){var now=new Date();return s.members.filter(function(m){return m.key===k&&new Date(m.expiry)>now})[0]},
- activate:function(s,k,days){var m=this.mem(s,k),base=m?new Date(m.expiry):new Date();base.setDate(base.getDate()+(+days||30));if(m)m.expiry=base.toISOString();else s.members.push({key:k,expiry:base.toISOString()})},
- rev:function(s,k){var r={usd:0,stars:0,orders:0};s.orders.forEach(function(o){if(o.status==='paid'&&o.plan.indexOf(k+'|')===0){r.orders++;if(o.currency==='XTR')r.stars+=o.amount;else r.usd+=parseFloat(String(o.amount).replace(/[^\d.]/g,''))||0}});return r},
- handle:function(a,d){var self=this,s=this.st();return new Promise(function(res){setTimeout(function(){var r;try{r=self.run(a,d,s)}catch(e){r={ok:false,error:e.message}}self.sv(s);res(r)},120)})},
- run:function(a,d,s){var self=this,st=s.settings,region=(EDITION==='local'||s.phoneVerified)?'LOCAL':'GLOBAL',ch,o,p;
-  switch(a){
-  case'init':var m=st.methods,ms=[];if(m.stars)ms.push({id:'stars'});if(m.usdt_trc20)ms.push({id:'usdt_trc20'});if(m.usdt_bep20)ms.push({id:'usdt_bep20'});
-    if(region==='LOCAL')LOCAL_METHODS.forEach(function(k){if(m[k])ms.push({id:k,local:true})});
-    return{ok:true,demo:true,isAdmin:true,verified:false,user:{id:TGU?TGU.id:0},region:region,phoneVerified:!!s.phoneVerified,methods:ms,access:{reason:st.testMode?'test':'free'}};
-  case'gkMine':return{ok:true,feePercent:st.x_feePercent,channels:s.channels.map(function(c){return Object.assign({},c,{members:s.members.filter(function(x){return x.key===c.key&&new Date(x.expiry)>new Date()}).length,revenue:self.rev(s,c.key)})})};
-  case'gkSave':ch=this.ch(s,d.key);if(!ch)return{ok:false};ch.description=d.description;ch.plans=d.plans.filter(function(p){return p.label&&(p.usd>0||p.stars>0)});ch.payout=d.payout;if(d.status)ch.status=d.status;return{ok:true};
-  case'gkRefreshLink':return{ok:true};
-  case'gkChannel':ch=this.ch(s,d.key);if(!ch)return{ok:false,error:'not_found'};var mm=this.mem(s,d.key);return{ok:true,channel:ch,member:mm?{expiry:mm.expiry}:null,inviteLink:mm?ch.inviteLink:''};
-  case'gkMySubs':return{ok:true,subs:s.members.filter(function(m){return new Date(m.expiry)>new Date()}).map(function(m){var c=self.ch(s,m.key)||{};return{key:m.key,title:c.title,expiry:m.expiry,inviteLink:c.inviteLink}})};
-  case'gkTestJoin':ch=this.ch(s,d.key);this.activate(s,d.key,(ch.plans[0]||{days:1}).days);return{ok:true};
-  case'createOrder':var pr=String(d.plan).split('|');ch=this.ch(s,pr[0]);p=ch&&ch.plans.filter(function(x){return x.id===pr[1]})[0];if(!p)return{ok:false,error:'plan'};
-    o={order_id:'D'+Date.now().toString(36),plan:d.plan,method:d.method,status:'pending',days:p.days};
-    if(d.method==='stars'){o.amount=p.stars;o.currency='XTR'}else if(/^usdt/.test(d.method)){o.amount=(+p.usd+Math.floor(Math.random()*9000+1000)/1e6).toFixed(4);o.currency='USDT';o.address=st.methods[d.method];o.network=d.method==='usdt_trc20'?'TRC20 (Tron)':'BEP20 (BNB Smart Chain)'}
-    else{if(!s.phoneVerified)return{ok:false,error:'phone_required'};o.amount=money(p.usd);o.currency='USD';o.number=st.methods[d.method]}
-    s.orders.push(o);return Object.assign({ok:true},o);
-  case'checkOrder':o=s.orders.filter(function(x){return x.order_id===d.order_id})[0];return{ok:true,status:o?o.status:'pending'};
-  case'demoPay':o=s.orders.filter(function(x){return x.order_id===d.order_id})[0];if(o&&o.status!=='paid'){o.status='paid';this.activate(s,o.plan.split('|')[0],o.days)}return{ok:true,status:'paid'};
-  case'submitManual':o=s.orders.filter(function(x){return x.order_id===d.order_id})[0];o.status='review';o.tx_ref=d.txid;return{ok:true,status:'review'};
-  case'demoVerifyPhone':s.phoneVerified=true;return{ok:true};
-  case'adminGet':return{ok:true,settings:st,secrets:{BOT_TOKEN:false,TRONGRID_KEY:false,ETHERSCAN_KEY:false}};
-  case'adminSave':s.settings=Object.assign(demoDefaults(),d.settings);return{ok:true};
-  case'adminSetSecret':return{ok:true};
-  case'adminPending':return{ok:true,items:s.orders.filter(function(x){return x.status==='review'}).map(function(x){return Object.assign({user_id:'demo'},x)})};
-  case'adminDecide':o=s.orders.filter(function(x){return x.order_id===d.order_id})[0];if(d.approve){o.status='paid';this.activate(s,o.plan.split('|')[0],o.days)}else o.status='rejected';return{ok:true};
-  case'adminGk':return{ok:true,feePercent:st.x_feePercent,channels:s.channels.map(function(c){var r=self.rev(s,c.key);return{key:c.key,title:c.title,owner:'demo',payout:c.payout,members:0,revenue:r,owedUsd:Math.round(r.usd*(100-st.x_feePercent))/100,owedStars:Math.floor(r.stars*(100-st.x_feePercent)/100)}})};
-  case'adminResetMe':s.members=[];s.phoneVerified=false;return{ok:true};
-  }return{ok:false,error:'unknown_action'}}
+/* ---------------- access (mirror of Core.gs) ---------------- */
+function defaultSettings() {
+  return Object.assign({ appName: 'App', testMode: true, freeAllowance: 2, freeMaxMB: 10, paidMaxMB: 100, supportContact: '', localPrefixes: '252', plans: [],
+    methods: { stars: true, usdt_trc20: '', usdt_bep20: '', evc: '', zaad: '', sahal: '', mpesa: '' } }, JSON.parse(JSON.stringify(APP.defaults || {})));
+}
+function computeAccess(st, sub, freeUsed, simFree, credits) {
+  var test = st.testMode && !simFree, s = sub && new Date(sub.expiry) > new Date() ? sub : null, allow = +st.freeAllowance || 0, left = Math.max(0, allow - freeUsed), cr = +credits || 0;
+  return { entitled: !!(test || s || left > 0 || cr > 0), reason: test ? 'test' : s ? 'sub' : left > 0 ? 'free' : cr > 0 ? 'credits' : 'blocked',
+    plan: s ? s.plan : null, expiry: s ? s.expiry : null, freeUsed: freeUsed, freeAllowance: allow, freeLeft: left, credits: cr, maxMB: (test || s) ? +st.paidMaxMB : +st.freeMaxMB, paidMaxMB: +st.paidMaxMB };
+}
+function availMethods(st, region) { var m = st.methods || {}, o = []; if (m.stars) o.push({ id: 'stars' }); if (m.usdt_trc20) o.push({ id: 'usdt_trc20' }); if (m.usdt_bep20) o.push({ id: 'usdt_bep20' });
+  if (region === 'LOCAL') LOCAL_METHODS.forEach(function (k) { if (m[k]) o.push({ id: k, local: true }); }); return o; }
+
+/* ---------------- DEMO backend (used when apiUrl is empty) ---------------- */
+var DKEY = function () { return 'demo_' + CFG.appId + '_v1'; };
+function dState() { var s = lsGet(DKEY(), null); if (!s) { s = { settings: defaultSettings(), freeUsed: 0, credits: 0, sub: null, orders: [], total: 0, app: APP.demoSeed ? APP.demoSeed() : {} }; }
+  s.settings = Object.assign(defaultSettings(), s.settings); s.settings.methods = Object.assign(defaultSettings().methods, s.settings.methods || {}); return s; }
+function dAccess(s, d) { return computeAccess(s.settings, s.sub, s.freeUsed, d.simulateFree, s.credits); }
+function dRegion(s) { return EDITION === 'local' || s.phoneVerified ? 'LOCAL' : 'GLOBAL'; }
+function dPlan(s, id) { if (APP.demoResolvePlan) { var p = APP.demoResolvePlan(id, s); if (p) return p; } return (s.settings.plans || []).filter(function (x) { return x.id === id; })[0]; }
+function dMarkPaid(s, o) {
+  if (o.status === 'paid') return; o.status = 'paid'; var p = dPlan(s, o.plan) || { days: 30 };
+  if (APP.demoOnPaid && APP.demoOnPaid(o, p, s)) return;
+  if (+p.credits > 0 && !(+p.days > 0)) { s.credits = (+s.credits || 0) + +p.credits; return; }
+  var base = s.sub && new Date(s.sub.expiry) > new Date() ? new Date(s.sub.expiry) : new Date(); base.setDate(base.getDate() + (+p.days || 30)); s.sub = { plan: o.plan, expiry: base.toISOString() };
+}
+var DemoCore = {
+  init: function (d, s) { var r = dRegion(s); return { ok: true, demo: true, verified: false, isAdmin: true, user: { id: TGU ? TGU.id : 0, name: TGU ? TGU.first_name : 'Demo user' }, region: r, phoneVerified: !!s.phoneVerified,
+    access: dAccess(s, d), plans: (s.settings.plans || []).filter(function (p) { return p.region === 'ALL' || p.region === r; }), methods: availMethods(s.settings, r), appName: s.settings.appName, support: s.settings.supportContact }; },
+  consume: function (d, s) { var a = dAccess(s, d); if (!a.entitled) return { ok: true, allowed: false, access: a }; if (a.reason === 'free') s.freeUsed++; else if (a.reason === 'credits') s.credits--; s.total++; return { ok: true, allowed: true, token: 'demo', access: dAccess(s, d) }; },
+  createOrder: function (d, s) { var p = dPlan(s, d.plan); if (!p) return { ok: false, error: 'plan' };
+    var o = { order_id: 'D' + uid(), plan: d.plan, method: d.method, status: 'pending', created: new Date().toISOString(), app: CFG.appId };
+    if (d.method === 'stars') { o.amount = p.stars; o.currency = 'XTR'; }
+    else if (/^usdt/.test(d.method)) { o.amount = (+p.usd + Math.floor(Math.random() * 9000 + 1000) / 1e6).toFixed(4); o.currency = 'USDT'; o.address = s.settings.methods[d.method]; o.network = d.method === 'usdt_trc20' ? 'TRC20 (Tron)' : 'BEP20 (BNB Smart Chain)'; }
+    else { if (!s.phoneVerified) return { ok: false, error: 'phone_required' }; o.amount = '$' + (+p.usd).toFixed(2); o.currency = 'USD'; o.number = s.settings.methods[d.method]; }
+    s.orders.push(o); return Object.assign({ ok: true }, o); },
+  checkOrder: function (d, s) { var o = s.orders.filter(function (x) { return x.order_id === d.order_id; })[0]; return o ? { ok: true, status: o.status, access: dAccess(s, d) } : { ok: false, error: 'order' }; },
+  demoPay: function (d, s) { var o = s.orders.filter(function (x) { return x.order_id === d.order_id; })[0]; if (o) dMarkPaid(s, o); return { ok: true, status: 'paid', access: dAccess(s, d) }; },
+  submitManual: function (d, s) { var o = s.orders.filter(function (x) { return x.order_id === d.order_id; })[0]; o.status = 'review'; o.tx_ref = d.txid; return { ok: true, status: 'review' }; },
+  demoVerifyPhone: function (d, s) { s.phoneVerified = true; return { ok: true }; },
+  adminGet: function (d, s) { var sec = { BOT_TOKEN: false, TRONGRID_KEY: false, ETHERSCAN_KEY: false }; Object.keys(APP.extraSecrets).forEach(function (k) { sec[k] = !!(s.secrets || {})[k]; }); return { ok: true, settings: s.settings, secrets: sec }; },
+  adminSave: function (d, s) { s.settings = Object.assign(defaultSettings(), d.settings); return { ok: true }; },
+  adminSetSecret: function (d, s) { s.secrets = s.secrets || {}; s.secrets[d.key] = true; return { ok: true }; }, // never stores the value
+  adminPending: function (d, s) { return { ok: true, items: s.orders.filter(function (x) { return x.status === 'review'; }).map(function (x) { return Object.assign({ user_id: 'demo' }, x); }) }; },
+  adminDecide: function (d, s) { var o = s.orders.filter(function (x) { return x.order_id === d.order_id; })[0]; if (d.approve) dMarkPaid(s, o); else o.status = 'rejected'; return { ok: true }; },
+  adminStats: function (d, s) { return { ok: true, stats: { users: 1, activeSubs: s.sub && new Date(s.sub.expiry) > new Date() ? 1 : 0, conversions: s.total, paidOrders: s.orders.filter(function (x) { return x.status === 'paid'; }).length, pending: s.orders.filter(function (x) { return x.status === 'review'; }).length } }; },
+  adminRevenue: function (d, s) {
+    var now = new Date(), months = [], idx = {}, T = { orders: 0, usd: 0, stars: 0, users: 1, activeSubs: s.sub && new Date(s.sub.expiry) > now ? 1 : 0, pendingReview: 0 }, bm = {}, bp = {};
+    for (var i = 11; i >= 0; i--) { var k = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - i, 1)).toISOString().slice(0, 7); idx[k] = months.length; months.push({ month: k, orders: 0, usd: 0, stars: 0, newUsers: k === now.toISOString().slice(0, 7) ? 1 : 0 }); }
+    s.orders.forEach(function (o) { if (o.status === 'review') T.pendingReview++; if (o.status !== 'paid') return; var st = o.currency === 'XTR' ? +o.amount : 0, us = o.currency === 'XTR' ? 0 : parseFloat(String(o.amount).replace(/[^\d.]/g, '')) || 0, k = String(o.created || now.toISOString()).slice(0, 7);
+      T.orders++; T.usd += us; T.stars += st; if (idx[k] !== undefined) { months[idx[k]].orders++; months[idx[k]].usd += us; months[idx[k]].stars += st; }
+      [[bm, o.method, 'method'], [bp, o.plan, 'plan']].forEach(function (g) { var x = g[0][g[1]] || (g[0][g[1]] = { orders: 0, usd: 0, stars: 0 }); x[g[2]] = g[1]; x.orders++; x.usd += us; x.stars += st; }); });
+    var vals = function (o) { return Object.keys(o).map(function (k) { return o[k]; }); };
+    return { ok: true, scope: d.scope === 'all' ? 'all' : CFG.appId, appName: s.settings.appName, months: months, byMethod: vals(bm), byPlan: vals(bp), totals: T,
+      byApp: [{ app: CFG.appId, orders: T.orders, usd: T.usd, stars: T.stars, users: 1, activeSubs: T.activeSubs }] };
+  },
+  adminResetMe: function (d, s) { s.freeUsed = 0; s.credits = 0; s.sub = null; s.phoneVerified = false; return { ok: true }; }
 };
-function api(action,data){data=Object.assign({},data||{});if(DEMO)return Demo.handle(action,data);
-  return fetch(CFG.apiUrl,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},redirect:'follow',
-    body:JSON.stringify(Object.assign({action:action,app:CFG.appId,edition:EDITION,initData:IN_TG?TG.initData:''},data))}).then(function(r){return r.json()}).catch(function(){return{ok:false,error:'network'}})}
+function demoCall(action, d) {
+  return new Promise(function (res) { setTimeout(function () { var s = dState(), r;
+    try { r = APP.demo[action] ? APP.demo[action](d, s) : DemoCore[action] ? DemoCore[action](d, s) : { ok: false, error: 'unknown_action' }; } catch (e) { console.error(e); r = { ok: false, error: e.message }; }
+    lsSet(DKEY(), s); res(r); }, 150); });
+}
+function api(action, data) {
+  data = Object.assign({}, data || {}); data.simulateFree = !!lsGet('simfree_' + CFG.appId, false);
+  if (DEMO) return demoCall(action, data);
+  return fetch(CFG.apiUrl, { method: 'POST', redirect: 'follow', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+    body: JSON.stringify(Object.assign({ action: action, app: CFG.appId, edition: EDITION, initData: IN_TG ? TG.initData : '', start: START }, data)) })
+    .then(function (r) { return r.json(); }).catch(function () { return { ok: false, error: 'network' }; });
+}
+function refreshMe() { return api('init').then(function (r) { if (r.ok) S.me = r; else if (!S.me) S.me = { access: computeAccess(defaultSettings(), null, 0, false, 0), plans: [], methods: [], error: r.error }; return S.me; }); }
 
-/* ---------- state & nav ---------- */
-var S={screen:KEY?'offer':'home',stack:[],tab:'channels',me:null,mine:null,subs:null,edit:null,offer:null,plan:null,payment:null,admin:null,err:''};
-var $app=document.getElementById('app');
-function go(s){S.stack.push(S.screen);S.screen=s;S.err='';render();window.scrollTo(0,0)}
-function back(){S.screen=S.stack.pop()||'home';S.err='';load(S.screen)}
-if(IN_TG)TG.BackButton.onClick(back);
-function header(title,sub){return'<div class="top">'+(S.screen==='home'||S.screen==='offer'&&!S.stack.length||IN_TG?'<div class="logo">'+ic('channel')+'</div>':'<button class="ibtn" data-act="back">'+ic('back')+'</button>')+
-  '<div class="grow"><h1>'+esc(title)+'</h1>'+(sub?'<div class="sub">'+esc(sub)+'</div>':'')+'</div><div class="lang"><button data-lang="so" class="'+(LANG==='so'?'on':'')+'">SO</button><button data-lang="en" class="'+(LANG==='en'?'on':'')+'">EN</button></div>'+
-  (S.me&&S.me.isAdmin?'<button class="ibtn" data-act="settings">'+ic('settings')+'</button>':'')+'</div>'}
-function banners(){var h='';if(DEMO)h+='<div class="banner">'+ic('info','s')+'<span>'+t('demo_banner')+'</span></div>';
-  if(S.me&&S.me.access&&S.me.access.reason==='test')h+='<div class="banner">'+ic('shield','s')+'<span>'+t('test_banner')+'</span></div>';return h}
-function spin(){return'<div class="card center"><div class="spin" style="margin:0 auto;color:var(--accent)"></div></div>'}
-function errBox(){return S.err?'<div class="err">'+ic('alert','s')+'<span>'+esc(S.err)+'</span></div>':''}
-function load(screen){render();
-  if(screen==='home'){if(S.tab==='channels')api('gkMine').then(function(r){S.mine=r.ok?r:{channels:[],feePercent:0};render()});else api('gkMySubs').then(function(r){S.subs=r.ok?r.subs:[];render()})}
-  if(screen==='offer'){api('gkChannel',{key:KEY}).then(function(r){S.offer=r;if(r.ok&&r.channel.plans[0]&&!S.plan)S.plan=r.channel.plans[0].id;render()})}
-  if(screen==='settings')loadAdmin();}
+/* ---------------- navigation & rendering ---------------- */
+var $app;
+function go(screen, opts) { if (S.screen !== screen && !(opts && opts.replace)) S.stack.push(S.screen); S.screen = screen; S.err = ''; S.msg = (opts && opts.msg) || ''; enter(); window.scrollTo(0, 0); }
+function back() { S.screen = S.stack.pop() || 'home'; S.err = ''; S.msg = ''; enter(); }
+function home() { S.stack = []; S.screen = 'home'; S.err = ''; enter(); }
+function enter() { render(); var f = APP.enter[S.screen]; if (f) f(); else if (S.screen === 'settings') loadAdmin(); }
+function header(title, sub, right) {
+  var showBack = S.stack.length && !IN_TG;
+  return '<div class="top">' + (showBack ? '<button class="ibtn" data-act="back" aria-label="' + t('back') + '">' + ic('back') + '</button>' : '<div class="logo">' + ic(APP.icon || 'logo') + '</div>') +
+    '<div class="grow"><h1>' + esc(title) + '</h1>' + (sub ? '<div class="sub">' + esc(sub) + '</div>' : '') + '</div>' + (right || '') +
+    '<div class="lang"><button data-lang="so" class="' + (LANG === 'so' ? 'on' : '') + '">SO</button><button data-lang="en" class="' + (LANG === 'en' ? 'on' : '') + '">EN</button></div>' +
+    (S.me && S.me.isAdmin ? '<button class="ibtn" data-act="settings" aria-label="' + t('settings') + '">' + ic('settings') + '</button>' : '') + '</div>';
+}
+function banners() { var h = ''; if (DEMO) h += '<div class="banner">' + ic('info', 's') + '<span>' + t('demo_banner') + '</span></div>';
+  if (S.me && S.me.access && S.me.access.reason === 'test') h += '<div class="banner">' + ic('shield', 's') + '<span>' + t('test_banner') + '</span></div>';
+  if (lsGet('simfree_' + CFG.appId, false)) h += '<div class="banner">' + ic('user', 's') + '<span>' + t('sim_banner') + '</span></div>'; return h; }
+function planChip() { var a = S.me && S.me.access; if (!a) return '';
+  if (a.reason === 'test') return '<button class="chip" data-act="account">' + ic('shield', 's') + t('p_test') + '</button>';
+  if (a.reason === 'sub') return '<button class="chip good" data-act="account">' + ic('check', 's') + t('p_pro') + '</button>';
+  if (a.reason === 'credits') return '<button class="chip good" data-act="account">' + ic('star', 's') + t('p_credits', { n: a.credits }) + '</button>';
+  if (a.reason === 'free') return '<button class="chip" data-act="account">' + ic('clock', 's') + t('p_free', { n: a.freeLeft }) + '</button>';
+  return '<button class="chip warn" data-act="account">' + ic('lock', 's') + t('p_none') + '</button>'; }
+function spin() { return '<div class="card center"><div class="spin" style="margin:0 auto;color:var(--accent)"></div></div>'; }
+function errBox() { return (S.err ? '<div class="err">' + ic('alert', 's') + '<span>' + esc(S.err) + '</span></div>' : '') + (S.msg ? '<div class="okmsg">' + ic('check', 's') + '<span>' + esc(S.msg) + '</span></div>' : ''); }
+function empty(icon, text, extra) { return '<div class="card center"><div class="big">' + ic(icon, 'l') + '</div><p class="m">' + text + '</p>' + (extra || '') + '</div>'; }
+function kv(k, v, copyable) { return '<div class="kv"><div class="grow"><span class="k">' + k + '</span><code>' + esc(v) + '</code></div>' + (copyable ? '<button class="mini" data-copy="' + esc(v) + '">' + ic('copy') + '</button>' : '') + '</div>'; }
+function seg(name, val, opts) { return '<div class="seg">' + opts.map(function (o) { return '<button data-seg="' + name + '" data-val="' + esc(o[0]) + '" class="' + (String(val) === String(o[0]) ? 'on' : '') + '">' + esc(o[1]) + '</button>'; }).join('') + '</div>'; }
+function render() {
+  if (IN_TG) { if (S.stack.length) TG.BackButton.show(); else TG.BackButton.hide(); }
+  if (!S.me) { $app.innerHTML = '<div class="center" style="padding:80px 0"><div class="spin" style="margin:0 auto;color:var(--accent)"></div></div>'; return; }
+  var f = APP.screens[S.screen] || BUILTIN[S.screen] || APP.screens.home;
+  $app.innerHTML = f();
+}
 
-/* ---------- render ---------- */
-function render(){if(IN_TG){if(S.stack.length)TG.BackButton.show();else TG.BackButton.hide()}
-  if(!S.me){$app.innerHTML=spin();return}var h='';
-  switch(S.screen){case'home':h=rHome();break;case'how':h=rHow();break;case'edit':h=rEdit();break;case'offer':h=rOffer();break;case'pay':h=rPay();break;case'settings':h=rSettings();break}
-  $app.innerHTML=h}
-function statusChip(c){if(!c.botOk)return'<span class="chip warn">'+ic('alert','s')+t('notready')+'</span>';return c.status==='active'?'<span class="chip good">'+ic('check','s')+t('active')+'</span>':'<span class="chip">'+t('paused')+'</span>'}
-function rHome(){var h=header(t('appName'),t('tagline'))+banners()+'<div class="tabs"><button data-tab="channels" class="'+(S.tab==='channels'?'on':'')+'">'+t('t_channels')+'</button><button data-tab="subs" class="'+(S.tab==='subs'?'on':'')+'">'+t('t_subs')+'</button></div>';
-  if(S.tab==='channels'){if(!S.mine)return h+spin();
-    if(!S.mine.channels.length)h+='<div class="card center"><div class="big">'+ic('channel','l')+'</div><p class="m">'+t('none_ch')+'</p></div>';
-    S.mine.channels.forEach(function(c){h+='<button class="chrow" data-edit="'+esc(c.key)+'"><div class="av">'+esc((c.title||'?').charAt(0).toUpperCase())+'</div><div class="grow"><div class="fn">'+esc(c.title)+'</div><div class="fs">'+t('members',{n:c.members||0})+' · '+money(c.revenue.usd)+(c.revenue.stars?' + '+c.revenue.stars+' Stars':'')+'</div></div>'+statusChip(c)+'</button>'});
-    h+='<button class="btn" data-act="how">'+ic('plus')+t('add')+'</button><button class="btn ghost" data-act="reload">'+ic('refresh')+t('refresh')+'</button>'}
-  else{if(!S.subs)return h+spin();if(!S.subs.length)h+='<div class="card center"><div class="big">'+ic('users','l')+'</div><p class="m">'+t('none_sub')+'</p></div>';
-    S.subs.forEach(function(s){h+='<div class="chrow"><div class="av">'+esc((s.title||'?').charAt(0))+'</div><div class="grow"><div class="fn">'+esc(s.title)+'</div><div class="fs">'+t('until',{d:fmtDate(s.expiry)})+'</div></div><button class="btn sm" data-open="'+esc(s.inviteLink)+'">'+ic('ext','s')+t('join')+'</button><button class="btn sm sec2" data-offer="'+esc(s.key)+'">'+t('renew')+'</button></div>'})}
-  return h}
-function rHow(){var bot=CFG.botUsername||'YourBot';return header(t('how_title'),'')+'<div class="card"><ol class="steps"><li>'+t('s1')+'</li><li>'+t('s2',{bot:esc(bot)})+'</li><li>'+t('s3')+'</li><li>'+t('s4')+'</li></ol></div>'+
-  (CFG.botUsername?'<button class="btn sec2" data-open="https://t.me/'+esc(CFG.botUsername)+'?startchannel&admin=invite_users+restrict_members">'+ic('ext')+'@'+esc(CFG.botUsername)+'</button>':'')+'<button class="btn" data-act="back">'+ic('refresh')+t('refresh')+'</button>'}
-function rEdit(){var c=S.edit,fee=S.mine?S.mine.feePercent:0,r=c.revenue||{usd:0,stars:0,orders:0},url=shareUrl(c.key),h=header(c.title,t('edit'));
-  h+='<div class="sec">'+t('share')+'</div><div class="card"><div class="kv"><code>'+esc(url)+'</code><button class="mini" data-copy="'+esc(url)+'">'+ic('copy')+'</button></div><p class="m">'+t('share_sub')+'</p>'+
-    (c.botOk?'':'<div class="err">'+ic('alert','s')+'<span>'+t('s3')+'</span></div>')+'</div>';
-  h+='<div class="card"><div class="sw"><div><b style="font-size:14px">'+t('publish')+'</b><div class="fs">'+t('publish_sub')+'</div></div><button class="tgl '+(c.status==='active'?'on':'')+'" data-act="togglepub"></button></div>'+
+/* ---------------- payments UI ---------------- */
+function paywall(ctx) { S.pw = ctx || {}; S.payPlan = null; go('paywall'); }
+function planPrice(p) { return '<div class="price">' + (p.usd ? '$' + (+p.usd).toFixed(2) : '') + (p.stars ? '<small>' + p.stars + ' Stars</small>' : '') + '</div>'; }
+function planSub(p) { return +p.days > 0 ? t('days', { n: p.days }) : +p.credits === 1 ? t('credit1') : +p.credits > 1 ? t('credits', { n: p.credits }) : ''; }
+var BUILTIN = {
+  paywall: function () {
+    var me = S.me, pw = S.pw || {}, plans = pw.plans || me.plans, h = header(pw.title || t('pw_title'), '');
+    if (!S.payPlan && plans[0]) S.payPlan = plans[0].id;
+    h += '<div class="card"><div class="big">' + ic(pw.icon || 'lock', 'l') + '</div><h2 class="center">' + esc(pw.title || t('pw_title')) + '</h2><p class="m center">' + esc(pw.text || t('pw_text')) + '</p>' +
+      '<ul class="feat">' + (pw.features || [t('f_unl'), t('f_all')]).map(function (f) { return '<li>' + ic('check') + esc(f) + '</li>'; }).join('') + '</ul></div>';
+    h += '<div class="sec">' + t('choose_plan') + '</div><div class="opt">' + plans.map(function (p) { return '<div class="radio ' + (S.payPlan === p.id ? 'on' : '') + '" data-plan="' + esc(p.id) + '"><span class="dot"></span><div><b>' + esc(p.label) + '</b><div class="fs">' + planSub(p) + '</div></div>' + planPrice(p) + '</div>'; }).join('') + '</div>';
+    h += '<div class="sec">' + t('pay_with') + '</div>';
+    if (!me.methods.length) h += '<div class="card"><p class="m">' + t('no_methods') + '</p></div>';
+    else h += '<div class="opt">' + me.methods.map(function (m) { return '<button class="radio" style="width:100%;text-align:left" data-method="' + m.id + '"><span class="thumb" style="width:34px;height:34px">' + ic(m.id === 'stars' ? 'star' : /^usdt/.test(m.id) ? 'wallet' : 'phone') + '</span><b class="grow">' + t(m.id) + '</b></button>'; }).join('') + '</div>';
+    return h + errBox();
+  },
+  pay: function () {
+    var o = S.payment, h = header(t(o.method), '');
+    if (o.status === 'paid') return h + '<div class="card center"><div class="big good">' + ic('check', 'l') + '</div><h2>' + esc((S.pw && S.pw.paidText) || t('paid_ok')) + '</h2></div><button class="btn" data-act="afterpay">' + t('continue') + '</button>';
+    if (o.status === 'review') return h + '<div class="card center"><div class="big">' + ic('clock', 'l') + '</div><p class="m">' + t('pending') + '</p></div><button class="btn ghost" data-act="home">' + t('close') + '</button>';
+    if (o.phoneNeeded) return h + '<div class="card center"><div class="big">' + ic('phone', 'l') + '</div><p class="m">' + t('verify_text') + '</p></div><button class="btn" data-act="verifyphone">' + ic('phone') + t('verify_phone') + '</button>';
+    if (/^usdt/.test(o.method)) h += '<div class="card"><p class="m" style="margin-bottom:12px">' + t('send_exact') + '</p>' + kv(t('amount'), o.amount + ' USDT', true).replace('data-copy="' + esc(o.amount + ' USDT') + '"', 'data-copy="' + esc(o.amount) + '"') +
+      kv(t('network'), o.network) + kv(t('address'), o.address, true) + '<div class="note">' + ic('alert', 's') + '<span>' + t('usdt_note', { net: esc(o.network) }) + '</span></div></div><button class="btn" data-act="checkpay">' + ic('refresh') + t('check_pay') + '</button>';
+    else h += '<div class="card"><p class="m" style="margin-bottom:12px">' + t('mm_text', { a: esc(o.amount), n: esc(o.number), m: t(o.method) }) + '</p>' + kv(t(o.method), o.number, true) + kv(t('amount'), o.amount) +
+      '<label class="f">' + t('txid') + '</label><input class="t" id="txid" autocomplete="off"></div><button class="btn" data-act="submittx">' + t('submit') + '</button>';
+    return h + errBox();
+  },
+  account: function () {
+    var me = S.me, a = me.access, h = header(t('my_plan'), '');
+    h += '<div class="card">' + kv(t('acc_status'), a.reason === 'test' ? t('p_test') : a.reason === 'sub' ? t('p_pro') + ' — ' + (a.plan || '') : a.reason === 'credits' ? t('p_credits', { n: a.credits }) : t('acc_free')) +
+      (a.reason === 'sub' ? kv(t('acc_exp'), fmtDate(a.expiry)) : a.freeAllowance ? kv(t('acc_used'), a.freeUsed + ' / ' + a.freeAllowance) : '') +
+      (me.user && me.user.id ? kv(t('acc_id'), me.user.id) : '') + (me.support ? kv(t('support'), me.support) : '') + '</div>';
+    if (me.plans.length) h += '<button class="btn" data-act="paywall">' + ic('star') + t('upgrade') + '</button>';
+    return h;
+  },
+  settings: function () { return renderSettings(); },
+  report: function () {
+    var r = S.rep || {}, h = header(t('rep_ready'), r.name || '');
+    if (r.busy) return h + '<div class="card center"><div class="spin" style="margin:6px auto 10px;color:var(--accent)"></div><p class="m">' + t('rep_making') + '</p></div>';
+    h += '<div class="card center"><div class="big good">' + ic('file', 'l') + '</div><h2>' + esc(r.name) + '</h2><p class="m">' + (r.blob ? Math.max(1, Math.round(r.blob.size / 1024)) + ' KB' : '') + '</p></div>';
+    if (IN_TG && !DEMO) h += '<button class="btn" data-act="repsend">' + ic('send') + t('rep_send') + '</button>';
+    h += '<button class="btn ' + (IN_TG && !DEMO ? 'sec2' : '') + '" data-act="repdl">' + ic('download') + t('rep_dl') + '</button>';
+    if (IN_TG) h += '<div class="note" style="margin-top:12px">' + ic('info', 's') + '<span>' + t('rep_hint') + '</span></div>';
+    return h + errBox();
+  }
+};
+function startPayment(method) {
+  S.err = '';
+  if (method === 'stars' && !DEMO && !IN_TG) { S.err = t('open_in_tg'); return render(); }
+  api('createOrder', { plan: S.payPlan, method: method }).then(function (r) {
+    if (!r.ok) { if (r.error === 'phone_required') { S.payment = { method: method, phoneNeeded: true }; return go('pay'); } S.err = r.error === 'network' ? t('e_net') : t('e_gen'); return render(); }
+    S.payment = r;
+    if (method === 'stars') {
+      if (DEMO) { if (confirm(t('pay_demo'))) api('demoPay', { order_id: r.order_id }).then(onPaid); return; }
+      TG.openInvoice(r.invoiceLink, function (st) { if (st === 'paid') poll(r.order_id, 10); }); return;
+    }
+    go('pay');
+  });
+}
+function poll(id, n) { api('checkOrder', { order_id: id }).then(function (r) { if (r.ok && r.status === 'paid') return onPaid(r); if (n > 0) setTimeout(function () { poll(id, n - 1); }, 2000); }); }
+function onPaid() { haptic('ok'); S.payment = Object.assign(S.payment || {}, { status: 'paid' }); refreshMe().then(function () { if (S.screen !== 'pay') go('pay'); else render(); }); }
+
+/* ---------------- admin settings ---------------- */
+var SECRETS = { BOT_TOKEN: 'Telegram bot token', TRONGRID_KEY: 'TronGrid API key (TRC20 checks)', ETHERSCAN_KEY: 'Etherscan API key (BEP20 checks)' };
+function loadAdmin() { S.admin = null; render(); Promise.all([api('adminGet'), api('adminPending'), api('adminStats'), APP.adminLoad ? APP.adminLoad() : Promise.resolve(null), api('adminRevenue')]).then(function (r) {
+  S.admin = { settings: r[0].settings || defaultSettings(), secrets: r[0].secrets || {}, pending: r[1].items || [], stats: (r[2] && r[2].stats) || {}, extra: r[3], rev: r[4] && r[4].ok ? r[4] : null }; if (!r[0].ok) toast(r[0].error || 'error'); render(); }); }
+function renderSettings() {
+  var A = S.admin, h = header('Settings', 'Admin only'); if (!A) return h + spin();
+  var st = A.settings, m = st.methods, showPlans = APP.showPlans !== false;
+  function inp(id, v, ph, ty) { return '<input class="t" data-set="' + id + '" type="' + (ty || 'text') + '" value="' + esc(v) + '" placeholder="' + esc(ph || '') + '">'; }
+  function sw(id, on, l, s) { return '<div class="sw"><div><b style="font-size:14px">' + l + '</b>' + (s ? '<div class="fs">' + s + '</div>' : '') + '</div><button class="tgl ' + (on ? 'on' : '') + '" data-toggle="' + id + '"></button></div>'; }
+  if (DEMO) h += '<div class="banner">' + ic('info', 's') + '<span>Demo mode: settings are saved on this device only. Put the Apps Script URL in config.js → apiUrl to go live.</span></div>';
+  if (!DEMO && !S.me.verified) h += '<div class="banner">' + ic('alert', 's') + '<span>Server cannot verify Telegram yet. Add BOT_TOKEN_' + esc(CFG.appId) + ' and ADMIN_IDS in Script properties.</span></div>';
+  h += '<div class="sec">General</div><div class="card">' + sw('testMode', st.testMode, 'Test mode', 'Everyone gets full access. Turn OFF at launch.') +
+    '<label class="f">App name</label>' + inp('appName', st.appName) +
+    (APP.freeLabel !== null ? '<label class="f">' + (APP.freeLabel || 'Free uses (total, no reset)') + '</label>' + inp('freeAllowance', st.freeAllowance, '2', 'number') : '') +
+    '<label class="f">Support contact</label>' + inp('supportContact', st.supportContact, '@username') +
+    '<label class="f">Local phone prefixes (comma separated)</label>' + inp('localPrefixes', st.localPrefixes, '252') +
+    APP.adminFields.map(function (f) { return f.type === 'bool' ? sw('x:' + f.key, st[f.key], f.label, f.hint) : '<label class="f">' + esc(f.label) + '</label>' + inp(f.key, st[f.key], f.ph || '', f.type || 'text') + (f.hint ? '<div class="fs" style="margin-top:4px">' + esc(f.hint) + '</div>' : ''); }).join('') + '</div>';
+  if (showPlans) h += '<div class="sec">Plans</div>' + (st.plans || []).map(function (p, i) { function pi(k, ty, step) { return '<input class="t" data-plan-i="' + i + '" data-k="' + k + '" type="' + (ty || 'text') + '"' + (step ? ' step="' + step + '"' : '') + ' value="' + esc(p[k] == null ? '' : p[k]) + '">'; }
+    return '<div class="plan"><div class="full"><label class="f">Label</label>' + pi('label') + '</div><div><label class="f">Plan ID</label>' + pi('id') + '</div><div><label class="f">Region</label><select class="t" data-plan-i="' + i + '" data-k="region">' +
+      ['GLOBAL', 'LOCAL', 'ALL'].map(function (r) { return '<option ' + (p.region === r ? 'selected' : '') + '>' + r + '</option>'; }).join('') + '</select></div>' +
+      '<div><label class="f">Days (0 = credits pack)</label>' + pi('days', 'number') + '</div><div><label class="f">Credits</label>' + pi('credits', 'number') + '</div>' +
+      '<div><label class="f">Price USD</label>' + pi('usd', 'number', '0.01') + '</div><div><label class="f">Price Stars</label>' + pi('stars', 'number') + '</div>' +
+      '<div class="full"><button class="btn sm ghost" style="width:100%" data-plan-rm="' + i + '">Remove plan</button></div></div>'; }).join('') + '<button class="btn sm sec2" data-act="addplan">' + ic('plus', 's') + 'Add plan</button>';
+  h += '<div class="sec">Payment methods</div><div class="card">' + sw('m_stars', m.stars, 'Telegram Stars', 'Global. Needs bot token. Verify fees in Telegram docs before launch.') +
+    '<label class="f">USDT TRC20 receive address</label>' + inp('m_usdt_trc20', m.usdt_trc20, 'T…') + '<label class="f">USDT BEP20 receive address</label>' + inp('m_usdt_bep20', m.usdt_bep20, '0x…') +
+    '<div class="fs" style="margin:12px 0 0">Local only (hidden from global users, phone verification required):</div>' +
+    '<label class="f">EVC Plus number</label>' + inp('m_evc', m.evc, '+252…') + '<label class="f">Zaad number</label>' + inp('m_zaad', m.zaad, '+252…') +
+    '<label class="f">Sahal number</label>' + inp('m_sahal', m.sahal, '+252…') + '<label class="f">M-Pesa number</label>' + inp('m_mpesa', m.mpesa, '+254…') + '</div>';
+  h += '<button class="btn" data-act="savesettings">' + ic('check') + 'Save settings</button>' + errBox();
+  var secs = Object.assign({}, SECRETS, APP.extraSecrets);
+  h += '<div class="sec">Secrets (write-only)</div><div class="card"><div class="fs" style="margin-bottom:8px">Stored only on the server (Apps Script properties). Values are never shown again.</div>' +
+    Object.keys(secs).map(function (k) { return '<label class="f">' + esc(secs[k]) + ' — <span style="color:' + (A.secrets[k] ? 'var(--ok)' : 'var(--danger)') + '">' + (A.secrets[k] ? 'set' : 'not set') + '</span></label><div class="row"><input class="t" type="password" autocomplete="off" id="sec_' + k + '" placeholder="Paste new value"><button class="btn sm sec2" data-secret="' + k + '">Save</button></div>'; }).join('') + '</div>';
+  h += '<div class="sec">Payments to review</div><div class="card">' + (A.pending.length ? '<ul class="files">' + A.pending.map(function (p) { return '<li><div class="grow"><div class="fn">' + esc(p.method) + ' · ' + esc(p.amount) + ' · ' + esc(p.plan) + '</div><div class="fs">User ' + esc(p.user_id) + ' · Tx ' + esc(p.tx_ref) + '</div></div><button class="btn sm" data-approve="' + esc(p.order_id) + '">Approve</button><button class="btn sm ghost" data-reject="' + esc(p.order_id) + '">Reject</button></li>'; }).join('') + '</ul>' : '<p class="m">Nothing to review.</p>') + '</div>';
+  var s = A.stats; h += '<div class="sec">Stats</div><div class="card stat"><div><b>' + (s.users || 0) + '</b><span>Users</span></div><div><b>' + (s.activeSubs || 0) + '</b><span>Active subscriptions</span></div><div><b>' + (s.conversions || 0) + '</b><span>Uses</span></div><div><b>' + (s.paidOrders || 0) + '</b><span>Paid orders</span></div></div>';
+  if (A.rev) { var cm = A.rev.months[A.rev.months.length - 1], pm = A.rev.months[A.rev.months.length - 2];
+    h += '<div class="sec">Revenue</div><div class="card"><div class="stat"><div><b>$' + cm.usd.toFixed(2) + '</b><span>This month · USD</span></div><div><b>' + cm.stars + '</b><span>This month · Stars</span></div>' +
+      '<div><b>' + cm.orders + '</b><span>Paid orders this month</span></div><div><b>$' + pm.usd.toFixed(2) + ' · ' + pm.stars + '★</b><span>Last month</span></div></div>' +
+      '<button class="btn sm" style="width:100%;margin-top:10px" data-act="revpdf" data-scope="app">' + ic('chart', 's') + 'Revenue report PDF — this app</button>' +
+      '<button class="btn sm sec2" style="width:100%;margin-top:8px" data-act="revpdf" data-scope="all">' + ic('chart', 's') + 'Revenue report PDF — all apps (shared ledger)</button></div>'; }
+  if (APP.adminExtra) h += APP.adminExtra(A.extra);
+  h += '<div class="sec">Testing</div><div class="card">' + sw('simfree', lsGet('simfree_' + CFG.appId, false), 'Simulate free user (this device)', 'Ignores test mode so you can try the free limit and the paywall.') +
+    '<button class="btn sm ghost" style="width:100%;margin-top:8px" data-act="resetme">Reset my usage, credits &amp; subscription</button>' + (S.me.plans.length ? '<button class="btn sm ghost" style="width:100%;margin-top:8px" data-act="paywall">Preview paywall</button>' : '') + '</div>';
+  return h;
+}
+function collectSettings() {
+  var st = JSON.parse(JSON.stringify(S.admin.settings));
+  document.querySelectorAll('[data-set]').forEach(function (el) { var k = el.dataset.set, v = el.type === 'number' ? +el.value : el.value.trim(); if (k.indexOf('m_') === 0) st.methods[k.slice(2)] = v; else st[k] = v; });
+  document.querySelectorAll('[data-plan-i]').forEach(function (el) { var p = st.plans[+el.dataset.planI], k = el.dataset.k; p[k] = el.type === 'number' ? +el.value : el.value.trim(); });
+  return st;
+}
+
+/* ---------------- events ---------------- */
+function needAccess(fn, pwCtx) { var a = S.me.access; if (a.entitled) return fn(); paywall(pwCtx); }
+function consume(tool) { return api('consume', { tool: tool }).then(function (r) { if (r.ok && r.access) S.me.access = r.access; return r; }); }
+document.addEventListener('click', function (ev) {
+  var el = ev.target.closest('[data-a],[data-act],[data-lang],[data-copy],[data-open],[data-plan],[data-method],[data-toggle],[data-plan-rm],[data-secret],[data-approve],[data-reject],[data-seg],[data-go]'); if (!el) return;
+  var d = el.dataset;
+  if (d.a) { var fa = APP.actions[d.a]; if (fa) fa(el, d); return; }
+  if (d.seg) { if (APP.onSeg) APP.onSeg(d.seg, d.val, el); return; }
+  if (d.go) return go(d.go);
+  if (d.lang) { LANG = d.lang; lsSet('lang_' + CFG.appId, LANG); document.documentElement.lang = LANG; return render(); }
+  if (d.copy != null) return copy(d.copy);
+  if (d.open != null) return openLink(d.open);
+  if (d.plan) { S.payPlan = d.plan; return render(); }
+  if (d.method) return startPayment(d.method);
+  if (d.toggle) { if (d.toggle === 'simfree') { lsSet('simfree_' + CFG.appId, !lsGet('simfree_' + CFG.appId, false)); refreshMe().then(render); return; }
+    S.admin.settings = collectSettings(); var st = S.admin.settings;
+    if (d.toggle === 'testMode') st.testMode = !st.testMode; else if (d.toggle === 'm_stars') st.methods.stars = !st.methods.stars; else if (d.toggle.indexOf('x:') === 0) st[d.toggle.slice(2)] = !st[d.toggle.slice(2)]; return render(); }
+  if (d.planRm != null) { S.admin.settings = collectSettings(); S.admin.settings.plans.splice(+d.planRm, 1); return render(); }
+  if (d.secret) { var i = document.getElementById('sec_' + d.secret); if (!i.value.trim()) return; api('adminSetSecret', { key: d.secret, value: i.value.trim() }).then(function (r) { i.value = ''; toast(r.ok ? 'Saved' : (r.error || 'Error')); if (r.ok) { S.admin.secrets[d.secret] = true; render(); } }); return; }
+  if (d.approve || d.reject) { api('adminDecide', { order_id: d.approve || d.reject, approve: !!d.approve }).then(function (r) { toast(r.ok ? 'Done' : (r.error || 'Error')); loadAdmin(); }); return; }
+  switch (d.act) {
+    case 'back': return back();
+    case 'home': return home();
+    case 'settings': return go('settings');
+    case 'account': return go('account');
+    case 'paywall': return paywall();
+    case 'afterpay': if (S.pw && S.pw.after) return S.pw.after(); return home();
+    case 'addplan': S.admin.settings = collectSettings(); S.admin.settings.plans.push({ id: 'plan_' + (S.admin.settings.plans.length + 1), label: 'New plan', days: 30, credits: 0, usd: 1, stars: 75, region: 'GLOBAL' }); return render();
+    case 'savesettings': var st2 = collectSettings(); api('adminSave', { settings: st2 }).then(function (r) { if (r.ok) { S.admin.settings = st2; S.msg = 'Saved'; refreshMe().then(render); } else toast(r.error || 'Error'); }); return;
+    case 'revpdf': var scope = el.dataset.scope;
+      showReport(function () { return api('adminRevenue', { scope: scope }).then(revenueReport); }, 'revenue-' + (scope === 'all' ? 'all-apps' : CFG.appId) + '-' + new Date().toISOString().slice(0, 7) + '.pdf'); return;
+    case 'repdl': if (S.rep && S.rep.blob) saveBlob(S.rep.blob, S.rep.name); return;
+    case 'repsend': if (!S.rep || !S.rep.blob) return; toast('…');
+      var fr = new FileReader(); fr.onload = function () { api('sendReport', { name: S.rep.name, data: String(fr.result).split(',')[1] }).then(function (r) {
+        if (r.ok) { toast(t('rep_sent')); haptic('ok'); } else if (r.error === 'write_access' && TG.requestWriteAccess) TG.requestWriteAccess(); else toast(t('e_gen')); }); }; fr.readAsDataURL(S.rep.blob); return;
+    case 'resetme': api('adminResetMe').then(function () { refreshMe().then(function () { toast('Reset'); render(); }); }); return;
+    case 'checkpay': api('checkOrder', { order_id: S.payment.order_id }).then(function (r) { if (r.ok && r.status === 'paid') return onPaid(r);
+        if (DEMO && confirm(t('pay_demo'))) return api('demoPay', { order_id: S.payment.order_id }).then(onPaid); S.err = t('not_yet'); render(); }); return;
+    case 'submittx': var tx = document.getElementById('txid').value.trim(); if (tx.length < 4) { S.err = t('txid'); return render(); }
+      api('submitManual', { order_id: S.payment.order_id, txid: tx }).then(function (r) { if (r.ok) S.payment.status = 'review'; else S.err = t('e_gen'); render(); }); return;
+    case 'verifyphone': var after = function () { refreshMe().then(function () { back(); }); };
+      if (DEMO) { api('demoVerifyPhone').then(after); return; } if (IN_TG && TG.requestContact) TG.requestContact(function (ok) { if (ok) setTimeout(after, 1500); }); return;
+  }
+});
+
+function app(def) {
+  Object.keys(def).forEach(function (k) { APP[k] = def[k]; });
+  APP.strings = def.strings || { en: {}, so: {} }; APP.screens = def.screens || {}; APP.actions = def.actions || {}; APP.enter = def.enter || {}; APP.demo = def.demo || {};
+  APP.adminFields = def.adminFields || []; APP.extraSecrets = def.extraSecrets || {};
+  LANG = lsGet('lang_' + CFG.appId, null) || (EDITION === 'local' || (TGU && TGU.language_code === 'so') ? 'so' : CFG.defaultLang);
+  document.documentElement.lang = LANG;
+  $app = document.getElementById('app');
+  if (IN_TG) { TG.BackButton.onClick(back); try { TG.ready(); TG.expand(); if (TG.isVersionAtLeast('7.7')) TG.disableVerticalSwipes(); } catch (e) {} }
+  if (def.startScreen) S.screen = def.startScreen();
+  render();
+  refreshMe().then(function () { enter(); });
+}
+
+return { app: app, report: report, showReport: showReport, saveBlob: saveBlob, loadScript: loadScript, isPro: function () { return S.me && /^(sub|test)$/.test(S.me.access.reason); }, CFG: CFG, TG: TG, IN_TG: IN_TG, TGU: TGU, QS: QS, START: START, EDITION: EDITION, DEMO: DEMO, MB: MB, S: S,
+  t: t, esc: esc, ic: ic, fmtDate: fmtDate, money: money, uid: uid, toast: toast, copy: copy, openLink: openLink, shareTg: shareTg, haptic: haptic, appLink: appLink, param: param, fileB64: fileB64,
+  lsGet: lsGet, lsSet: lsSet, api: api, refreshMe: refreshMe, go: go, back: back, home: home, render: render, header: header, banners: banners, planChip: planChip, spin: spin, errBox: errBox, empty: empty, kv: kv, seg: seg,
+  paywall: paywall, needAccess: needAccess, consume: consume, lang: function () { return LANG; } };
+})();
+
+</script>
+<script>
+(function(){
+var t=K.t,esc=K.esc,ic=K.ic,S=K.S,api=K.api;
+var KEY=K.param('c');
+var G={tab:'channels',mine:null,fee:0,subs:null,edit:null,offer:null,members:null,mf:'active',q:'',member:null,bc:{aud:'active'}};
+function money(n){return'$'+(+n||0).toFixed(2).replace(/\.00$/,'')}
+function planName(id){var p=(G.edit&&G.edit.plans||[]).filter(function(x){return x.id===id})[0];return p?p.label:id==='gift'?'Gift':id==='test'?'Test':id}
+function confirmBox(msg,cb){if(K.IN_TG&&K.TG.showConfirm)K.TG.showConfirm(msg,function(ok){if(ok)cb()});else if(confirm(msg))cb()}
+function statusChip(c){if(!c.botOk)return'<span class="pill bad">'+t('notready')+'</span>';return c.status==='active'?'<span class="pill ok">'+t('active')+'</span>':'<span class="pill">'+t('paused')+'</span>'}
+function memPill(m){if(m.status==='stopped')return'<span class="pill bad">'+t('m_stopped')+'</span>';if(m.status==='expired')return'<span class="pill">'+t('m_expired')+'</span>';
+ return m.daysLeft<=3?'<span class="pill bad">'+t('days_left',{n:Math.max(0,m.daysLeft)})+'</span>':'<span class="pill ok">'+t('days_left',{n:m.daysLeft})+'</span>'}
+function filtered(){var q=G.q.toLowerCase();return(G.members||[]).filter(function(m){var f=G.mf==='active'?m.status==='active':G.mf==='expiring'?m.status==='active'&&m.daysLeft<=3:m.status!=='active';
+ return f&&(!q||(m.name+' '+(m.username||'')).toLowerCase().indexOf(q)>=0)})}
+function offerPaywall(o){var c=o.channel;K.paywall({title:c.title,text:c.description||t('tagline'),icon:'channel',features:[t('f_instant'),t('f_auto'),t('f_remind')],
+ plans:c.plans.map(function(p){return{id:c.key+'|'+p.id,label:p.label,days:p.days,credits:0,usd:p.usd,stars:p.stars}}),paidText:t('paid_ok2'),
+ after:function(){S.stack=[];S.screen='offer';G.offer=null;K.render();loadOffer()}})}
+function loadOffer(){api('gkChannel',{key:KEY}).then(function(r){G.offer=r;K.render()})}
+
+K.app({
+ icon:'channel',freeLabel:null,showPlans:false,
+ defaults:{appName:'Channel Pass',freeAllowance:0,x_feePercent:5,plans:[]},
+ adminFields:[{key:'x_feePercent',label:'Platform fee (%)',type:'number',ph:'5',hint:'Your share of every channel sale. Creators are paid the rest.'}],
+ adminLoad:function(){return api('adminGk')},
+ adminExtra:function(x){x=x||{channels:[]};return'<div class="sec">Creators &amp; payouts owed</div><div class="card">'+(x.channels&&x.channels.length?'<ul class="files">'+x.channels.map(function(c){return'<li><div class="grow"><div class="fn">'+esc(c.title)+'</div><div class="fs">Owner '+esc(c.owner)+' · '+c.members+' members · pay to: '+esc(c.payout||'—')+'</div></div><div class="price">'+money(c.owedUsd)+'<small>'+c.owedStars+' Stars</small></div></li>'}).join('')+'</ul>':'<p class="m">No channels yet.</p>')+'</div>'},
+ startScreen:function(){return KEY?'offer':'home'},
+ strings:{
+ en:{appName:'Channel Pass',tagline:'Sell access to your private channel',t_channels:'My channels',t_subs:'My subscriptions',add:'Add a channel',refresh:'Refresh',
+  none_ch:'No channels yet. Add your first private channel to start selling access.',none_sub:'You have no active subscriptions.',members_n:'{n} members',active:'Live',paused:'Not published',notready:'Bot rights missing',
+  how_title:'Connect a channel',s1:'Open your private channel or group → Administrators → Add admin.',s2:'Search for the bot @{bot} and add it.',s3:'Allow “Invite users via link” and “Ban users”. Save.',s4:'Come back here and tap Refresh. Your channel appears automatically.',
+  edit:'Channel',desc:'Description shown to buyers',plans:'Plans',plan_label:'Name',days:'Days',usd:'Price USD',stars:'Stars',add_plan:'Add plan',remove:'Remove',
+  payout:'Your payout details (USDT address or mobile money number)',publish:'Published',publish_sub:'Buyers can see and pay for this channel.',share:'Share link',
+  share_sub:'Post this link anywhere. Buyers pay, the bot lets them in, reminds them before the end and removes them when the plan ends.',new_link:'New invite link',
+  earn:'Earnings',gross:'Gross',fee:'Platform fee',net:'You receive',orders:'Orders',members:'Members',broadcast:'Message all members',members_pdf:'Members report (PDF)',
+  f_active:'Active',f_expiring:'Ending soon',f_ended:'Ended',search:'Search members',none_m:'No members in this list.',days_left:'{n} days left',m_stopped:'Stopped',m_expired:'Ended',
+  plan:'Plan',start:'Started',end:'Ends',username:'Username',send_msg:'Send a message',msg_ph:'Write a message to this member',send:'Send',sent:'Sent',
+  extend:'Extend access',extend_sub:'Add free days (gift or compensation). The member is notified.',add_days:'Add {n} days',custom_days:'Other number of days',
+  stop:'Stop subscription now',stop_sub:'Removes the member from the channel and ends access immediately. They can join again only after paying.',
+  stop_confirm:'Stop the subscription of {n} and remove them from the channel now?',stopped_ok:'Subscription stopped and member removed.',extended_ok:'Access extended until {d}.',
+  blocked_bot:'This member has blocked the bot, so the message could not be delivered.',reason:'Reason (optional, sent to the member)',
+  aud:'Send to',aud_active:'All active members',aud_expiring:'Ending in 3 days',bc_ph:'Write your announcement…',bc_hint:'Messages are sent in batches within a few minutes.',bc_ok:'{n} messages queued.',
+  active_until:'Your access is active until {d}.',join:'Open channel',renew:'Extend access',test_join:'Test mode: get access without paying',not_found:'This channel is not available.',
+  f_instant:'Instant access after payment',f_auto:'Renew any time — days are added',f_remind:'Reminder before your access ends',paid_ok2:'Payment confirmed. The bot has sent you the join link.',
+  r_title:'Members report',r_active:'Active',r_expiring:'Ending in 3 days',r_ended:'Ended / stopped',r_revenue:'Gross revenue',name:'Name',status:'Status',until:'until {d}'},
+ so:{appName:'Channel Pass',tagline:'Iibi galitaanka kanaalkaaga gaarka ah',t_channels:'Kanaalladayda',t_subs:'Isdiiwaangelintayda',add:'Ku dar kanaal',refresh:'Cusboonaysii',
+  none_ch:'Weli kanaal ma jiro. Ku dar kanaalkaaga gaarka ah si aad u bilowdo iibinta.',none_sub:'Ma lihid isdiiwaangelin firfircoon.',members_n:'{n} xubnood',active:'Shaqaynaya',paused:'Lama daabicin',notready:'Awoodaha bot-ka ayaa maqan',
+  how_title:'Ku xir kanaal',s1:'Fur kanaalkaaga ama kooxdaada → Maamulayaasha → Ku dar maamule.',s2:'Raadi bot-ka @{bot} oo ku dar.',s3:'Oggolow “Ku casuun isticmaalayaal link” iyo “Mamnuuc isticmaalayaal”. Keydi.',s4:'Halkan ku soo noqo oo taabo Cusboonaysii. Kanaalkaagu si toos ah ayuu u soo muuqanayaa.',
+  edit:'Kanaalka',desc:'Sharaxaadda iibsadayaasha loo muujinayo',plans:'Qorshayaasha',plan_label:'Magaca',days:'Maalmo',usd:'Qiimaha USD',stars:'Stars',add_plan:'Ku dar qorshe',remove:'Ka saar',
+  payout:'Faahfaahinta lacag-bixintaada (cinwaan USDT ama lambar lacag mobile)',publish:'La daabacay',publish_sub:'Iibsadayaashu way arki karaan oo bixin karaan.',share:'Link-ga la wadaago',
+  share_sub:'Link-gan meel kasta dhig. Iibsaduhu wuu bixiyaa, bot-ku wuu soo galiyaa, wuu xusuusiyaa ka hor dhammaadka, wuuna saaraa marka qorshuhu dhammaado.',new_link:'Link casuumad cusub',
+  earn:'Dakhliga',gross:'Wadarta',fee:'Khidmadda',net:'Waxaad helaysaa',orders:'Dalabyada',members:'Xubnaha',broadcast:'U dir fariin xubnaha oo dhan',members_pdf:'Warbixinta xubnaha (PDF)',
+  f_active:'Firfircoon',f_expiring:'Dhowaan dhammaanaya',f_ended:'Dhammaaday',search:'Raadi xubnaha',none_m:'Liiskan xubin kuma jirto.',days_left:'{n} maalmood ayaa haray',m_stopped:'La joojiyay',m_expired:'Dhammaaday',
+  plan:'Qorshe',start:'Bilaabay',end:'Dhammaanaya',username:'Magaca isticmaalaha',send_msg:'Dir fariin',msg_ph:'U qor fariin xubintan',send:'Dir',sent:'Waa la diray',
+  extend:'Kordhi galitaanka',extend_sub:'Ku dar maalmo bilaash ah (hadiyad ama magdhow). Xubinta waa la ogeysiinayaa.',add_days:'Ku dar {n} maalmood',custom_days:'Tiro kale oo maalmo ah',
+  stop:'Jooji isdiiwaangelinta hadda',stop_sub:'Xubinta waa laga saarayaa kanaalka, galitaankuna hadda ayuu dhammaanayaa. Dib uma soo gali karo ilaa uu bixiyo.',
+  stop_confirm:'Ma joojinaysaa isdiiwaangelinta {n} oo hadda kanaalka ka saaraysaa?',stopped_ok:'Isdiiwaangelinta waa la joojiyay, xubintana waa la saaray.',extended_ok:'Galitaanka waa la kordhiyay ilaa {d}.',
+  blocked_bot:'Xubintani waxay xannibtay bot-ka, fariinta lama gaarsiin karo.',reason:'Sababta (ikhtiyaari, xubinta ayaa loo dirayaa)',
+  aud:'U dir',aud_active:'Dhammaan xubnaha firfircoon',aud_expiring:'Kuwa 3 maalmood ku dhammaanaya',bc_ph:'Qor ogeysiiskaaga…',bc_hint:'Fariimaha waxaa loo diraa qaybo dhowr daqiiqo gudahood.',bc_ok:'{n} fariimood ayaa safka la geliyay.',
+  active_until:'Galitaankaagu wuu shaqaynayaa ilaa {d}.',join:'Fur kanaalka',renew:'Kordhi muddada',test_join:'Habka tijaabada: hel galitaan lacag la\'aan',not_found:'Kanaalkan lama heli karo.',
+  f_instant:'Galitaan degdeg ah kadib lacag-bixinta',f_auto:'Cusboonaysii waqti kasta — maalmaha waa lagu darayaa',f_remind:'Xusuusin ka hor dhammaadka',paid_ok2:'Lacag-bixinta waa la xaqiijiyay. Bot-ku wuxuu kuu soo diray link-ga.',
+  r_title:'Warbixinta xubnaha',r_active:'Firfircoon',r_expiring:'3 maalmood ku dhammaanaya',r_ended:'Dhammaaday / la joojiyay',r_revenue:'Dakhliga guud',name:'Magaca',status:'Xaalad',until:'ilaa {d}'}},
+ enter:{
+  home:function(){if(G.tab==='channels')api('gkMine').then(function(r){G.mine=r.ok?r.channels:[];G.fee=r.feePercent||0;K.render()});else api('gkMySubs').then(function(r){G.subs=r.ok?r.subs:[];K.render()})},
+  offer:function(){G.offer=null;loadOffer()},
+  members:function(){api('gkMembers',{key:G.edit.key}).then(function(r){G.members=r.ok?r.members:[];K.render()})}
+ },
+ screens:{
+  home:function(){var h=K.header(t('appName'),t('tagline'))+K.banners()+'<div class="tabs"><button data-a="tab" data-v="channels" class="'+(G.tab==='channels'?'on':'')+'">'+t('t_channels')+'</button><button data-a="tab" data-v="subs" class="'+(G.tab==='subs'?'on':'')+'">'+t('t_subs')+'</button></div>';
+   if(G.tab==='channels'){if(!G.mine)return h+K.spin();if(!G.mine.length)h+=K.empty('channel',t('none_ch'));
+    G.mine.forEach(function(c){h+='<button class="chrow" data-a="edit" data-key="'+esc(c.key)+'"><div class="av">'+esc((c.title||'?').charAt(0).toUpperCase())+'</div><div class="grow"><div class="fn">'+esc(c.title)+'</div><div class="fs">'+t('members_n',{n:c.members||0})+' · '+money(c.revenue.usd)+(c.revenue.stars?' + '+c.revenue.stars+' Stars':'')+'</div><div>'+statusChip(c)+'</div></div></button>'});
+    return h+'<button class="btn" data-go="how">'+ic('plus')+t('add')+'</button><button class="btn ghost" data-a="reload">'+ic('refresh')+t('refresh')+'</button>'}
+   if(!G.subs)return h+K.spin();if(!G.subs.length)h+=K.empty('users',t('none_sub'));
+   G.subs.forEach(function(s){h+='<div class="chrow"><div class="av">'+esc((s.title||'?').charAt(0))+'</div><div class="grow"><div class="fn">'+esc(s.title)+'</div><div class="fs">'+t('until',{d:K.fmtDate(s.expiry)})+'</div></div><button class="btn sm" data-open="'+esc(s.inviteLink)+'">'+ic('ext','s')+t('join')+'</button><button class="btn sm sec2" data-a="offer" data-key="'+esc(s.key)+'">'+t('renew')+'</button></div>'});
+   return h},
+  how:function(){var bot=K.CFG.botUsername||'YourBot';return K.header(t('how_title'),'')+'<div class="card"><ol class="steps"><li>'+t('s1')+'</li><li>'+t('s2',{bot:esc(bot)})+'</li><li>'+t('s3')+'</li><li>'+t('s4')+'</li></ol></div>'+
+   (K.CFG.botUsername?'<button class="btn sec2" data-open="https://t.me/'+esc(K.CFG.botUsername)+'?startchannel&admin=invite_users+restrict_members">'+ic('ext')+'@'+esc(K.CFG.botUsername)+'</button>':'')+'<button class="btn" data-act="back">'+ic('refresh')+t('refresh')+'</button>'},
+  edit:function(){var c=G.edit,fee=G.fee,r=c.revenue||{usd:0,stars:0,orders:0},url=K.appLink('c_'+c.key),h=K.header(c.title,t('edit'))+K.errBox();
+   h+='<div class="g2"><button class="btn" data-a="members">'+ic('users')+t('members')+' ('+(c.members||0)+')</button><button class="btn sec2" data-a="bcopen">'+ic('send')+t('broadcast').split(' ')[0]+'</button></div><button class="btn ghost" data-a="mpdf">'+ic('file')+t('members_pdf')+'</button>';
+   h+='<div class="sec">'+t('share')+'</div><div class="card">'+K.kv(t('share'),url,true)+'<p class="m">'+t('share_sub')+'</p>'+(c.botOk?'':'<div class="err">'+ic('alert','s')+'<span>'+t('s3')+'</span></div>')+'</div>';
+   h+='<div class="card"><div class="sw"><div><b style="font-size:14px">'+t('publish')+'</b><div class="fs">'+t('publish_sub')+'</div></div><button class="tgl '+(c.status==='active'?'on':'')+'" data-a="pub"></button></div>'+
     '<label class="f">'+t('desc')+'</label><textarea class="t" id="desc" maxlength="500">'+esc(c.description)+'</textarea></div>';
-  h+='<div class="sec">'+t('plans')+'</div>'+c.plans.map(function(p,i){return'<div class="plan"><div class="full"><label class="f">'+t('plan_label')+'</label><input class="t" data-pi="'+i+'" data-k="label" value="'+esc(p.label)+'" placeholder="1 month"></div>'+
+   h+='<div class="sec">'+t('plans')+'</div>'+c.plans.map(function(p,i){return'<div class="plan"><div class="full"><label class="f">'+t('plan_label')+'</label><input class="t" data-pi="'+i+'" data-k="label" value="'+esc(p.label)+'" placeholder="1 month"></div>'+
     '<div><label class="f">'+t('days')+'</label><input class="t" type="number" data-pi="'+i+'" data-k="days" value="'+esc(p.days)+'"></div><div><label class="f">'+t('usd')+'</label><input class="t" type="number" step="0.01" data-pi="'+i+'" data-k="usd" value="'+esc(p.usd)+'"></div>'+
-    '<div><label class="f">'+t('stars')+'</label><input class="t" type="number" data-pi="'+i+'" data-k="stars" value="'+esc(p.stars)+'"></div><div style="display:flex;align-items:flex-end"><button class="btn sm ghost" style="width:100%" data-prm="'+i+'">'+t('remove')+'</button></div></div>'}).join('')+
-    (c.plans.length<6?'<button class="btn sm sec2" data-act="addplan">'+ic('plus','s')+t('add_plan')+'</button>':'');
-  h+='<div class="card" style="margin-top:12px"><label class="f">'+t('payout')+'</label><input class="t" id="payout" value="'+esc(c.payout)+'"></div>';
-  h+='<button class="btn" data-act="savech">'+ic('check')+t('save')+'</button>'+(S.msg?'<div class="okmsg">'+ic('check','s')+esc(S.msg)+'</div>':'')+errBox();
-  h+='<div class="sec">'+t('earn')+'</div><div class="card stat"><div><b>'+money(r.usd)+'</b><span>'+t('gross')+' (USD)</span></div><div><b>'+(r.stars||0)+'</b><span>'+t('gross')+' (Stars)</span></div>'+
-    '<div><b>'+fee+'%</b><span>'+t('fee')+'</span></div><div><b>'+money(r.usd*(100-fee)/100)+'</b><span>'+t('net')+'</span></div><div><b>'+(r.orders||0)+'</b><span>'+t('orders')+'</span></div><div><b>'+(c.members||0)+'</b><span>'+t('members',{n:''}).trim()+'</span></div></div>';
-  h+='<button class="btn ghost" data-act="newlink">'+ic('link')+t('new_link')+'</button>';return h}
-function rOffer(){var o=S.offer,h;if(!o)return header(t('appName'),'')+spin();
-  if(!o.ok)return header(t('appName'),'')+'<div class="card center"><div class="big">'+ic('alert','l')+'</div><p class="m">'+t('not_found')+'</p></div>';
-  var c=o.channel,me=S.me;h=header(c.title,c.username?'@'+c.username:'')+banners();
-  h+='<div class="card"><div class="row" style="gap:12px"><div class="av">'+esc(c.title.charAt(0).toUpperCase())+'</div><div class="grow"><h2>'+esc(c.title)+'</h2></div></div>'+(c.description?'<p class="m" style="margin-top:10px;white-space:pre-line">'+esc(c.description)+'</p>':'')+'</div>';
-  if(o.member)h+='<div class="card"><div class="okmsg" style="margin:0">'+ic('check','s')+t('active_until',{d:fmtDate(o.member.expiry)})+'</div></div><button class="btn" data-open="'+esc(o.inviteLink)+'">'+ic('ext')+t('join')+'</button><div class="sec">'+t('renew')+'</div>';
-  if(c.status!=='active')return h+'<div class="card"><p class="m">'+t('not_found')+'</p></div>';
-  h+=(o.member?'':'<div class="sec">'+t('choose')+'</div>')+'<div class="opt">'+c.plans.map(function(p){return'<div class="radio '+(S.plan===p.id?'on':'')+'" data-plan="'+esc(p.id)+'"><span class="dot"></span><div><b>'+esc(p.label)+'</b><div class="fs">'+t('d_days',{n:p.days})+'</div></div><div class="price">'+(p.usd?money(p.usd):'')+(p.stars?'<small>'+p.stars+' Stars</small>':'')+'</div></div>'}).join('')+'</div>';
-  h+='<div class="sec">'+t('pay_with')+'</div>';
-  if(!me.methods.length)h+='<div class="card"><p class="m">'+t('no_methods')+'</p></div>';
-  else h+='<div class="opt">'+me.methods.map(function(m){return'<button class="radio" style="width:100%;text-align:left" data-method="'+m.id+'"><span class="thumb" style="width:34px;height:34px">'+ic(m.id==='stars'?'star':/^usdt/.test(m.id)?'wallet':'phone')+'</span><b class="grow">'+t(m.id==='stars'?'stars_m':m.id)+'</b></button>'}).join('')+'</div>';
-  if(me.access&&me.access.reason==='test')h+='<button class="btn ghost" style="margin-top:12px" data-act="testjoin">'+ic('shield')+t('test_join')+'</button>';
-  return h+errBox()}
-function rPay(){var o=S.payment,h=header(t(o.method==='stars'?'stars_m':o.method),'');
-  if(o.status==='paid')return h+'<div class="card center"><div class="big good">'+ic('check','l')+'</div><h2>'+t('paid_ok')+'</h2></div><button class="btn" data-act="tooffer">'+ic('ext')+t('join')+'</button>';
-  if(o.status==='review')return h+'<div class="card center"><div class="big">'+ic('clock','l')+'</div><p class="m">'+t('pending')+'</p></div>';
-  if(o.phoneNeeded)return h+'<div class="card center"><div class="big">'+ic('phone','l')+'</div><p class="m">'+t('verify_text')+'</p></div><button class="btn" data-act="verifyphone">'+ic('phone')+t('verify_phone')+'</button>';
-  if(/^usdt/.test(o.method))h+='<div class="card"><p class="m" style="margin-bottom:12px">'+t('send_exact')+'</p><div class="kv"><div class="grow"><span class="k">'+t('amount')+'</span><code>'+esc(o.amount)+' USDT</code></div><button class="mini" data-copy="'+esc(o.amount)+'">'+ic('copy')+'</button></div>'+
-    '<div class="kv"><div class="grow"><span class="k">'+t('network')+'</span><code>'+esc(o.network)+'</code></div></div><div class="kv"><div class="grow"><span class="k">'+t('address')+'</span><code>'+esc(o.address)+'</code></div><button class="mini" data-copy="'+esc(o.address)+'">'+ic('copy')+'</button></div>'+
-    '<div class="note">'+ic('alert','s')+'<span>'+t('usdt_note',{net:esc(o.network)})+'</span></div></div><button class="btn" data-act="checkpay">'+ic('refresh')+t('check_pay')+'</button>';
-  else h+='<div class="card"><p class="m" style="margin-bottom:12px">'+t('mm_text',{a:esc(o.amount),n:esc(o.number),m:t(o.method)})+'</p><div class="kv"><div class="grow"><span class="k">'+t(o.method)+'</span><code>'+esc(o.number)+'</code></div><button class="mini" data-copy="'+esc(o.number)+'">'+ic('copy')+'</button></div>'+
-    '<label class="f">'+t('txid')+'</label><input class="t" id="txid" autocomplete="off"></div><button class="btn" data-act="submittx">'+t('submit')+'</button>';
-  return h+errBox()}
-
-/* ---------- admin ---------- */
-var SECRETS={BOT_TOKEN:'Telegram bot token',TRONGRID_KEY:'TronGrid API key (TRC20 checks)',ETHERSCAN_KEY:'Etherscan API key (BEP20 checks)'};
-function loadAdmin(){S.admin=null;render();Promise.all([api('adminGet'),api('adminPending'),api('adminGk')]).then(function(r){
-  S.admin={settings:r[0].settings||demoDefaults(),secrets:r[0].secrets||{},pending:r[1].items||[],gk:r[2].ok?r[2]:{channels:[]}};render()})}
-function rSettings(){var A=S.admin,h=header('Settings','Admin only');if(!A)return h+spin();var st=A.settings,m=st.methods;
-  function inp(id,v,ph,ty){return'<input class="t" data-set="'+id+'" type="'+(ty||'text')+'" value="'+esc(v)+'" placeholder="'+esc(ph||'')+'">'}
-  function sw(id,on,l,s){return'<div class="sw"><div><b style="font-size:14px">'+l+'</b>'+(s?'<div class="fs">'+s+'</div>':'')+'</div><button class="tgl '+(on?'on':'')+'" data-toggle="'+id+'"></button></div>'}
-  if(DEMO)h+='<div class="banner">'+ic('info','s')+'<span>Demo mode: set <b>apiUrl</b> in config.js to connect the server.</span></div>';
-  h+='<div class="sec">General</div><div class="card">'+sw('testMode',st.testMode,'Test mode','Shows a “get access without paying” button so you can test the full flow.')+
-    '<label class="f">Platform fee (%)</label>'+inp('x_feePercent',st.x_feePercent,'5','number')+'<label class="f">Support contact</label>'+inp('supportContact',st.supportContact,'@username')+
-    '<label class="f">Local phone prefixes</label>'+inp('localPrefixes',st.localPrefixes,'252')+'</div>';
-  h+='<div class="sec">Payment methods</div><div class="card">'+sw('m_stars',m.stars,'Telegram Stars','Global. Verify fees and payout terms before launch.')+
-    '<label class="f">USDT TRC20 receive address</label>'+inp('m_usdt_trc20',m.usdt_trc20,'T…')+'<label class="f">USDT BEP20 receive address</label>'+inp('m_usdt_bep20',m.usdt_bep20,'0x…')+
-    '<div class="fs" style="margin-top:12px">Local only (hidden from global users):</div><label class="f">EVC Plus</label>'+inp('m_evc',m.evc,'+252…')+'<label class="f">Zaad</label>'+inp('m_zaad',m.zaad,'+252…')+
-    '<label class="f">Sahal</label>'+inp('m_sahal',m.sahal,'+252…')+'<label class="f">M-Pesa</label>'+inp('m_mpesa',m.mpesa,'+254…')+'</div><button class="btn" data-act="savesettings">'+ic('check')+'Save settings</button>'+(S.msg?'<div class="okmsg">'+ic('check','s')+esc(S.msg)+'</div>':'');
-  h+='<div class="sec">Secrets (write-only)</div><div class="card">'+Object.keys(SECRETS).map(function(k){return'<label class="f">'+SECRETS[k]+' — <span style="color:'+(A.secrets[k]?'var(--ok)':'var(--danger)')+'">'+(A.secrets[k]?'set':'not set')+'</span></label><div class="row"><input class="t" type="password" autocomplete="off" id="sec_'+k+'" placeholder="Paste new value"><button class="btn sm sec2" data-secret="'+k+'">Save</button></div>'}).join('')+'</div>';
-  h+='<div class="sec">Payments to review</div><div class="card">'+(A.pending.length?'<ul class="files">'+A.pending.map(function(p){return'<li><div class="grow"><div class="fn">'+esc(p.method)+' · '+esc(p.amount)+'</div><div class="fs">User '+esc(p.user_id)+' · Tx '+esc(p.tx_ref)+'</div></div><button class="btn sm" data-approve="'+esc(p.order_id)+'">Approve</button><button class="btn sm ghost" data-reject="'+esc(p.order_id)+'">Reject</button></li>'}).join('')+'</ul>':'<p class="m">Nothing to review.</p>')+'</div>';
-  h+='<div class="sec">Creators &amp; payouts owed</div><div class="card">'+(A.gk.channels.length?'<ul class="files">'+A.gk.channels.map(function(c){return'<li><div class="grow"><div class="fn">'+esc(c.title)+'</div><div class="fs">Owner '+esc(c.owner)+' · '+c.members+' members · pay to: '+esc(c.payout||'—')+'</div></div><div class="price">'+money(c.owedUsd)+'<small>'+c.owedStars+' Stars</small></div></li>'}).join('')+'</ul>':'<p class="m">No channels yet.</p>')+'</div>';
-  h+='<div class="sec">Testing</div><div class="card"><button class="btn sm ghost" style="width:100%" data-act="resetme">Reset my memberships</button></div>';return h}
-function collectSettings(){var st=JSON.parse(JSON.stringify(S.admin.settings));document.querySelectorAll('[data-set]').forEach(function(el){var k=el.dataset.set,v=el.type==='number'?+el.value:el.value.trim();if(k.indexOf('m_')===0)st.methods[k.slice(2)]=v;else st[k]=v});return st}
-function collectEdit(){var c=S.edit;var d=document.getElementById('desc');if(d)c.description=d.value;var p=document.getElementById('payout');if(p)c.payout=p.value;
-  document.querySelectorAll('[data-pi]').forEach(function(el){c.plans[+el.dataset.pi][el.dataset.k]=el.type==='number'?+el.value:el.value.trim()})}
-
-/* ---------- payments ---------- */
-function startPayment(method){var plan=KEY+'|'+S.plan;S.err='';
-  if(method==='stars'&&!DEMO&&!IN_TG){S.err=t('open_in_tg');return render()}
-  api('createOrder',{plan:plan,method:method}).then(function(r){
-    if(!r.ok){if(r.error==='phone_required'){S.payment={method:method,phoneNeeded:true};return go('pay')}S.err=r.error==='network'?t('e_net'):t('e_gen');return render()}
-    S.payment=r;
-    if(method==='stars'){if(DEMO){if(confirm(t('pay_demo')))api('demoPay',{order_id:r.order_id}).then(paid);return}
-      TG.openInvoice(r.invoiceLink,function(s){if(s==='paid')poll(r.order_id,10)});return}
-    go('pay')})}
-function poll(id,n){api('checkOrder',{order_id:id}).then(function(r){if(r.ok&&r.status==='paid')return paid();if(n>0)setTimeout(function(){poll(id,n-1)},2000)})}
-function paid(){S.payment=Object.assign(S.payment||{},{status:'paid'});try{TG.HapticFeedback.notificationOccurred('success')}catch(e){}if(S.screen!=='pay')go('pay');else render()}
-
-document.addEventListener('click',function(ev){var el=ev.target.closest('[data-act],[data-lang],[data-tab],[data-edit],[data-copy],[data-open],[data-offer],[data-plan],[data-method],[data-prm],[data-toggle],[data-secret],[data-approve],[data-reject]');if(!el)return;var d=el.dataset;
-  if(d.lang){LANG=d.lang;lsSet('gk_lang',LANG);return render()}
-  if(d.tab){S.tab=d.tab;return load('home')}
-  if(d.edit){S.edit=JSON.parse(JSON.stringify(S.mine.channels.filter(function(c){return c.key===d.edit})[0]));S.msg='';return go('edit')}
-  if(d.copy)return copy(d.copy);
-  if(d.open!=null)return openLink(d.open);
-  if(d.offer){KEY=d.offer;S.offer=null;S.plan=null;go('offer');return load('offer')}
-  if(d.plan){S.plan=d.plan;return render()}
-  if(d.method)return startPayment(d.method);
-  if(d.prm!=null){collectEdit();S.edit.plans.splice(+d.prm,1);return render()}
-  if(d.toggle){S.admin.settings=collectSettings();if(d.toggle==='testMode')S.admin.settings.testMode=!S.admin.settings.testMode;else S.admin.settings.methods.stars=!S.admin.settings.methods.stars;return render()}
-  if(d.secret){var i=document.getElementById('sec_'+d.secret);if(!i.value.trim())return;api('adminSetSecret',{key:d.secret,value:i.value.trim()}).then(function(r){i.value='';toast(r.ok?'Saved':(r.error||'Error'));if(r.ok){S.admin.secrets[d.secret]=true;render()}});return}
-  if(d.approve||d.reject){api('adminDecide',{order_id:d.approve||d.reject,approve:!!d.approve}).then(function(){loadAdmin()});return}
-  switch(d.act){
-  case'back':return back();
-  case'how':return go('how');
-  case'reload':S.mine=null;return load('home');
-  case'settings':S.msg='';go('settings');return loadAdmin();
-  case'togglepub':collectEdit();S.edit.status=S.edit.status==='active'?'paused':'active';return render();
-  case'addplan':collectEdit();S.edit.plans.push({id:'p'+Date.now().toString(36).slice(-4),label:'',days:30,usd:1,stars:75});return render();
-  case'savech':collectEdit();var c=S.edit;api('gkSave',{key:c.key,description:c.description,plans:c.plans,payout:c.payout,status:c.status}).then(function(r){if(r.ok){S.msg=t('saved');S.err='';S.mine=null;api('gkMine').then(function(x){S.mine=x;render()})}else{S.err=t('e_gen');render()}});return;
-  case'newlink':api('gkRefreshLink',{key:S.edit.key}).then(function(r){toast(r.ok?t('saved'):t('e_gen'))});return;
-  case'testjoin':api('gkTestJoin',{key:KEY}).then(function(){S.offer=null;load('offer')});return;
-  case'tooffer':S.stack=[];S.screen='offer';S.offer=null;return load('offer');
-  case'savesettings':var st=collectSettings();api('adminSave',{settings:st}).then(function(r){if(r.ok){S.admin.settings=st;S.msg='Saved';init()}else toast(r.error||'Error')});return;
-  case'resetme':api('adminResetMe').then(function(){toast('Reset')});return;
-  case'checkpay':api('checkOrder',{order_id:S.payment.order_id}).then(function(r){if(r.ok&&r.status==='paid')return paid();if(DEMO&&confirm(t('pay_demo')))return api('demoPay',{order_id:S.payment.order_id}).then(paid);S.err=t('not_yet');render()});return;
-  case'submittx':var tx=document.getElementById('txid').value.trim();if(tx.length<4)return;api('submitManual',{order_id:S.payment.order_id,txid:tx}).then(function(r){if(r.ok)S.payment.status='review';else S.err=t('e_gen');render()});return;
-  case'verifyphone':var after=function(){init().then(function(){S.stack=[];S.screen='offer';render()})};
-    if(DEMO){api('demoVerifyPhone').then(after);return}if(IN_TG&&TG.requestContact)TG.requestContact(function(ok){if(ok)setTimeout(after,1500)});return;
-  }});
-
-function init(){return api('init',{start:START}).then(function(r){S.me=r.ok?r:{methods:[],access:{}};return r})}
-if(IN_TG){try{TG.ready();TG.expand();if(TG.isVersionAtLeast('7.7'))TG.disableVerticalSwipes()}catch(e){}}
-render();init().then(function(){load(S.screen)});
+    '<div><label class="f">'+t('stars')+'</label><input class="t" type="number" data-pi="'+i+'" data-k="stars" value="'+esc(p.stars)+'"></div><div style="display:flex;align-items:flex-end"><button class="btn sm ghost" style="width:100%" data-a="prm" data-i="'+i+'">'+t('remove')+'</button></div></div>'}).join('')+
+    (c.plans.length<6?'<button class="btn sm sec2" data-a="addplan">'+ic('plus','s')+t('add_plan')+'</button>':'');
+   h+='<div class="card" style="margin-top:12px"><label class="f">'+t('payout')+'</label><input class="t" id="payout" value="'+esc(c.payout)+'"></div><button class="btn" data-a="savech">'+ic('check')+t('save')+'</button>';
+   h+='<div class="sec">'+t('earn')+'</div><div class="card stat"><div><b>'+money(r.usd)+'</b><span>'+t('gross')+' (USD)</span></div><div><b>'+(r.stars||0)+'</b><span>'+t('gross')+' (Stars)</span></div><div><b>'+fee+'%</b><span>'+t('fee')+'</span></div><div><b>'+money(r.usd*(100-fee)/100)+'</b><span>'+t('net')+'</span></div></div>';
+   return h+'<button class="btn ghost" data-a="newlink">'+ic('link')+t('new_link')+'</button>'},
+  members:function(){var h=K.header(t('members'),G.edit.title);if(!G.members)return h+K.spin();
+   var cnt={active:0,expiring:0,ended:0};G.members.forEach(function(m){if(m.status==='active'){cnt.active++;if(m.daysLeft<=3)cnt.expiring++}else cnt.ended++});
+   h+='<div class="tabs">'+[['active',t('f_active')+' '+cnt.active],['expiring',t('f_expiring')+' '+cnt.expiring],['ended',t('f_ended')+' '+cnt.ended]].map(function(x){return'<button data-a="mf" data-v="'+x[0]+'" class="'+(G.mf===x[0]?'on':'')+'">'+esc(x[1])+'</button>'}).join('')+'</div>';
+   h+='<input class="t" id="mq" placeholder="'+t('search')+'" value="'+esc(G.q)+'" style="margin-bottom:10px">';
+   var list=filtered();if(!list.length)h+=K.empty('users',t('none_m'));
+   list.forEach(function(m){h+='<button class="chrow" data-a="member" data-id="'+esc(m.user_id)+'"><div class="av">'+esc(m.name.charAt(0).toUpperCase())+'</div><div class="grow"><div class="fn">'+esc(m.name)+(m.username?' <span class="fs">@'+esc(m.username)+'</span>':'')+'</div><div class="fs">'+t('end')+': '+K.fmtDate(m.expiry)+'</div><div>'+memPill(m)+'</div></div>'+ic('back','s" style="transform:rotate(180deg);color:var(--hint)')+'</button>'});
+   if(G.mf==='expiring'&&list.length)h+='<button class="btn sec2" data-a="bcexp">'+ic('bell')+t('broadcast')+' · '+t('aud_expiring')+'</button>';
+   return h},
+  member:function(){var m=G.member,h=K.header(m.name,m.username?'@'+m.username:'')+K.errBox();
+   h+='<div class="card"><table class="tb"><tr><td>'+t('status')+'</td><td>'+memPill(m)+'</td></tr><tr><td>'+t('plan')+'</td><td>'+esc(planName(m.plan))+'</td></tr><tr><td>'+t('start')+'</td><td>'+K.fmtDate(m.start)+'</td></tr><tr><td>'+t('end')+'</td><td>'+K.fmtDate(m.expiry)+'</td></tr><tr><td>Telegram ID</td><td>'+esc(m.user_id)+'</td></tr></table></div>';
+   h+='<div class="sec">'+t('send_msg')+'</div><div class="card"><textarea class="t" id="mmsg" placeholder="'+t('msg_ph')+'" maxlength="1000"></textarea><button class="btn sm" style="margin-top:8px;width:100%" data-a="mnotify">'+ic('send','s')+t('send')+'</button></div>';
+   h+='<div class="sec">'+t('extend')+'</div><div class="card"><p class="m" style="margin-bottom:10px">'+t('extend_sub')+'</p><div class="g3">'+[7,30,90].map(function(d){return'<button class="btn sm sec2" style="margin-top:0" data-a="mext" data-d="'+d+'">+'+d+'</button>'}).join('')+'</div>'+
+    '<div class="row" style="margin-top:8px"><input class="t" id="mdays" type="number" min="1" max="365" placeholder="'+t('custom_days')+'"><button class="btn sm" data-a="mext" data-d="custom">'+t('send').replace(t('send'),'+')+'</button></div></div>';
+   if(m.status==='active')h+='<div class="sec">'+t('stop')+'</div><div class="card"><p class="m" style="margin-bottom:10px">'+t('stop_sub')+'</p><label class="f">'+t('reason')+'</label><input class="t" id="mreason"><button class="btn" style="margin-top:10px;background:var(--danger)" data-a="mstop">'+ic('x')+t('stop')+'</button></div>';
+   return h},
+  broadcast:function(){var h=K.header(t('broadcast'),G.edit.title);
+   h+='<div class="card"><label class="f">'+t('aud')+'</label>'+K.seg('aud',G.bc.aud,[['active',t('aud_active')],['expiring',t('aud_expiring')]])+'<label class="f">'+t('send_msg')+'</label><textarea class="t" id="bctext" maxlength="1500" style="min-height:120px" placeholder="'+t('bc_ph')+'"></textarea><div class="fs" style="margin-top:6px">'+t('bc_hint')+'</div></div>';
+   return h+'<button class="btn" data-a="bcsend">'+ic('send')+t('send')+'</button>'+K.errBox()},
+  offer:function(){var o=G.offer;if(!o)return K.header(t('appName'),'')+K.spin();if(!o.ok)return K.header(t('appName'),'')+K.empty('alert',t('not_found'));
+   var c=o.channel,h=K.header(c.title,c.username?'@'+c.username:'')+K.banners();
+   h+='<div class="card"><div class="row" style="gap:12px"><div class="av">'+esc(c.title.charAt(0).toUpperCase())+'</div><h2 class="grow">'+esc(c.title)+'</h2></div>'+(c.description?'<p class="m" style="margin-top:10px;white-space:pre-line">'+esc(c.description)+'</p>':'')+'</div>';
+   if(o.member)h+='<div class="card"><div class="okmsg" style="margin:0">'+ic('check','s')+t('active_until',{d:K.fmtDate(o.member.expiry)})+'</div></div><button class="btn" data-open="'+esc(o.inviteLink)+'">'+ic('ext')+t('join')+'</button>';
+   if(c.status!=='active')return h+(o.member?'':'<div class="card"><p class="m">'+t('not_found')+'</p></div>');
+   h+='<div class="sec">'+t('plans')+'</div><div class="card"><ul class="files">'+c.plans.map(function(p){return'<li><div class="grow"><div class="fn">'+esc(p.label)+'</div><div class="fs">'+t('days')+': '+p.days+'</div></div><div class="price">'+(p.usd?money(p.usd):'')+(p.stars?'<small>'+p.stars+' Stars</small>':'')+'</div></li>'}).join('')+'</ul></div>';
+   h+='<button class="btn" data-a="buy">'+ic('star')+(o.member?t('renew'):t('join'))+'</button>';
+   if(S.me.access&&S.me.access.reason==='test')h+='<button class="btn ghost" data-a="testjoin">'+ic('shield')+t('test_join')+'</button>';
+   return h}
+ },
+ onSeg:function(n,v){if(n==='aud'){G.bc.aud=v;var x=document.getElementById('bctext'),keep=x?x.value:'';K.render();document.getElementById('bctext').value=keep}},
+ actions:{
+  tab:function(el,d){G.tab=d.v;G.mine=G.subs=null;K.home()},
+  reload:function(){G.mine=null;K.home()},
+  edit:function(el,d){G.edit=JSON.parse(JSON.stringify(G.mine.filter(function(c){return c.key===d.key})[0]));K.go('edit')},
+  offer:function(el,d){KEY=d.key;K.go('offer')},
+  pub:function(){keep();G.edit.status=G.edit.status==='active'?'paused':'active';K.render()},
+  addplan:function(){keep();G.edit.plans.push({id:'p'+Date.now().toString(36).slice(-4),label:'',days:30,usd:1,stars:75});K.render()},
+  prm:function(el,d){keep();G.edit.plans.splice(+d.i,1);K.render()},
+  savech:function(){keep();var c=G.edit;api('gkSave',{key:c.key,description:c.description,plans:c.plans,payout:c.payout,status:c.status}).then(function(r){S.msg=r.ok?t('saved'):'';S.err=r.ok?'':t('e_gen');K.render()})},
+  newlink:function(){api('gkRefreshLink',{key:G.edit.key}).then(function(r){K.toast(r.ok?t('saved'):t('e_gen'))})},
+  members:function(){G.members=null;G.mf='active';G.q='';K.go('members')},
+  mf:function(el,d){G.mf=d.v;K.render()},
+  member:function(el,d){G.member=G.members.filter(function(m){return m.user_id===d.id})[0];K.go('member')},
+  mnotify:function(){var x=document.getElementById('mmsg').value.trim();if(!x)return;api('gkMemberAction',{key:G.edit.key,user_id:G.member.user_id,op:'notify',text:x}).then(function(r){
+   if(r.ok){document.getElementById('mmsg').value='';K.toast(t('sent'));K.haptic('ok')}else{S.err=r.error==='blocked_bot'?t('blocked_bot'):t('e_gen');K.render()}})},
+  mext:function(el,d){var days=d.d==='custom'?parseInt(document.getElementById('mdays').value,10):+d.d;if(!(days>=1&&days<=365))return;
+   api('gkMemberAction',{key:G.edit.key,user_id:G.member.user_id,op:'extend',days:days}).then(function(r){if(!r.ok){S.err=t('e_gen');return K.render()}
+    G.member.expiry=r.expiry;G.member.status='active';G.member.daysLeft=Math.ceil((new Date(r.expiry)-Date.now())/864e5);S.msg=t('extended_ok',{d:K.fmtDate(r.expiry)});S.err='';K.haptic('ok');K.render()})},
+  mstop:function(){var m=G.member,why=(document.getElementById('mreason')||{}).value||'';confirmBox(t('stop_confirm',{n:m.name}),function(){
+   api('gkMemberAction',{key:G.edit.key,user_id:m.user_id,op:'stop',reason:why}).then(function(r){if(!r.ok){S.err=t('e_gen');return K.render()}m.status='stopped';m.daysLeft=0;S.msg=t('stopped_ok');S.err='';K.haptic('ok');K.render()})})},
+  bcopen:function(){G.bc.aud='active';K.go('broadcast')},
+  bcexp:function(){G.bc.aud='expiring';K.go('broadcast')},
+  bcsend:function(){var x=document.getElementById('bctext').value.trim();if(!x)return;confirmBox(t('broadcast')+'?',function(){
+   api('gkBroadcast',{key:G.edit.key,audience:G.bc.aud,text:x}).then(function(r){if(r.ok){S.msg=t('bc_ok',{n:r.queued});document.getElementById('bctext').value=''}else S.err=t('e_gen');K.render()})})},
+  mpdf:function(){var c=G.edit;K.showReport(function(){return api('gkMembers',{key:c.key}).then(function(r){var ms=r.members||[],a=ms.filter(function(m){return m.status==='active'}),rev=c.revenue||{usd:0,stars:0};
+   return{brand:t('appName'),title:t('r_title'),subtitle:c.title,blocks:[{kpis:[[t('r_active'),a.length,'good'],[t('r_expiring'),a.filter(function(m){return m.daysLeft<=3}).length,'bad'],[t('r_ended'),ms.length-a.length],[t('r_revenue'),money(rev.usd)+(rev.stars?' + '+rev.stars+'★':'')]]},
+    {h:t('members')+' ('+ms.length+')'},{table:{cols:[{label:t('name'),w:2},{label:t('username'),w:1.6},{label:t('plan'),w:1},{label:t('start'),w:1.1},{label:t('end'),w:1.1},{label:t('status'),w:1.3}],
+     rows:ms.map(function(m){return[m.name,m.username?'@'+m.username:'',planName(m.plan),K.fmtDate(m.start),K.fmtDate(m.expiry),{v:m.status==='active'?t('days_left',{n:m.daysLeft}):t(m.status==='stopped'?'m_stopped':'m_expired'),tone:m.status!=='active'?'bad':m.daysLeft<=3?'bad':'good'}]})}}]}})},
+   (c.title.replace(/[^\w\- ]+/g,'')||'channel')+' members.pdf')},
+  buy:function(){offerPaywall(G.offer)},
+  testjoin:function(){api('gkTestJoin',{key:KEY}).then(function(){G.offer=null;loadOffer()})}
+ },
+ demoResolvePlan:function(id,s){var p=String(id).split('|'),c=s.app.channels.filter(function(x){return x.key===p[0]})[0],pl=c&&c.plans.filter(function(x){return x.id===p[1]})[0];return pl?{id:id,label:pl.label,days:pl.days,credits:0,usd:pl.usd,stars:pl.stars}:null},
+ demoOnPaid:function(o,p,s){var k=String(o.plan).split('|')[0];if(!s.app.channels.some(function(c){return c.key===k}))return false;dActivate(s,k,'me','Demo buyer','',p.days,String(o.plan).split('|')[1]);return true},
+ demoSeed:function(){var d=function(n){return new Date(Date.now()+n*864e5).toISOString()};
+  return{channels:[{key:'demo1',title:'Demo Trading Signals',username:'',description:'Daily signals and market notes. Members get every post the moment it is published.',status:'active',botOk:true,
+   plans:[{id:'p1',label:'1 month',days:30,usd:5,stars:350},{id:'p2',label:'3 months',days:90,usd:12,stars:850}],payout:'',inviteLink:'https://t.me/+demoInvite'}],
+   members:[{key:'demo1',user_id:'7001',name:'Hodan Ahmed',username:'hodan_a',plan:'p1',start:d(-28),expiry:d(2),status:'active'},{key:'demo1',user_id:'7002',name:'Abdi Hassan',username:'',plan:'p2',start:d(-40),expiry:d(50),status:'active'},
+    {key:'demo1',user_id:'7003',name:'Faisal Omar',username:'faisal_o',plan:'p1',start:d(-10),expiry:d(20),status:'active'},{key:'demo1',user_id:'7004',name:'Layla Noor',username:'',plan:'p1',start:d(-45),expiry:d(-15),status:'expired'}],
+   outbox:[]}},
+ demo:{
+  gkMine:function(d,s){return{ok:true,feePercent:+s.settings.x_feePercent||0,channels:s.app.channels.map(function(c){return Object.assign({},c,{members:s.app.members.filter(function(m){return m.key===c.key&&m.status==='active'&&new Date(m.expiry)>new Date()}).length,revenue:dRev(s,c.key)})})}},
+  gkSave:function(d,s){var c=dCh(s,d.key);c.description=d.description;c.plans=d.plans.filter(function(p){return p.label&&(p.usd>0||p.stars>0)});c.payout=d.payout;if(d.status)c.status=d.status;return{ok:true}},
+  gkRefreshLink:function(){return{ok:true}},
+  gkChannel:function(d,s){var c=dCh(s,d.key);if(!c)return{ok:false,error:'not_found'};var m=dMem(s,d.key,'me');return{ok:true,channel:c,member:m?{expiry:m.expiry}:null,inviteLink:m?c.inviteLink:''}},
+  gkMySubs:function(d,s){return{ok:true,subs:s.app.members.filter(function(m){return m.user_id==='me'&&m.status==='active'&&new Date(m.expiry)>new Date()}).map(function(m){var c=dCh(s,m.key)||{};return{key:m.key,title:c.title,expiry:m.expiry,inviteLink:c.inviteLink}})}},
+  gkTestJoin:function(d,s){var c=dCh(s,d.key);dActivate(s,d.key,'me','Demo buyer','',(c.plans[0]||{days:1}).days,'test');return{ok:true}},
+  gkMembers:function(d,s){var now=Date.now();return{ok:true,members:s.app.members.filter(function(m){return m.key===d.key}).map(function(m){var st=m.status==='active'&&new Date(m.expiry)>now?'active':m.status==='stopped'?'stopped':'expired';
+   return{user_id:m.user_id,name:m.name,username:m.username,plan:m.plan,start:m.start,expiry:m.expiry,status:st,daysLeft:Math.ceil((new Date(m.expiry)-now)/864e5)}}).sort(function(a,b){return a.status===b.status?new Date(a.expiry)-new Date(b.expiry):a.status==='active'?-1:1})}},
+  gkMemberAction:function(d,s){var m=s.app.members.filter(function(x){return x.key===d.key&&x.user_id===d.user_id})[0];if(!m)return{ok:false};
+   if(d.op==='notify'){s.app.outbox.push({to:m.user_id,text:d.text});return{ok:true}}
+   if(d.op==='extend'){var base=m.status==='active'&&new Date(m.expiry)>new Date()?new Date(m.expiry):new Date();m.expiry=new Date(base.getTime()+d.days*864e5).toISOString();m.status='active';return{ok:true,expiry:m.expiry}}
+   if(d.op==='stop'){m.status='stopped';m.expiry=new Date().toISOString();return{ok:true}}return{ok:false}},
+  gkBroadcast:function(d,s){var now=Date.now(),n=0;s.app.members.forEach(function(m){var e=new Date(m.expiry).getTime();if(m.key!==d.key||m.status!=='active'||e<=now||(d.audience==='expiring'&&e>now+3*864e5))return;s.app.outbox.push({to:m.user_id,text:d.text});n++});return{ok:true,queued:n}},
+  adminGk:function(d,s){var fee=+s.settings.x_feePercent||0;return{ok:true,feePercent:fee,channels:s.app.channels.map(function(c){var r=dRev(s,c.key);return{key:c.key,title:c.title,owner:'demo',payout:c.payout,members:0,revenue:r,owedUsd:Math.round(r.usd*(100-fee))/100,owedStars:Math.floor(r.stars*(100-fee)/100)}})}}
+ }
+});
+function dCh(s,k){return s.app.channels.filter(function(c){return c.key===k})[0]}
+function dMem(s,k,u){return s.app.members.filter(function(m){return m.key===k&&m.user_id===u&&m.status==='active'&&new Date(m.expiry)>new Date()})[0]}
+function dActivate(s,k,u,name,un,days,plan){var m=dMem(s,k,u),base=m?new Date(m.expiry):new Date(),exp=new Date(base.getTime()+(+days||30)*864e5).toISOString();if(m)m.expiry=exp;else s.app.members.push({key:k,user_id:u,name:name,username:un,plan:plan,start:new Date().toISOString(),expiry:exp,status:'active'})}
+function dRev(s,k){var r={usd:0,stars:0,orders:0};s.orders.forEach(function(o){if(o.status==='paid'&&String(o.plan).indexOf(k+'|')===0){r.orders++;if(o.currency==='XTR')r.stars+=+o.amount;else r.usd+=parseFloat(String(o.amount).replace(/[^\d.]/g,''))||0}});return r}
+function keep(){var c=G.edit,d=document.getElementById('desc'),p=document.getElementById('payout');if(d)c.description=d.value;if(p)c.payout=p.value;
+ document.querySelectorAll('[data-pi]').forEach(function(el){c.plans[+el.dataset.pi][el.dataset.k]=el.type==='number'?+el.value:el.value.trim()})}
+document.addEventListener('input',function(e){if(e.target.id==='mq'){G.q=e.target.value;var pos=e.target.selectionStart;K.render();var q=document.getElementById('mq');q.focus();q.setSelectionRange(pos,pos)}});
 })();
 </script>
 </body>

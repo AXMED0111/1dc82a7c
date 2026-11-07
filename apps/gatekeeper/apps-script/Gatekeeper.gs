@@ -55,6 +55,7 @@ function gkResolve(planStr) {
   if (!p) return null;
   return { id: ch.channel_key + '|' + p.id, label: (ch.title + ' · ' + p.label).slice(0, 60), days: p.days, usd: p.usd, stars: p.stars, channel: ch };
 }
+function gkOwned(ctx, key) { var ch = gkChannelByKey(key); return ch && (String(ch.owner_id) === ctx.uid || ctx.isAdmin) ? ch : null; }
 function gkInviteButton(ch) { return { inline_keyboard: [[{ text: 'Join ' + String(ch.title).slice(0, 40), url: ch.invite_link }]] }; }
 
 function gkActivate(ch, uid, planId, days, orderId) {
@@ -122,6 +123,58 @@ APP_HOOKS.gatekeeper = {
       gkActivate(ch, ctx.uid, p.id, p.days, 'TEST');
       return { ok: true };
     },
+    // ---- creator tools: member list, notify, extend, stop, broadcast ----
+    gkMembers: function (ctx, req) {
+      var ch = gkOwned(ctx, req.key); if (!ch) return { ok: false, error: 'forbidden' };
+      var names = {}; rows('Users').forEach(function (u) { if (u.app === GK) names[String(u.user_id)] = { name: u.first_name || '', username: u.username || '' }; });
+      var latest = {};   // newest row per user
+      rows('Members').forEach(function (m) { if (m.channel_key !== ch.channel_key) return; var k = String(m.user_id); if (!latest[k] || new Date(m.expiry_date) > new Date(latest[k].expiry_date)) latest[k] = m; });
+      var now = Date.now();
+      return { ok: true, channel: { key: ch.channel_key, title: ch.title }, members: Object.keys(latest).map(function (k) { var m = latest[k], exp = new Date(m.expiry_date), n = names[k] || {};
+        var st = m.status === 'active' && exp.getTime() > now ? 'active' : m.status === 'stopped' ? 'stopped' : 'expired';
+        return { user_id: k, name: n.name || ('User ' + k.slice(-4)), username: n.username, plan: m.plan, start: iso(m.start_date), expiry: iso(exp), status: st, daysLeft: Math.ceil((exp.getTime() - now) / 864e5) };
+      }).sort(function (a, b) { return a.status === b.status ? new Date(a.expiry) - new Date(b.expiry) : a.status === 'active' ? -1 : 1; }) };
+    },
+    gkMemberAction: function (ctx, req) {
+      var ch = gkOwned(ctx, req.key); if (!ch) return { ok: false, error: 'forbidden' };
+      var uid = String(req.user_id), m = gkActiveMember(ch.channel_key, uid), tok = botToken(GK);
+      if (req.op === 'notify') {
+        var text = String(req.text || '').trim().slice(0, 1000); if (!text) return { ok: false, error: 'empty' };
+        var r = tgCall(tok, 'sendMessage', { chat_id: uid, text: ch.title + ':\n' + text }); return r.ok ? { ok: true } : { ok: false, error: r.error_code === 403 ? 'blocked_bot' : 'telegram' };
+      }
+      if (req.op === 'extend') {
+        var days = Math.max(1, Math.min(365, Math.round(Number(req.days) || 0)));
+        var last = rows('Members').filter(function (x) { return x.channel_key === ch.channel_key && String(x.user_id) === uid; }).pop();
+        if (!last) return { ok: false, error: 'not_member' };
+        var base = m ? new Date(m.expiry_date) : new Date(), exp = new Date(base.getTime() + days * 864e5);
+        if (m) update('Members', m, { expiry_date: exp, reminded: '' });
+        else append('Members', { channel_key: ch.channel_key, channel_id: String(ch.channel_id), user_id: uid, plan: 'gift', status: 'active', start_date: new Date(), expiry_date: exp, order_id: 'GIFT-' + ctx.uid, reminded: '' });
+        try { tgCall(tok, 'approveChatJoinRequest', { chat_id: ch.channel_id, user_id: Number(uid) }); } catch (e) {}
+        notify(GK, uid, 'The admin of ' + ch.title + ' extended your access by ' + days + ' days, until ' + exp.toISOString().slice(0, 10) + '.' + (m ? '' : ' Join: ' + ch.invite_link));
+        log(ctx.uid, GK, 'member_extend', ch.channel_key + ' ' + uid + ' +' + days);
+        return { ok: true, expiry: iso(exp) };
+      }
+      if (req.op === 'stop') {
+        rows('Members').forEach(function (x) { if (x.channel_key === ch.channel_key && String(x.user_id) === uid && x.status === 'active') update('Members', x, { status: 'stopped', expiry_date: new Date() }); });
+        try { tgCall(tok, 'banChatMember', { chat_id: ch.channel_id, user_id: Number(uid) }); tgCall(tok, 'unbanChatMember', { chat_id: ch.channel_id, user_id: Number(uid), only_if_banned: true }); } catch (e) {}
+        if (req.tell !== false) notify(GK, uid, 'Your access to ' + ch.title + ' was ended by the channel admin.' + (req.reason ? ' Reason: ' + String(req.reason).slice(0, 200) : ''));
+        log(ctx.uid, GK, 'member_stop', ch.channel_key + ' ' + uid);
+        return { ok: true };
+      }
+      return { ok: false, error: 'op' };
+    },
+    gkBroadcast: function (ctx, req) {
+      var ch = gkOwned(ctx, req.key); if (!ch) return { ok: false, error: 'forbidden' };
+      var text = String(req.text || '').trim().slice(0, 1500); if (!text) return { ok: false, error: 'empty' };
+      var now = Date.now(), soon = now + 3 * 864e5, seen = {}, n = 0;
+      rows('Members').forEach(function (m) {
+        if (m.channel_key !== ch.channel_key || m.status !== 'active' || seen[m.user_id]) return;
+        var exp = new Date(m.expiry_date).getTime(); if (exp <= now || (req.audience === 'expiring' && exp > soon)) return;
+        seen[m.user_id] = 1; queueMsg(GK, m.user_id, ch.title + ':\n' + text, null); n++;
+      });
+      log(ctx.uid, GK, 'broadcast', ch.channel_key + ' ' + n);
+      return { ok: true, queued: n };
+    },
     adminGk: function (ctx) {
       if (!ctx.isAdmin) return { ok: false, error: 'forbidden' };
       var fee = Number(ctx.st.x_feePercent) || 0;
@@ -171,10 +224,10 @@ HOURLY_JOBS.push(function gkExpiry() {
       if (gkActiveMember(m.channel_key, m.user_id)) { update('Members', m, { status: 'replaced' }); return; } // newer row exists
       try { tgCall(tok, 'banChatMember', { chat_id: m.channel_id, user_id: Number(m.user_id) }); tgCall(tok, 'unbanChatMember', { chat_id: m.channel_id, user_id: Number(m.user_id), only_if_banned: true }); } catch (e) {}
       update('Members', m, { status: 'expired' });
-      if (ch) notify(GK, m.user_id, 'Your access to ' + ch.title + ' has ended. Open the app to renew.');
+      if (ch) queueMsg(GK, m.user_id, 'Your access to ' + ch.title + ' has ended. Open the app to renew.', THIS_APP.url ? { inline_keyboard: [[{ text: 'Renew', web_app: { url: THIS_APP.url + '?c=' + ch.channel_key } }]] } : null);
     } else if (exp <= soon && !m.reminded) {
       update('Members', m, { reminded: 'yes' });
-      if (ch) notify(GK, m.user_id, 'Your access to ' + ch.title + ' ends on ' + exp.toISOString().slice(0, 10) + '. Open the app to renew.');
+      if (ch) queueMsg(GK, m.user_id, 'Your access to ' + ch.title + ' ends on ' + exp.toISOString().slice(0, 10) + '. Tap below to renew.', THIS_APP.url ? { inline_keyboard: [[{ text: 'Renew', web_app: { url: THIS_APP.url + '?c=' + ch.channel_key } }]] } : null);
     }
   });
 });

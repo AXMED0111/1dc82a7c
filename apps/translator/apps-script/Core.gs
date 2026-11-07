@@ -23,7 +23,8 @@ var SCHEMA = {
   Subscriptions: ['user_id','app','plan','status','start_date','expiry_date','edition','order_id'],
   Payments:      ['order_id','user_id','app','plan','amount','currency','method','status','tx_ref','created_at','paid_at','expiry_date','edition','note'],
   Settings:      ['app','json','updated_at'],
-  Log:           ['time','user_id','app','event','detail']
+  Log:           ['time','user_id','app','event','detail'],
+  Outbox:        ['msg_id','app','chat_id','text','markup','status','created_at','sent_at','error']
 };
 var EXTRA_SCHEMA = EXTRA_SCHEMA || {}; // app modules add sheets here (safe for any file order)
 var LOCAL_METHODS = ['evc','zaad','sahal','mpesa'];
@@ -100,15 +101,19 @@ function verifyInitData(initData, token) {
 var _ss;
 function ss() { if (!_ss) _ss = SpreadsheetApp.openById(prop('MASTER_SHEET_ID')); return _ss; }
 function sh(name) { return ss().getSheetByName(name); }
+// Each tab is read at most once per request (_rc cache); writes keep the cache in step; a lock clears it.
+var _rc = {};
 function rows(name) {
+  if (_rc[name]) return _rc[name];
   var s = sh(name), v = s.getDataRange().getValues(), h = v.shift();
-  return v.map(function (r, i) { var o = { _row: i + 2 }; h.forEach(function (k, j) { o[k] = r[j]; }); return o; });
+  return (_rc[name] = v.map(function (r, i) { var o = { _row: i + 2 }; h.forEach(function (k, j) { o[k] = r[j]; }); return o; }));
 }
+function delRow(name, row) { sh(name).deleteRow(row._row); delete _rc[name]; }
 function find(name, fn) { var r = rows(name); for (var i = 0; i < r.length; i++) if (fn(r[i])) return r[i]; return null; }
 function schemaOf(name) { return SCHEMA[name] || EXTRA_SCHEMA[name]; }
 // Strings that Sheets would coerce (dates, times, +252… phones, leading zeros, formulas) are stored as plain text.
 function cell(v) { return typeof v === 'string' && /^[\d+=\-.@]/.test(v) ? "'" + v : v; }
-function append(name, obj) { var h = schemaOf(name); sh(name).appendRow(h.map(function (k) { return obj[k] === undefined ? '' : cell(obj[k]); })); }
+function append(name, obj) { var h = schemaOf(name); sh(name).appendRow(h.map(function (k) { return obj[k] === undefined ? '' : cell(obj[k]); })); delete _rc[name]; }
 function update(name, row, obj) {
   var h = schemaOf(name), s = sh(name);
   Object.keys(obj).forEach(function (k) { var c = h.indexOf(k); if (c >= 0) { s.getRange(row._row, c + 1).setValue(cell(obj[k])); row[k] = obj[k]; } });
@@ -246,7 +251,7 @@ function initPayload(ctx) {
     appName: ctx.st.appName, support: ctx.st.supportContact };
 }
 function consume(ctx, req) {
-  var lock = LockService.getScriptLock(); lock.waitLock(10000);
+  var lock = LockService.getScriptLock(); lock.waitLock(10000); _rc = {};
   try {
     var sub = activeSub(ctx.uid, ctx.app), us = usageRow(ctx.uid, ctx.app), fu = Number(us.free_used) || 0, cr = Number(us.credits) || 0;
     var ac = computeAccess(ctx.st, sub, fu, ctx.simFree, cr);
@@ -266,6 +271,22 @@ function tgCall(token, method, payload) {
   if (hasBlob) opts.payload = payload; else { opts.contentType = 'application/json'; opts.payload = JSON.stringify(payload || {}); }
   var r = UrlFetchApp.fetch('https://api.telegram.org/bot' + token + '/' + method, opts);
   return JSON.parse(r.getContentText());
+}
+/* Message queue: bulk messages (broadcasts, reminders) are sent in batches by cronUsdt() every 5 minutes,
+   so big channels never hit the 6-minute run limit or Telegram's ~30 messages/second limit. */
+function queueMsg(app, chatId, text, markup) { append('Outbox', { msg_id: Utilities.getUuid().slice(0, 12), app: app, chat_id: String(chatId), text: String(text).slice(0, 4000), markup: markup ? JSON.stringify(markup) : '', status: 'queued', created_at: new Date() }); }
+function processOutbox(max) {
+  var sent = 0, t0 = Date.now(), tokens = {};
+  rows('Outbox').some(function (m) {
+    if (m.status !== 'queued') return false;
+    if (sent >= (max || 400) || Date.now() - t0 > 240000) return true;
+    var tok = tokens[m.app] || (tokens[m.app] = botToken(m.app)); if (!tok) return false;
+    var r; try { r = tgCall(tok, 'sendMessage', { chat_id: m.chat_id, text: m.text, reply_markup: m.markup ? JSON.parse(m.markup) : undefined }); } catch (e) { r = { ok: false, description: String(e) }; }
+    update('Outbox', m, { status: r.ok ? 'sent' : 'failed', sent_at: new Date(), error: r.ok ? '' : String(r.description || r.error_code || '').slice(0, 120) });
+    sent++; Utilities.sleep(40);
+    return false;
+  });
+  return sent;
 }
 function notify(app, chatId, text) { var t = botToken(app); if (t && chatId) try { tgCall(t, 'sendMessage', { chat_id: chatId, text: text }); } catch (e) {} }
 function notifyAdmins(app, text) { adminIds().forEach(function (id) { notify(app, id, text); }); }
@@ -318,7 +339,7 @@ function createOrder(ctx, req) {
     return { ok: true, order_id: o.order_id, method: method, invoiceLink: r.result };
   }
   if (USDT[method]) {
-    var lock = LockService.getScriptLock(); lock.waitLock(10000);
+    var lock = LockService.getScriptLock(); lock.waitLock(10000); _rc = {};
     try {
       var used = {}; rows('Payments').forEach(function (p) { if (p.method === method && p.status === 'pending') used[String(p.amount)] = 1; });
       var amt; for (var i = 0; i < 50; i++) { amt = (plan.usd + (Math.floor(Math.random() * 9000) + 1000) / 1e6).toFixed(4); if (!used[amt]) break; }
@@ -350,7 +371,7 @@ function submitManual(ctx, req) {
   return { ok: true, status: 'review' };
 }
 function markPaid(o, txRef) {
-  var lock = LockService.getScriptLock(); lock.waitLock(10000);
+  var lock = LockService.getScriptLock(); lock.waitLock(10000); _rc = {};
   try {
     var fresh = find('Payments', function (p) { return p.order_id === o.order_id; });
     if (!fresh || fresh.status === 'paid') return false;
@@ -510,6 +531,7 @@ function serverRoute(req) {
 
 /* ======================= TRIGGERS ======================= */
 function cronUsdt() {
+  try { processOutbox(400); } catch (e) { log('', 'cron', 'outbox_error', e); }
   var now = Date.now();
   rows('Payments').forEach(function (p) {
     if (p.status !== 'pending' || !USDT[p.method]) return;

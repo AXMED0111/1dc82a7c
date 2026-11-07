@@ -57,7 +57,7 @@ APP_HOOKS.market = {
       var r = mkTaskRow(req.task); if (!r || r.status !== 'live') return { ok: false, error: 'full' };
       var k = mkTask(r);
       if (String(r.owner_id) === ctx.uid) return { ok: false, error: 'own' };
-      var lock = LockService.getScriptLock(); lock.waitLock(15000);
+      var lock = LockService.getScriptLock(); lock.waitLock(15000); _rc = {};
       try {
         if (find('Submissions', function (s) { return s.task_id === k.id && String(s.worker_id) === ctx.uid; })) return { ok: false, error: 'already' };
         if (mkActive(k.id) >= k.slots) return { ok: false, error: 'full' };
@@ -96,7 +96,7 @@ APP_HOOKS.market = {
         return { id: s.sub_id, worker: 'W-' + String(s.worker_id).slice(-4), photo: photo, lat: s.lat, lng: s.lng, answers: JSON.parse(s.answers_json || '[]'), status: s.status, reason: s.reason, created: iso(s.created_at) }; }) };
     },
     mkDecide: function (ctx, req) {
-      var lock = LockService.getScriptLock(); lock.waitLock(15000);
+      var lock = LockService.getScriptLock(); lock.waitLock(15000); _rc = {};
       try {
         var s = find('Submissions', function (x) { return x.sub_id === req.sub; }); if (!s || s.status !== 'pending') return { ok: false, error: 'state' };
         var r = mkTaskRow(s.task_id); if (!r || String(r.owner_id) !== ctx.uid) return { ok: false, error: 'forbidden' };
@@ -121,7 +121,7 @@ APP_HOOKS.market = {
     },
     mkWithdraw: function (ctx, req) {
       var addr = String(req.address || '').trim(); if (!/^T[1-9A-HJ-NP-Za-km-z]{33}$/.test(addr)) return { ok: false, error: 'address' };
-      var lock = LockService.getScriptLock(); lock.waitLock(15000);
+      var lock = LockService.getScriptLock(); lock.waitLock(15000); _rc = {};
       try {
         var w = mkWorker(ctx.uid), bal = Number(w.balance) || 0, min = Number(ctx.st.x_minWithdraw) || 5; if (bal < min) return { ok: false, error: 'min' };
         update('Workers', w, { balance: 0, payout: addr, updated_at: new Date() });

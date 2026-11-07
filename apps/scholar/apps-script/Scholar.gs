@@ -60,7 +60,7 @@ APP_HOOKS.scholar = {
       if (req.on && !scPro(ctx)) return { ok: false, error: 'pro_required' };
       var r = find('Saved', function (x) { return String(x.user_id) === ctx.uid && x.sch_id === req.id; });
       if (req.on && !r) append('Saved', { user_id: ctx.uid, sch_id: String(req.id).slice(0, 30), created_at: new Date(), alerted: '' });
-      if (!req.on && r) sh('Saved').deleteRow(r._row);
+      if (!req.on && r) delRow('Saved', r);
       return { ok: true, saved: rows('Saved').filter(function (s) { return String(s.user_id) === ctx.uid; }).map(function (s) { return s.sch_id; }) };
     },
     adminSchList: function (ctx) { return { ok: true, items: rows('Scholarships').map(scItem) }; },
@@ -74,7 +74,7 @@ APP_HOOKS.scholar = {
       if (r) update('Scholarships', r, data); else { data.sch_id = 's' + Utilities.getUuid().slice(0, 8); append('Scholarships', data); }
       return { ok: true };
     },
-    adminSchDelete: function (ctx, req) { var r = find('Scholarships', function (x) { return x.sch_id === req.id; }); if (r) sh('Scholarships').deleteRow(r._row); return { ok: true }; }
+    adminSchDelete: function (ctx, req) { var r = find('Scholarships', function (x) { return x.sch_id === req.id; }); if (r) delRow('Scholarships', r); return { ok: true }; }
   }
 };
 
