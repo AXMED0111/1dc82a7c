@@ -76,8 +76,18 @@ function doPost(e) {
   }
   return ContentService.createTextOutput(JSON.stringify(out)).setMimeType(ContentService.MimeType.JSON);
 }
-function doGet() {
-  return ContentService.createTextOutput(JSON.stringify({ ok: true, service: 'up' })).setMimeType(ContentService.MimeType.JSON);
+// GET ?check=1 -> setup status (no secret values): lets the owner or support see what is missing.
+function doGet(e) {
+  var out = { ok: true, service: 'up' };
+  if (e && e.parameter && e.parameter.check) {
+    var c = { app: THIS_APP.id, version: typeof CORE_VERSION !== 'undefined' ? CORE_VERSION : '', masterSheet: !!prop('MASTER_SHEET_ID'), serverSecret: !!prop('SERVER_SECRET'),
+      adminIds: adminIds().length, botToken: !!botToken(THIS_APP.id), webhookSecret: !!prop('WEBHOOK_SECRET_' + THIS_APP.id), appUrl: THIS_APP.url || '' };
+    try { c.triggers = ScriptApp.getProjectTriggers().length; } catch (x) { c.triggers = 'unknown'; }
+    try { if (c.masterSheet) { var names = ss().getSheets().map(function (s) { return s.getName(); }); c.sheetsMissing = Object.keys(SCHEMA).concat(Object.keys(EXTRA_SCHEMA)).filter(function (n) { return names.indexOf(n) < 0; }); } } catch (x) { c.sheetError = String(x.message || x).slice(0, 120); }
+    c.next = !c.masterSheet ? 'Run install() in the Apps Script editor.' : c.sheetsMissing && c.sheetsMissing.length ? 'Run install() again (missing tabs).' : !c.adminIds ? 'Add ADMIN_IDS in Script properties.' : !c.botToken ? 'Add BOT_TOKEN_' + THIS_APP.id + ' in Script properties.' : !c.webhookSecret ? 'Run connectTelegram().' : 'Ready.';
+    out.setup = c;
+  }
+  return ContentService.createTextOutput(JSON.stringify(out)).setMimeType(ContentService.MimeType.JSON);
 }
 
 function prop(k) { return PropertiesService.getScriptProperties().getProperty(k) || ''; }

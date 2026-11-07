@@ -12,7 +12,7 @@ function makeEnv(app) {
     appendRow(r) { this.data.push(r.map(clean)); },
     getRange(r, c, nr, nc) { const s = this; return { setValue(v) { while (s.data.length < r) s.data.push([]); s.data[r - 1][c - 1] = clean(v); },
       setValues(vs) { vs.forEach((row, i) => row.forEach((v, j) => { while (s.data.length < r + i) s.data.push([]); s.data[r - 1 + i][c - 1 + j] = v; })); return { setFontWeight() {} }; } }; },
-    setFrozenRows() {}, deleteRow(r) { this.data.splice(r - 1, 1); }, getLastRow() { return this.data.length; }, getLastColumn() { return this.data.reduce((a, r) => Math.max(a, r.length), 0); }
+    getName() { return this.name; }, setFrozenRows() {}, deleteRow(r) { this.data.splice(r - 1, 1); }, getLastRow() { return this.data.length; }, getLastColumn() { return this.data.reduce((a, r) => Math.max(a, r.length), 0); }
   };
   function clean(v) { return typeof v === 'string' && v[0] === "'" ? v.slice(1) : v; }
   const book = { getId: () => 'SHEET1', getUrl: () => 'https://sheet', getSheetByName: (n) => sheets[n] || null, insertSheet: (n) => (sheets[n] = new Sheet(n)), getSheets: () => Object.values(sheets), deleteSheet() {} };
