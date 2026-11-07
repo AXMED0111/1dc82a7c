@@ -7,7 +7,7 @@
 var THIS_APP = { id: 'coach', url: 'https://coac-a7c93694.netlify.app', button: 'Practice' };
 var EXTRA_SCHEMA = EXTRA_SCHEMA || {}, APP_HOOKS = APP_HOOKS || {}, APP_DEFAULTS = APP_DEFAULTS || {}, APP_SECRETS = APP_SECRETS || {};
 
-APP_DEFAULTS.coach = { appName: 'Interview Coach', freeAllowance: 2, x_aiModel: 'gemini-2.5-flash', plans: [
+APP_DEFAULTS.coach = { appName: 'Interview Coach', freeAllowance: 2, x_aiModel: 'gemini-2.5-flash', x_aiFallback: 'gemini-2.5-flash-lite', x_aiDailyBudget: 500, x_aiUserDaily: 30, plans: [
   { id: 's1', label: '1 session', days: 0, credits: 1, usd: 1, stars: 75, region: 'ALL' },
   { id: 's10', label: '10 sessions', days: 0, credits: 10, usd: 7, stars: 500, region: 'ALL' },
   { id: 'pro_m', label: 'Unlimited · 1 month', days: 30, credits: 0, usd: 9, stars: 650, region: 'ALL' } ] };
@@ -45,8 +45,8 @@ APP_HOOKS.coach = {
       var audio = String(req.audio || ''); if (audio.length < 1000) return { ok: false, error: 'too_short' };
       if (audio.length > 8 * 1024 * 1024) return { ok: false, error: 'too_large' };
       var question = String(req.question || '').slice(0, 300), cat = CO_KIND[req.category] ? req.category : 'job', res;
-      try { res = aiJson([{ text: coPrompt(cat, question, req.lang) }, { inline_data: { mime_type: 'audio/wav', data: audio } }], ctx.st.x_aiModel); }
-      catch (e) { log(ctx.uid, 'coach', 'ai_error', e.message); return { ok: false, error: 'ai_failed' }; }
+      try { res = aiCall(ctx, [{ text: coPrompt(cat, question, req.lang) }, { inline_data: { mime_type: 'audio/wav', data: audio } }]); }
+      catch (e) { return { ok: false, error: /^ai_(budget|user_cap)$/.test(e.message) ? e.message : 'ai_failed' }; }
       var c = consume(ctx, { tool: 'session' }); if (!c.allowed) return { ok: true, allowed: false, access: c.access };
       var sc = res.scores || {}, out = { overall: coClamp(res.overall), scores: { content: coClamp(sc.content), structure: coClamp(sc.structure), clarity: coClamp(sc.clarity), confidence: coClamp(sc.confidence) },
         strengths: (res.strengths || []).slice(0, 4).map(String), improvements: (res.improvements || []).slice(0, 4).map(String), better_answer: String(res.better_answer || '').slice(0, 1500), transcript: String(res.transcript || '').slice(0, 3000) };

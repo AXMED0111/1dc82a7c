@@ -12,7 +12,7 @@ function makeEnv(app) {
     appendRow(r) { this.data.push(r.map(clean)); },
     getRange(r, c, nr, nc) { const s = this; return { setValue(v) { while (s.data.length < r) s.data.push([]); s.data[r - 1][c - 1] = clean(v); },
       setValues(vs) { vs.forEach((row, i) => row.forEach((v, j) => { while (s.data.length < r + i) s.data.push([]); s.data[r - 1 + i][c - 1 + j] = v; })); return { setFontWeight() {} }; } }; },
-    setFrozenRows() {}, deleteRow(r) { this.data.splice(r - 1, 1); }
+    setFrozenRows() {}, deleteRow(r) { this.data.splice(r - 1, 1); }, getLastRow() { return this.data.length; }, getLastColumn() { return this.data.reduce((a, r) => Math.max(a, r.length), 0); }
   };
   function clean(v) { return typeof v === 'string' && v[0] === "'" ? v.slice(1) : v; }
   const book = { getId: () => 'SHEET1', getUrl: () => 'https://sheet', getSheetByName: (n) => sheets[n] || null, insertSheet: (n) => (sheets[n] = new Sheet(n)), getSheets: () => Object.values(sheets), deleteSheet() {} };
@@ -31,10 +31,14 @@ function makeEnv(app) {
     },
     UrlFetchApp: { fetch: (url, o) => { fetches.push({ url, o }); const m = /bot[^/]+\/(\w+)/.exec(url); if (m) sent.push({ method: m[1], payload: o && o.payload });
       const body = m && m[1] === 'createInvoiceLink' ? { ok: true, result: 'https://t.me/$invoice' } : m && m[1] === 'createChatInviteLink' ? { ok: true, result: { invite_link: 'https://t.me/+abc' } } : { ok: true, result: {} };
-      return { getContentText: () => JSON.stringify(ctx.__fetchReply ? ctx.__fetchReply(url, o) : body), getResponseCode: () => 200 }; } },
+      const rep = ctx.__fetchReply ? ctx.__fetchReply(url, o) : body; return { getContentText: () => JSON.stringify(rep), getResponseCode: () => (rep && rep.__code) || 200 }; } },
     ContentService: { createTextOutput: (s) => ({ setMimeType() { return { text: s }; } }), MimeType: { JSON: 'json' } },
     ScriptApp: { getProjectTriggers: () => [], deleteTrigger() {}, newTrigger: () => ({ timeBased: () => ({ everyMinutes: () => ({ create() {} }), everyHours: () => ({ create() {} }), everyDays: () => ({ atHour: () => ({ create() {} }) }) }) }) },
-    DriveApp: { createFolder: () => ({ getId: () => 'F1', createFile: (b) => ({ getId: () => 'FILE' + Math.random() }) }), getFolderById: () => ({ createFile: () => ({ getId: () => 'FILE1' }) }), getFileById: () => ({ getBlob: () => ({ getBytes: () => [1, 2, 3] }) }) },
+    DriveApp: (function () { const folders = {}, iter = (a) => { let i = 0; return { hasNext: () => i < a.length, next: () => a[i++] }; };
+      function Folder(n) { this.name = n; this.files = []; } Folder.prototype = { getId() { return 'F' + this.name; }, createFile() { return { getId: () => 'FILE' + Math.random() }; },
+        getFilesByName(n) { return iter(this.files.filter((f) => f.name === n)); }, getFiles() { return iter(this.files.filter((f) => !f.trashed)); } };
+      return { folders, createFolder: (n) => (folders[n] = new Folder(n)), getFoldersByName: (n) => iter(folders[n] ? [folders[n]] : []), getFolderById: () => new Folder('x'),
+        getFileById: () => ({ getBlob: () => ({ getBytes: () => [1, 2, 3] }), makeCopy: (n, f) => { const file = { name: n, trashed: false, created: new Date(), getDateCreated() { return this.created; }, setTrashed(v) { this.trashed = v; } }; f.files.push(file); return file; } }) }; })(),
     Logger: { log() {} }
   };
   vm.createContext(ctx);

@@ -157,6 +157,32 @@ ol.steps{margin:0;padding-left:20px}ol.steps li{margin:6px 0;font-size:14px}
 .qrbox{background:#fff;border-radius:14px;padding:14px;display:inline-block}
 .qrbox svg,.qrbox img{display:block;width:200px;height:200px}
 table.tb{width:100%;border-collapse:collapse;font-size:13px}table.tb td{padding:8px 4px;border-bottom:1px solid var(--sep);vertical-align:top}table.tb td:first-child{color:var(--hint);width:38%}
+
+/* ---- v2 visual layer: motion, skeletons, insights, health ---- */
+@keyframes fadeUp{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+#app>*{animation:fadeUp .24s cubic-bezier(.2,.7,.2,1) both}
+#app>*:nth-child(2){animation-delay:.03s}#app>*:nth-child(3){animation-delay:.06s}#app>*:nth-child(4){animation-delay:.09s}#app>*:nth-child(5){animation-delay:.12s}#app>*:nth-child(n+6){animation-delay:.15s}
+.top .logo{background:linear-gradient(135deg,var(--accent),color-mix(in srgb,var(--accent) 55%,#7c3aed));box-shadow:0 6px 16px -8px var(--accent)}
+.card,.chrow,.tool,.radio{box-shadow:0 1px 2px rgba(16,24,40,.04)}
+.btn,.chrow,.tool,.radio,.mini,.ibtn{transition:transform .08s ease,box-shadow .15s ease,background-color .15s ease}
+.btn:active,.chrow:active,.tool:active,.radio:active,.mini:active,.ibtn:active{transform:scale(.975)}
+.btn:not(.ghost):not(.sec2){box-shadow:0 6px 14px -10px var(--accent)}
+.sk{border-radius:8px;background:linear-gradient(90deg,var(--bg) 25%,color-mix(in srgb,var(--sep) 70%,var(--bg)) 37%,var(--bg) 63%);background-size:400% 100%;animation:sk 1.3s ease infinite}
+@keyframes sk{0%{background-position:100% 50%}100%{background-position:0 50%}}
+.banner.bad{background:color-mix(in srgb,var(--danger) 12%,transparent)}.banner.bad svg{color:var(--danger)}
+.banner.warn{background:color-mix(in srgb,#f79009 14%,transparent)}.banner.warn svg{color:#b54708}
+.banner{align-items:center}
+.insight{display:flex;gap:12px;align-items:center;padding:12px 14px;border-radius:var(--r);margin-bottom:12px;background:linear-gradient(135deg,color-mix(in srgb,var(--accent) 12%,var(--card)),var(--card));border:1px solid color-mix(in srgb,var(--accent) 25%,var(--sep));font-size:13.5px}
+.insight .ii{width:36px;height:36px;border-radius:10px;display:grid;place-items:center;background:var(--accent);color:var(--accent-text);flex:none}
+.insight.bad{background:linear-gradient(135deg,color-mix(in srgb,var(--danger) 12%,var(--card)),var(--card));border-color:color-mix(in srgb,var(--danger) 30%,var(--sep))}.insight.bad .ii{background:var(--danger)}
+.insight .btn{width:auto;flex:none}
+.hgrid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
+.ht{position:relative;background:var(--bg);border-radius:12px;padding:10px 12px 10px 14px;display:flex;flex-direction:column;gap:1px;overflow:hidden}
+.ht:before{content:"";position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--ok)}
+.ht.warn:before{background:#f79009}.ht.bad:before{background:var(--danger)}
+.ht b{font-size:16px}.ht span{font-size:11.5px;color:var(--hint)}.ht small{font-size:10.5px;color:var(--hint)}.ht .dot{display:none}
+details summary{cursor:pointer}
+@media (prefers-reduced-motion:reduce){#app>*,.sk{animation:none}.btn,.chrow,.tool{transition:none}}
 </style>
 <svg width="0" height="0" style="position:absolute" aria-hidden="true">
   <symbol id="i-calendar" viewBox="0 0 24 24"><rect x="3.5" y="5" width="17" height="15" rx="2"/><path d="M3.5 10h17M8 3v4M16 3v4"/></symbol>
@@ -246,6 +272,7 @@ var L = {
 en: {
   back: 'Back', settings: 'Settings', save: 'Save', saved: 'Saved', cancel: 'Cancel', copied: 'Copied', remove: 'Remove', edit: 'Edit', add: 'Add', done: 'Done', close: 'Close', share: 'Share', search: 'Search',
   e_gen: 'Something went wrong. Please try again.', e_net: 'Connection problem. Please try again.',
+  e_rate: 'Too many requests. Please wait a moment.', e_offline: 'You are offline. Check your internet connection.', e_server: 'The server is not responding right now.', retry: 'Try again', maint: 'Maintenance', maint_text: 'The app is being updated. You can look around; changes are paused for a short time.',
   demo_banner: 'Demo mode — no server connected. Data is saved on this device only.', test_banner: 'Test mode is ON — everyone has full access.',
   sim_banner: 'Simulating a free user on this device.',
   p_test: 'Test mode', p_pro: 'Pro', p_free: '{n} free left', p_credits: '{n} credits', p_none: 'Upgrade',
@@ -268,6 +295,7 @@ en: {
 so: {
   back: 'Dib', settings: 'Dejinta', save: 'Keydi', saved: 'Waa la keydiyay', cancel: 'Jooji', copied: 'Waa la koobiyeeyay', remove: 'Ka saar', edit: 'Wax ka beddel', add: 'Ku dar', done: 'Dhammaad', close: 'Xir', share: 'La wadaag', search: 'Raadi',
   e_gen: 'Khalad ayaa dhacay. Fadlan isku day mar kale.', e_net: 'Dhibaato xiriir. Fadlan isku day mar kale.',
+  e_rate: 'Codsiyo badan. Fadlan sug daqiiqad.', e_offline: 'Internet kuma xirnid. Hubi xiriirkaaga.', e_server: 'Server-ku hadda ma jawaabayo.', retry: 'Isku day mar kale', maint: 'Dayactir', maint_text: 'App-ka waa la cusboonaysiinayaa. Waad eegi kartaa; isbeddellada waa la hakiyay muddo gaaban.',
   demo_banner: 'Habka demo — server lama xirin. Xogta waxaa lagu keydiyaa qalabkan oo keliya.', test_banner: 'Habka tijaabada waa SHIDAN yahay — qof walba wuu isticmaali karaa.',
   sim_banner: 'Qalabkan wuxuu u dhaqmayaa sidii isticmaale bilaash ah.',
   p_test: 'Tijaabo', p_pro: 'Pro', p_free: '{n} bilaash ah ayaa haray', p_credits: '{n} dhibcood', p_none: 'U gudub Pro',
@@ -448,7 +476,7 @@ var DemoCore = {
   init: function (d, s) { var r = dRegion(s); return { ok: true, demo: true, verified: false, isAdmin: true, user: { id: TGU ? TGU.id : 0, name: TGU ? TGU.first_name : 'Demo user' }, region: r, phoneVerified: !!s.phoneVerified,
     access: dAccess(s, d), plans: (s.settings.plans || []).filter(function (p) { return p.region === 'ALL' || p.region === r; }), methods: availMethods(s.settings, r), appName: s.settings.appName, support: s.settings.supportContact,
     ref: s.settings.x_refOn ? { on: true, arg: 'r' + (TGU ? TGU.id : '1000'), newPct: +s.settings.x_refNewPct || 0, days: +s.settings.x_refDays || 0, credits: +s.settings.x_refCredits || 0 } : { on: false },
-    firstPct: /^r\d+/.test(START) && !s.orders.some(function (o) { return o.status === 'paid'; }) && s.settings.x_refOn ? +s.settings.x_refNewPct || 0 : 0 }; },
+    maintenance: s.settings.x_maintenance ? (s.settings.x_maintenanceMsg || true) : false, firstPct: /^r\d+/.test(START) && !s.orders.some(function (o) { return o.status === 'paid'; }) && s.settings.x_refOn ? +s.settings.x_refNewPct || 0 : 0 }; },
   checkCode: function (d, s) { var c = dCode(s, d.code, d.plan); return c.error ? { ok: false, error: c.error } : { ok: true, code: c.code, pct: c.pct }; },
   adminCodes: function (d, s) { return { ok: true, codes: (s.codes || []).filter(function (c) { return c.scope === 'all'; }) }; },
   adminCodeSave: function (d, s) { return dCodeSave(s, d, 'all'); },
@@ -486,6 +514,11 @@ var DemoCore = {
     return { ok: true, scope: d.scope === 'all' ? 'all' : CFG.appId, appName: s.settings.appName, months: months, byMethod: vals(bm), byPlan: vals(bp), totals: T,
       byApp: [{ app: CFG.appId, orders: T.orders, usd: T.usd, stars: T.stars, users: 1, activeSubs: T.activeSubs }] };
   },
+  adminHealth: function (d, s) { var paid = s.orders.filter(function (o) { return o.status === 'paid'; }).length;
+    return { ok: true, demo: true, totals: { requests: 40 + s.total * 3, errors: 0, errorRate: 0, p95: 1000, aiCalls: 0, aiTokens: 0 }, queue: { queued: 0, oldestMin: 0, failed24h: 0 },
+      payments: { review: s.orders.filter(function (o) { return o.status === 'review'; }).length, usdtPending: 0 }, crons: { min5: new Date(Date.now() - 3e5).toISOString() }, lastBackup: new Date(Date.now() - 6 * 36e5).toISOString(),
+      sheet: { cells: 1200 + paid * 14, pctOf10M: 0.01 }, webhook: { url: true, pending: 0, lastError: '' }, ai: { today: 0, budget: +s.settings.x_aiDailyBudget || 500 }, recentErrors: [], hours: [] }; },
+  adminAudit: function (d, s) { return { ok: true, items: (s.audit || []).slice().reverse() }; },
   adminResetMe: function (d, s) { s.freeUsed = 0; s.credits = 0; s.sub = null; s.phoneVerified = false; return { ok: true }; }
 };
 function dCode(s, code, planId) { code = String(code || '').trim().toUpperCase(); if (!code) return {};
@@ -500,17 +533,41 @@ function dCodeSave(s, d, scope) { s.codes = s.codes || []; var code = String(d.c
   Object.assign(c, { pct: pct, max_uses: +d.max_uses || 0, expires: d.expires || '', plans: d.plans || '', note: d.note || '', active: true }); return { ok: true }; }
 function demoCall(action, d) {
   return new Promise(function (res) { setTimeout(function () { var s = dState(), r;
+    if (/^(adminSave|adminSetSecret|adminDecide|adminCodeSave|adminCodeToggle|adminResetMe|adminMkWithdrawal|adminSchSave|adminSchDelete|gkMemberAction|gkBroadcast|gkSave|gkCodeSave|mkDecide)$/.test(action)) { s.audit = (s.audit || []).slice(-50); s.audit.push({ time: new Date().toISOString(), user: TGU ? TGU.id : 'demo', action: action, detail: d.code || d.op || d.order_id || d.key || '' }); }
+    if (s.settings.x_maintenance && !/^admin/.test(action) && /^(consume|createOrder|submitManual|sendFile|sendReport)$|(Save|Add|Del|Delete|Submit|Reply|Publish|Checkin|Decide|Withdraw|Score|Translate|Toggle|Action|Broadcast|TestJoin|RefreshLink)/.test(action)) { r = { ok: false, error: 'maintenance', message: s.settings.x_maintenanceMsg || '' }; lsSet(DKEY(), s); if (S.me) S.me.maintenance = r.message || true; return res(r); }
     try { r = APP.demo[action] ? APP.demo[action](d, s) : DemoCore[action] ? DemoCore[action](d, s) : { ok: false, error: 'unknown_action' }; } catch (e) { console.error(e); r = { ok: false, error: e.message }; }
     lsSet(DKEY(), s); res(r); }, 150); });
 }
+/* Network calls: every call carries a request id (rid). The server stores the answer per rid, so a retry after a
+   timeout never runs twice (no double charge). One automatic retry with jitter, except slow AI calls. */
+var SLOW = /^(coScore|trTranslate|mkSubmit|sendFile|sendReport)$/;
+function newRid() { try { if (crypto.randomUUID) return crypto.randomUUID().replace(/-/g, '').slice(0, 24); } catch (e) {} return Date.now().toString(36) + Math.random().toString(36).slice(2, 12); }
 function api(action, data) {
   data = Object.assign({}, data || {}); data.simulateFree = !!lsGet('simfree_' + CFG.appId, false);
   if (DEMO) return demoCall(action, data);
-  return fetch(CFG.apiUrl, { method: 'POST', redirect: 'follow', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-    body: JSON.stringify(Object.assign({ action: action, app: CFG.appId, edition: EDITION, initData: IN_TG ? TG.initData : '', start: START }, data)) })
-    .then(function (r) { return r.json(); }).catch(function () { return { ok: false, error: 'network' }; });
+  if (navigator.onLine === false) return Promise.resolve({ ok: false, error: 'offline' });
+  var body = JSON.stringify(Object.assign({ action: action, app: CFG.appId, edition: EDITION, initData: IN_TG ? TG.initData : '', start: START, rid: newRid(), v: CFG.version }, data));
+  var slow = SLOW.test(action), tmo = slow ? 120000 : 25000;
+  function once() {
+    var ctl = window.AbortController ? new AbortController() : null, timer = setTimeout(function () { if (ctl) ctl.abort(); }, tmo);
+    return fetch(CFG.apiUrl, { method: 'POST', redirect: 'follow', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: body, signal: ctl ? ctl.signal : undefined })
+      .then(function (r) { clearTimeout(timer); if (!r.ok) throw new Error('http_' + r.status); return r.json(); }, function (e) { clearTimeout(timer); throw e; });
+  }
+  var p = once();
+  if (!slow) p = p.catch(function () { return new Promise(function (r) { setTimeout(r, 700 + Math.random() * 900); }).then(once); });
+  return p.catch(function () { return { ok: false, error: navigator.onLine === false ? 'offline' : 'network' }; }).then(function (res) {
+    if (res && res.error === 'maintenance' && S.me) { S.me.maintenance = res.message || true; }
+    if (res && res.error === 'rate_limited') toast(t('e_rate'));
+    return res;
+  });
 }
-function refreshMe() { return api('init').then(function (r) { if (r.ok) S.me = r; else if (!S.me) S.me = { access: computeAccess(defaultSettings(), null, 0, false, 0), plans: [], methods: [], error: r.error }; return S.me; }); }
+/* Report unexpected front-end errors (max 5 per session) so problems show up in the admin health panel. */
+var errCount = 0;
+function reportError(msg, where) { if (DEMO || !CFG.apiUrl || errCount++ >= 5) return; try { api('clientError', { msg: String(msg).slice(0, 300), where: S.screen + ' ' + (where || '') }); } catch (e) {} }
+window.addEventListener('error', function (e) { reportError(e.message, (e.filename || '').split('/').pop() + ':' + e.lineno); });
+window.addEventListener('unhandledrejection', function (e) { reportError(e.reason && (e.reason.message || e.reason), 'promise'); });
+window.addEventListener('online', function () { if (S.me && S.me.error) refreshMe().then(enter); });
+function refreshMe() { return api('init').then(function (r) { if (r.ok) S.me = r; else if (!S.me || S.me.error) S.me = { access: computeAccess(defaultSettings(), null, 0, false, 0), plans: [], methods: [], error: r.error }; return S.me; }); }
 
 /* ---------------- navigation & rendering ---------------- */
 var $app;
@@ -527,6 +584,8 @@ function header(title, sub, right) {
     (S.me && S.me.isAdmin ? '<button class="ibtn" data-act="settings" aria-label="' + t('settings') + '">' + ic('settings') + '</button>' : '') + '</div>';
 }
 function banners() { var h = ''; if (DEMO) h += '<div class="banner">' + ic('info', 's') + '<span>' + t('demo_banner') + '</span></div>';
+  if (S.me && S.me.error) h += '<div class="banner bad">' + ic('alert', 's') + '<span class="grow">' + t(S.me.error === 'offline' ? 'e_offline' : 'e_server') + '</span><button class="btn sm" data-act="retryinit">' + t('retry') + '</button></div>';
+  if (S.me && S.me.maintenance) h += '<div class="banner warn">' + ic('clock', 's') + '<span><b>' + t('maint') + '.</b> ' + esc(typeof S.me.maintenance === 'string' ? S.me.maintenance : t('maint_text')) + '</span></div>';
   if (S.me && S.me.access && S.me.access.reason === 'test') h += '<div class="banner">' + ic('shield', 's') + '<span>' + t('test_banner') + '</span></div>';
   if (lsGet('simfree_' + CFG.appId, false)) h += '<div class="banner">' + ic('user', 's') + '<span>' + t('sim_banner') + '</span></div>'; return h; }
 function planChip() { var a = S.me && S.me.access; if (!a) return '';
@@ -535,7 +594,9 @@ function planChip() { var a = S.me && S.me.access; if (!a) return '';
   if (a.reason === 'credits') return '<button class="chip good" data-act="account">' + ic('star', 's') + t('p_credits', { n: a.credits }) + '</button>';
   if (a.reason === 'free') return '<button class="chip" data-act="account">' + ic('clock', 's') + t('p_free', { n: a.freeLeft }) + '</button>';
   return '<button class="chip warn" data-act="account">' + ic('lock', 's') + t('p_none') + '</button>'; }
-function spin() { return '<div class="card center"><div class="spin" style="margin:0 auto;color:var(--accent)"></div></div>'; }
+function spin() { var line = function (w, h, m) { return '<div class="sk" style="height:' + (h || 14) + 'px;width:' + w + '%;margin-top:' + (m || 10) + 'px"></div>'; };
+  return '<div class="card" aria-busy="true">' + line(55, 18, 0) + line(90) + line(70) + '</div><div class="card">' + line(40, 16, 0) + line(85) + '</div>'; }
+function insight(icon, text, btn, act, tone) { return '<div class="insight ' + (tone || '') + '"><div class="ii">' + ic(icon) + '</div><div class="grow">' + text + '</div>' + (btn ? '<button class="btn sm" data-a="' + act + '">' + esc(btn) + '</button>' : '') + '</div>'; }
 function errBox() { return (S.err ? '<div class="err">' + ic('alert', 's') + '<span>' + esc(S.err) + '</span></div>' : '') + (S.msg ? '<div class="okmsg">' + ic('check', 's') + '<span>' + esc(S.msg) + '</span></div>' : ''); }
 function empty(icon, text, extra) { return '<div class="card center"><div class="big">' + ic(icon, 'l') + '</div><p class="m">' + text + '</p>' + (extra || '') + '</div>'; }
 function kv(k, v, copyable) { return '<div class="kv"><div class="grow"><span class="k">' + k + '</span><code>' + esc(v) + '</code></div>' + (copyable ? '<button class="mini" data-copy="' + esc(v) + '">' + ic('copy') + '</button>' : '') + '</div>'; }
@@ -630,8 +691,8 @@ function onPaid() { haptic('ok'); S.payment = Object.assign(S.payment || {}, { s
 
 /* ---------------- admin settings ---------------- */
 var SECRETS = { BOT_TOKEN: 'Telegram bot token', TRONGRID_KEY: 'TronGrid API key (TRC20 checks)', ETHERSCAN_KEY: 'Etherscan API key (BEP20 checks)' };
-function loadAdmin() { S.admin = null; render(); Promise.all([api('adminGet'), api('adminPending'), api('adminStats'), APP.adminLoad ? APP.adminLoad() : Promise.resolve(null), api('adminRevenue'), api('adminCodes')]).then(function (r) {
-  S.admin = { settings: r[0].settings || defaultSettings(), secrets: r[0].secrets || {}, pending: r[1].items || [], stats: (r[2] && r[2].stats) || {}, extra: r[3], rev: r[4] && r[4].ok ? r[4] : null, codes: (r[5] && r[5].codes) || [] }; if (!r[0].ok) toast(r[0].error || 'error'); render(); }); }
+function loadAdmin() { S.admin = null; render(); Promise.all([api('adminGet'), api('adminPending'), api('adminStats'), APP.adminLoad ? APP.adminLoad() : Promise.resolve(null), api('adminRevenue'), api('adminCodes'), api('adminHealth'), api('adminAudit')]).then(function (r) {
+  S.admin = { settings: r[0].settings || defaultSettings(), secrets: r[0].secrets || {}, pending: r[1].items || [], stats: (r[2] && r[2].stats) || {}, extra: r[3], rev: r[4] && r[4].ok ? r[4] : null, codes: (r[5] && r[5].codes) || [], health: r[6] && r[6].ok ? r[6] : null, audit: (r[7] && r[7].items) || [] }; if (!r[0].ok) toast(r[0].error || 'error'); render(); }); }
 function capi() { return APP.codeApi && S.screen !== 'settings' ? APP.codeApi : null; }
 function reloadCodes() { var a = capi(); api(a ? a.list : 'adminCodes', a ? a.extra() : {}).then(function (r) { if (a) a.set(r.codes || []); else if (S.admin) S.admin.codes = r.codes || []; render(); }); }
 /* Discount-code manager (used in admin Settings, and by Channel Pass creators for their own channel) */
@@ -644,6 +705,25 @@ function codesBlock(codes, hintPlans) {
     '<div class="fs" style="margin-top:6px">100% = free access (good for partners and testers).</div><button class="btn sm" style="width:100%;margin-top:10px" data-act="codeadd">' + ic('plus', 's') + 'Save code</button></div>';
   return h;
 }
+/* System health: the few signals that predict user pain (book: SLOs, queue age, backups, evidence over intuition). */
+function ago(isoStr) { if (!isoStr) return { txt: 'never', min: 1e9 }; var m = Math.round((Date.now() - new Date(isoStr).getTime()) / 6e4); return { txt: m < 60 ? m + ' min ago' : m < 2880 ? Math.round(m / 60) + ' h ago' : Math.round(m / 1440) + ' days ago', min: m }; }
+function healthBlock(H) {
+  var T = H.totals, q = H.queue, bk = ago(H.lastBackup), cr = ago(H.crons && H.crons.min5), wh = H.webhook, tiles = [], bad = 0, warn = 0;
+  function tile(label, val, tone, hint) { if (tone === 'bad') bad++; else if (tone === 'warn') warn++; tiles.push('<div class="ht ' + (tone || 'good') + '"><span class="dot"></span><b>' + esc(val) + '</b><span>' + esc(label) + '</span>' + (hint ? '<small>' + esc(hint) + '</small>' : '') + '</div>'); }
+  tile('Requests (24 h)', T.requests, null);
+  tile('Error rate', T.errorRate + '%', T.errorRate > 5 ? 'bad' : T.errorRate > 2 ? 'warn' : null, 'target under 2%');
+  tile('Slow responses (p95)', T.p95 ? (T.p95 >= 15000 ? '>8 s' : '<' + (T.p95 / 1000) + ' s') : '—', T.p95 > 8000 ? 'bad' : T.p95 > 3000 ? 'warn' : null, 'target under 3 s');
+  tile('Message queue', q.queued + (q.queued ? ' · oldest ' + q.oldestMin + ' min' : ''), q.oldestMin > 60 ? 'bad' : q.oldestMin > 20 ? 'warn' : null, q.failed24h ? q.failed24h + ' failed (24 h)' : '');
+  tile('Payments to review', H.payments.review, H.payments.review > 0 ? 'warn' : null, H.payments.usdtPending ? H.payments.usdtPending + ' USDT waiting' : '');
+  tile('Last backup', bk.txt, bk.min > 2160 ? 'bad' : null, 'daily, 14 kept');
+  tile('Background jobs', cr.txt, cr.min > 30 ? 'bad' : null, 'runs every 5 min');
+  if (wh) tile('Telegram webhook', wh.pending + ' pending', !wh.url ? 'bad' : (wh.lastError && Date.now() - new Date(wh.lastErrorAt).getTime() < 864e5) ? 'warn' : null, wh.url ? (wh.lastError ? 'last error: ' + wh.lastError.slice(0, 40) : 'connected') : 'not connected');
+  tile('Sheet capacity', H.sheet.pctOf10M + '%', H.sheet.pctOf10M > 80 ? 'bad' : H.sheet.pctOf10M > 50 ? 'warn' : null, 'of 10M cells');
+  if (Object.keys(APP.extraSecrets).some(function (k) { return /GEMINI/.test(k); })) tile('AI calls today', H.ai.today + ' / ' + H.ai.budget, H.ai.today >= H.ai.budget ? 'bad' : H.ai.today > H.ai.budget * 0.8 ? 'warn' : null, T.aiTokens ? T.aiTokens + ' tokens (24 h)' : '');
+  var status = bad ? ['bad', 'Needs attention'] : warn ? ['warn', 'Check soon'] : ['good', 'All systems healthy'];
+  return '<div class="sec">System health</div><div class="card"><div class="row" style="margin-bottom:10px"><span class="pill ' + (status[0] === 'good' ? 'ok' : status[0] === 'bad' ? 'bad' : 'ac') + '">' + ic(status[0] === 'good' ? 'check' : 'alert', 's') + status[1] + '</span><span class="grow"></span><button class="btn sm ghost" data-act="settings">' + ic('refresh', 's') + '</button></div>' +
+    '<div class="hgrid">' + tiles.join('') + '</div>' + (H.recentErrors && H.recentErrors.length ? '<details style="margin-top:10px"><summary class="fs">Recent errors (' + H.recentErrors.length + ')</summary><ul class="files">' + H.recentErrors.map(function (e) { return '<li><div class="grow"><div class="fs"><b>' + esc(e.event) + '</b> · ' + esc(String(e.time).slice(11, 16)) + '</div><div class="fs">' + esc(e.detail) + '</div></div></li>'; }).join('') + '</ul></details>' : '') + '</div>';
+}
 function renderSettings() {
   var A = S.admin, h = header('Settings', 'Admin only'); if (!A) return h + spin();
   var st = A.settings, m = st.methods, showPlans = APP.showPlans !== false;
@@ -651,7 +731,9 @@ function renderSettings() {
   function sw(id, on, l, s) { return '<div class="sw"><div><b style="font-size:14px">' + l + '</b>' + (s ? '<div class="fs">' + s + '</div>' : '') + '</div><button class="tgl ' + (on ? 'on' : '') + '" data-toggle="' + id + '"></button></div>'; }
   if (DEMO) h += '<div class="banner">' + ic('info', 's') + '<span>Demo mode: settings are saved on this device only. Put the Apps Script URL in config.js → apiUrl to go live.</span></div>';
   if (!DEMO && !S.me.verified) h += '<div class="banner">' + ic('alert', 's') + '<span>Server cannot verify Telegram yet. Add BOT_TOKEN_' + esc(CFG.appId) + ' and ADMIN_IDS in Script properties.</span></div>';
-  h += '<div class="sec">General</div><div class="card">' + sw('testMode', st.testMode, 'Test mode', 'Everyone gets full access. Turn OFF at launch.') +
+  if (A.health) h += healthBlock(A.health);
+  h += '<div class="sec">General</div><div class="card">' + sw('x:x_maintenance', st.x_maintenance, 'Maintenance mode', 'Read-only for users with a clear message. Payments already started still complete. One tap to undo.') +
+    (st.x_maintenance ? '<label class="f">Message to users (optional)</label>' + inp('x_maintenanceMsg', st.x_maintenanceMsg || '', 'Back at 6 pm') : '') + sw('testMode', st.testMode, 'Test mode', 'Everyone gets full access. Turn OFF at launch.') +
     '<label class="f">App name</label>' + inp('appName', st.appName) +
     (APP.freeLabel !== null ? '<label class="f">' + (APP.freeLabel || 'Free uses (total, no reset)') + '</label>' + inp('freeAllowance', st.freeAllowance, '2', 'number') : '') +
     '<label class="f">Support contact</label>' + inp('supportContact', st.supportContact, '@username') +
@@ -684,6 +766,7 @@ function renderSettings() {
       '<button class="btn sm" style="width:100%;margin-top:10px" data-act="revpdf" data-scope="app">' + ic('chart', 's') + 'Revenue report PDF — this app</button>' +
       '<button class="btn sm sec2" style="width:100%;margin-top:8px" data-act="revpdf" data-scope="all">' + ic('chart', 's') + 'Revenue report PDF — all apps (shared ledger)</button></div>'; }
   if (APP.adminExtra) h += APP.adminExtra(A.extra);
+  if (A.audit) h += '<div class="sec">Audit log (who changed what)</div><div class="card">' + (A.audit.length ? '<ul class="files">' + A.audit.slice(0, 25).map(function (a) { return '<li><div class="grow"><div class="fn">' + esc(a.action) + '</div><div class="fs">' + esc(String(a.time).replace('T', ' ').slice(0, 16)) + ' · user ' + esc(a.user) + ' · ' + esc(String(a.detail).slice(0, 90)) + '</div></div></li>'; }).join('') + '</ul>' : '<p class="m">No admin actions yet.</p>') + '</div>';
   h += '<div class="sec">Testing</div><div class="card">' + sw('simfree', lsGet('simfree_' + CFG.appId, false), 'Simulate free user (this device)', 'Ignores test mode so you can try the free limit and the paywall.') +
     '<button class="btn sm ghost" style="width:100%;margin-top:8px" data-act="resetme">Reset my usage, credits &amp; subscription</button>' + (S.me.plans.length ? '<button class="btn sm ghost" style="width:100%;margin-top:8px" data-act="paywall">Preview paywall</button>' : '') + '</div>';
   return h;
@@ -737,6 +820,7 @@ document.addEventListener('click', function (ev) {
     case 'codetgl': api(capi() ? capi().toggle : 'adminCodeToggle', Object.assign(capi() ? capi().extra() : {}, { code: el.dataset.code, active: el.dataset.on !== '1' })).then(function () { reloadCodes(); }); return;
     case 'revpdf': var scope = el.dataset.scope;
       showReport(function () { return api('adminRevenue', { scope: scope }).then(revenueReport); }, 'revenue-' + (scope === 'all' ? 'all-apps' : CFG.appId) + '-' + new Date().toISOString().slice(0, 7) + '.pdf'); return;
+    case 'retryinit': S.me = null; render(); refreshMe().then(enter); return;
     case 'repdl': if (S.rep && S.rep.blob) saveBlob(S.rep.blob, S.rep.name); return;
     case 'repsend': if (!S.rep || !S.rep.blob) return; toast('…');
       var fr = new FileReader(); fr.onload = function () { api('sendReport', { name: S.rep.name, data: String(fr.result).split(',')[1] }).then(function (r) {
@@ -764,7 +848,7 @@ function app(def) {
   refreshMe().then(function () { enter(); });
 }
 
-return { app: app, codesBlock: codesBlock, dCode: dCode, dCodeSave: dCodeSave, reloadCodes: reloadCodes, report: report, showReport: showReport, saveBlob: saveBlob, loadScript: loadScript, isPro: function () { return S.me && /^(sub|test)$/.test(S.me.access.reason); }, CFG: CFG, TG: TG, IN_TG: IN_TG, TGU: TGU, QS: QS, START: START, EDITION: EDITION, DEMO: DEMO, MB: MB, S: S,
+return { app: app, insight: insight, codesBlock: codesBlock, dCode: dCode, dCodeSave: dCodeSave, reloadCodes: reloadCodes, report: report, showReport: showReport, saveBlob: saveBlob, loadScript: loadScript, isPro: function () { return S.me && /^(sub|test)$/.test(S.me.access.reason); }, CFG: CFG, TG: TG, IN_TG: IN_TG, TGU: TGU, QS: QS, START: START, EDITION: EDITION, DEMO: DEMO, MB: MB, S: S,
   t: t, esc: esc, ic: ic, fmtDate: fmtDate, money: money, uid: uid, toast: toast, copy: copy, openLink: openLink, shareTg: shareTg, haptic: haptic, appLink: appLink, param: param, fileB64: fileB64,
   lsGet: lsGet, lsSet: lsSet, api: api, refreshMe: refreshMe, go: go, back: back, home: home, render: render, header: header, banners: banners, planChip: planChip, spin: spin, errBox: errBox, empty: empty, kv: kv, seg: seg,
   paywall: paywall, needAccess: needAccess, consume: consume, lang: function () { return LANG; } };
@@ -814,7 +898,7 @@ K.app({
   aud:'Send to',aud_active:'All active members',aud_expiring:'Ending in 3 days',bc_ph:'Write your announcement…',bc_hint:'Messages are sent in batches within a few minutes.',bc_ok:'{n} messages queued.',
   active_until:'Your access is active until {d}.',join:'Open channel',renew:'Extend access',test_join:'Test mode: get access without paying',not_found:'This channel is not available.',
   f_instant:'Instant access after payment',f_auto:'Renew any time — days are added',f_remind:'Reminder before your access ends',paid_ok2:'Payment confirmed. The bot has sent you the join link.',
-  codes:'Discount codes',codes_sub:'Codes for your buyers. They type the code at checkout. Example: VIP20 = 20% off.',r_title:'Members report',r_active:'Active',r_expiring:'Ending in 3 days',r_ended:'Ended / stopped',r_revenue:'Gross revenue',name:'Name',status:'Status',until:'until {d}'},
+  codes:'Discount codes',codes_sub:'Codes for your buyers. They type the code at checkout. Example: VIP20 = 20% off.',ins_setup:'<b>{n} channel(s) not selling yet.</b> Give the bot its rights, add a plan and publish.',ins_open:'Open',r_title:'Members report',r_active:'Active',r_expiring:'Ending in 3 days',r_ended:'Ended / stopped',r_revenue:'Gross revenue',name:'Name',status:'Status',until:'until {d}'},
  so:{appName:'Channel Pass',tagline:'Iibi galitaanka kanaalkaaga gaarka ah',t_channels:'Kanaalladayda',t_subs:'Isdiiwaangelintayda',add:'Ku dar kanaal',refresh:'Cusboonaysii',
   none_ch:'Weli kanaal ma jiro. Ku dar kanaalkaaga gaarka ah si aad u bilowdo iibinta.',none_sub:'Ma lihid isdiiwaangelin firfircoon.',members_n:'{n} xubnood',active:'Shaqaynaya',paused:'Lama daabicin',notready:'Awoodaha bot-ka ayaa maqan',
   how_title:'Ku xir kanaal',s1:'Fur kanaalkaaga ama kooxdaada → Maamulayaasha → Ku dar maamule.',s2:'Raadi bot-ka @{bot} oo ku dar.',s3:'Oggolow “Ku casuun isticmaalayaal link” iyo “Mamnuuc isticmaalayaal”. Keydi.',s4:'Halkan ku soo noqo oo taabo Cusboonaysii. Kanaalkaagu si toos ah ayuu u soo muuqanayaa.',
@@ -831,7 +915,7 @@ K.app({
   aud:'U dir',aud_active:'Dhammaan xubnaha firfircoon',aud_expiring:'Kuwa 3 maalmood ku dhammaanaya',bc_ph:'Qor ogeysiiskaaga…',bc_hint:'Fariimaha waxaa loo diraa qaybo dhowr daqiiqo gudahood.',bc_ok:'{n} fariimood ayaa safka la geliyay.',
   active_until:'Galitaankaagu wuu shaqaynayaa ilaa {d}.',join:'Fur kanaalka',renew:'Kordhi muddada',test_join:'Habka tijaabada: hel galitaan lacag la\'aan',not_found:'Kanaalkan lama heli karo.',
   f_instant:'Galitaan degdeg ah kadib lacag-bixinta',f_auto:'Cusboonaysii waqti kasta — maalmaha waa lagu darayaa',f_remind:'Xusuusin ka hor dhammaadka',paid_ok2:'Lacag-bixinta waa la xaqiijiyay. Bot-ku wuxuu kuu soo diray link-ga.',
-  codes:'Koodhadhka',codes_sub:'Koodhad iibsadayaashaada. Waxay geliyaan koodhka marka ay bixinayaan. Tusaale: VIP20 = 20% qiimo dhimis.',r_title:'Warbixinta xubnaha',r_active:'Firfircoon',r_expiring:'3 maalmood ku dhammaanaya',r_ended:'Dhammaaday / la joojiyay',r_revenue:'Dakhliga guud',name:'Magaca',status:'Xaalad',until:'ilaa {d}'}},
+  codes:'Koodhadhka',codes_sub:'Koodhad iibsadayaashaada. Waxay geliyaan koodhka marka ay bixinayaan. Tusaale: VIP20 = 20% qiimo dhimis.',ins_setup:'<b>{n} kanaal weli ma iibinayaan.</b> Sii bot-ka awoodaha, ku dar qorshe oo daabac.',ins_open:'Fur',r_title:'Warbixinta xubnaha',r_active:'Firfircoon',r_expiring:'3 maalmood ku dhammaanaya',r_ended:'Dhammaaday / la joojiyay',r_revenue:'Dakhliga guud',name:'Magaca',status:'Xaalad',until:'ilaa {d}'}},
  enter:{
   home:function(){if(G.tab==='channels')api('gkMine').then(function(r){G.mine=r.ok?r.channels:[];G.fee=r.feePercent||0;K.render()});else api('gkMySubs').then(function(r){G.subs=r.ok?r.subs:[];K.render()})},
   offer:function(){G.offer=null;loadOffer()},
@@ -840,6 +924,7 @@ K.app({
  screens:{
   home:function(){var h=K.header(t('appName'),t('tagline'))+K.banners()+'<div class="tabs"><button data-a="tab" data-v="channels" class="'+(G.tab==='channels'?'on':'')+'">'+t('t_channels')+'</button><button data-a="tab" data-v="subs" class="'+(G.tab==='subs'?'on':'')+'">'+t('t_subs')+'</button></div>';
    if(G.tab==='channels'){if(!G.mine)return h+K.spin();if(!G.mine.length)h+=K.empty('channel',t('none_ch'));
+    var todo=G.mine.filter(function(c){return!c.botOk||c.status!=='active'||!c.plans.length});if(todo.length){G.todo=todo[0].key;h+=K.insight('alert',t('ins_setup',{n:todo.length}),t('ins_open'),'opentodo')}
     G.mine.forEach(function(c){h+='<button class="chrow" data-a="edit" data-key="'+esc(c.key)+'"><div class="av">'+esc((c.title||'?').charAt(0).toUpperCase())+'</div><div class="grow"><div class="fn">'+esc(c.title)+'</div><div class="fs">'+t('members_n',{n:c.members||0})+' · '+money(c.revenue.usd)+(c.revenue.stars?' + '+c.revenue.stars+' Stars':'')+'</div><div>'+statusChip(c)+'</div></div></button>'});
     return h+'<button class="btn" data-go="how">'+ic('plus')+t('add')+'</button><button class="btn ghost" data-a="reload">'+ic('refresh')+t('refresh')+'</button>'}
    if(!G.subs)return h+K.spin();if(!G.subs.length)h+=K.empty('users',t('none_sub'));
@@ -893,6 +978,7 @@ K.app({
  actions:{
   tab:function(el,d){G.tab=d.v;G.mine=G.subs=null;K.home()},
   reload:function(){G.mine=null;K.home()},
+  opentodo:function(){G.edit=JSON.parse(JSON.stringify(G.mine.filter(function(c){return c.key===G.todo})[0]));K.go('edit')},
   edit:function(el,d){G.edit=JSON.parse(JSON.stringify(G.mine.filter(function(c){return c.key===d.key})[0]));K.go('edit')},
   offer:function(el,d){KEY=d.key;K.go('offer')},
   pub:function(){keep();G.edit.status=G.edit.status==='active'?'paused':'active';K.render()},

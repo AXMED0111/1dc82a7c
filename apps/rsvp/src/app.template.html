@@ -41,7 +41,7 @@ K.app({
   scan:'Scan ticket QR',manual:'Or enter ticket code',check:'Check in',ok_in:'Welcome — checked in',already:'Already checked in at {t}',bad_code:'Ticket not found for this event.',not_attending:'This guest did not confirm attendance.',
   you_invited:'You are invited',reply:'Your reply',yes:'Attending',no:'Can\'t attend',maybe:'Maybe',party:'Number of people',your_name:'Your name',message:'Message to the hosts (optional)',send_reply:'Send reply',
   thanks_yes:'Thank you. Your reply is saved. Show this ticket at the entrance.',thanks_no:'Thank you for letting the hosts know.',ticket:'Your ticket',code:'Ticket code',change:'Change reply',directions:'Directions',
-  not_found:'This invitation is not available.',reply_by:'Please reply by {d}',edit_event:'Edit event',delete_guest:'Remove',guest_pdf:'Guest list PDF',name:'Name',reply_l:'Reply',people_l:'People',checked_l:'Checked in',message_l:'Message',total_people:'Total people attending'},
+  not_found:'This invitation is not available.',reply_by:'Please reply by {d}',edit_event:'Edit event',delete_guest:'Remove',ins_pending:'<b>{n} guests have not replied.</b> Send them their personal link again.',ins_go:'Guests',guest_pdf:'Guest list PDF',name:'Name',reply_l:'Reply',people_l:'People',checked_l:'Checked in',message_l:'Message',total_people:'Total people attending'},
  so:{appName:'Casuumado',tagline:'Arooska iyo munaasabadaha, jawaabaha iyo hubinta albaabka',my_events:'Munaasabadahayga',create:'Samee munaasabad',no_events:'Weli munaasabad ma jirto. Samee casuumaddaada ugu horreysa hal daqiiqo gudaheed.',
   draft:'Qabyo',live:'La daabacay',title:'Magaca munaasabadda',title_ph:'Aroosga Aamina & Yuusuf',hosts:'Martigeliyayaasha',date:'Taariikhda',time:'Waqtiga',venue:'Goobta',address:'Cinwaanka',map:'Link khariidad (ikhtiyaari)',
   notes:'Fariin martida',dress:'Labiska (ikhtiyaari)',deadline:'Jawaab ka hor (ikhtiyaari)',open_max:'Tirada ugu badan ee dadka jawaabtii link-ga furan',save_draft:'Keydi qabyo',publish:'Daabac',publish_hint:'Daabacaaddu waxay isticmaashaa 1 dhibic munaasabad.',
@@ -51,7 +51,7 @@ K.app({
   scan:'Iskaan QR-ka tigidhka',manual:'Ama geli koodhka tigidhka',check:'Hubi',ok_in:'Soo dhawoow — waa la hubiyay',already:'Horey ayaa loo hubiyay {t}',bad_code:'Tigidhkan lagama helin munaasabaddan.',not_attending:'Martidan ma xaqiijin imaanshaha.',
   you_invited:'Waa lagu martiqaaday',reply:'Jawaabtaada',yes:'Waan imanayaa',no:'Ma imaan karo',maybe:'Laga yaabee',party:'Tirada dadka',your_name:'Magacaaga',message:'Fariin martigeliyayaasha (ikhtiyaari)',send_reply:'Dir jawaabta',
   thanks_yes:'Mahadsanid. Jawaabtaada waa la keydiyay. Tigidhkan ku tus albaabka.',thanks_no:'Mahadsanid in aad ogeysiisay martigeliyayaasha.',ticket:'Tigidhkaaga',code:'Koodhka tigidhka',change:'Beddel jawaabta',directions:'Tilmaamaha',
-  not_found:'Casuumaddan lama heli karo.',reply_by:'Fadlan jawaab ka hor {d}',edit_event:'Wax ka beddel',delete_guest:'Ka saar',guest_pdf:'Liiska martida PDF',name:'Magaca',reply_l:'Jawaab',people_l:'Dad',checked_l:'Soo galay',message_l:'Fariin',total_people:'Wadarta dadka imanaya'}},
+  not_found:'Casuumaddan lama heli karo.',reply_by:'Fadlan jawaab ka hor {d}',edit_event:'Wax ka beddel',delete_guest:'Ka saar',ins_pending:'<b>{n} marti weli ma jawaabin.</b> Mar kale u dir link-gooda gaarka ah.',ins_go:'Martida',guest_pdf:'Liiska martida PDF',name:'Magaca',reply_l:'Jawaab',people_l:'Dad',checked_l:'Soo galay',message_l:'Fariin',total_people:'Wadarta dadka imanaya'}},
  enter:{
   home:function(){R.events=null;api('rsvMine').then(function(r){R.events=r.ok?r.events:[];K.render()})},
   event:function(){api('rsvEvent',{key:R.ev.key}).then(function(r){if(r.ok)R.ev=r.event;K.render()})},
@@ -73,6 +73,7 @@ K.app({
    if(e.status!=='published')h+='<button class="btn" data-a="publish">'+ic('send')+t('publish')+'</button><div class="fs center" style="margin-top:6px">'+t('publish_hint')+'</div>';
    return h+K.errBox()},
   event:function(){var e=R.ev,s=e.stats||{},link=K.appLink('e_'+e.key),h=K.header(e.title,fmtWhen(e))+K.errBox();
+   if(e.status==='published'&&s.pending)h+=K.insight('users',t('ins_pending',{n:s.pending}),t('ins_go'),'guests');
    h+='<div class="card stat"><div><b>'+(s.yesPeople||0)+'</b><span>'+t('attending')+' ('+t('people',{n:s.yes||0}).replace(/^\d+ /,'')+')</span></div><div><b>'+(s.no||0)+'</b><span>'+t('declined')+'</span></div><div><b>'+(s.pending||0)+'</b><span>'+t('pending')+'</span></div><div><b>'+(s.checked||0)+'</b><span>'+t('checked')+'</span></div></div>';
    if(e.status!=='published')h+='<div class="banner">'+ic('info','s')+'<span>'+t('draft')+' — '+t('publish_hint')+'</span></div><button class="btn" data-a="publish">'+ic('send')+t('publish')+'</button>';
    else h+='<div class="sec">'+t('open_link')+'</div><div class="card">'+K.kv(t('open_link'),link,true)+'<p class="m">'+t('open_link_sub')+'</p><div class="g2" style="margin-top:10px"><button class="btn sm sec2" data-a="sharetg" data-link="'+esc(link)+'">'+ic('send','s')+t('telegram')+'</button><button class="btn sm sec2" data-a="sharewa" data-link="'+esc(link)+'">'+ic('message','s')+t('whatsapp')+'</button></div></div>';

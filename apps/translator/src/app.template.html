@@ -47,18 +47,18 @@ function readRes(){document.querySelectorAll('[data-fi]').forEach(function(el){T
 K.app({
  icon:'translate',freeLabel:'Free documents (total)',
  defaults:{appName:'Document Translator',freeAllowance:1,x_aiModel:'gemini-2.5-flash',plans:[{id:'d1',label:'1 document',days:0,credits:1,usd:3,stars:200,region:'ALL'},{id:'d5',label:'5 documents',days:0,credits:5,usd:12,stars:850,region:'ALL'},{id:'pro_m',label:'Unlimited · 1 month',days:30,credits:0,usd:15,stars:1000,region:'ALL'}]},
- adminFields:[{key:'x_aiModel',label:'AI model (Gemini)',ph:'gemini-2.5-flash',hint:'Check the current model name and price at ai.google.dev before launch.'}],
+ adminFields:[{key:'x_aiModel',label:'AI model (Gemini)',ph:'gemini-2.5-flash',hint:'Check the current model name and price at ai.google.dev before launch.'},{key:'x_aiFallback',label:'Backup AI model (used if the main one fails)',ph:'gemini-2.5-flash-lite'},{key:'x_aiDailyBudget',label:'AI calls per day — whole app (cost cap)',type:'number',ph:'500'},{key:'x_aiUserDaily',label:'AI calls per day — per user (abuse cap)',type:'number',ph:'30'}],
  extraSecrets:{GEMINI_KEY:'Gemini API key (reading + translation)'},
  strings:{
  en:{appName:'Document Translator',tagline:'Certificates and IDs into English, Arabic or Somali',new_t:'New translation',doc_type:'Document type',d_birth:'Birth certificate',d_passport:'Passport / ID card',d_diploma:'Diploma / certificate',d_transcript:'Transcript',d_marriage:'Marriage certificate',d_other:'Other document',
   to:'Translate into',photos:'Photos of the document (up to 3 pages)',camera:'Take photo',gallery:'Choose photo',translate:'Translate',working:'Reading and translating… about 20 seconds.',tips:'Flat surface, good light, whole page visible, no glare.',
   result:'Translation',review:'Check and correct the details before you download.',title_l:'Title',field:'Field',value:'Value',text:'Full text',download:'Download PDF',send:'Send to my Telegram chat',copy_t:'Copy text',again:'Translate another document',
-  history:'Recent translations',disclaimer:'This is an unofficial translation made with automated tools. For official use, have it checked or certified by a sworn translator.',e_pages:'Add at least one photo.',ai_fail:'Translation is not available right now. You were not charged.',
+  history:'Recent translations',disclaimer:'This is an unofficial translation made with automated tools. For official use, have it checked or certified by a sworn translator.',e_pages:'Add at least one photo.',ai_fail:'Translation is not available right now. You were not charged.',ai_budget:'Translation is very busy today. Please try again tomorrow — you were not charged.',ai_user_cap:'You reached today\'s translation limit. Come back tomorrow — you were not charged.',
   demo_fb:'Demo result — no AI connected yet. Real reading and translation start when the server and AI key are set.',sent:'Sent to your chat'},
  so:{appName:'Turjumaha Dukumentiyada',tagline:'Shahaadooyinka iyo aqoonsiga u turjun Ingiriisi, Carabi ama Soomaali',new_t:'Turjumaad cusub',doc_type:'Nooca dukumentiga',d_birth:'Shahaadada dhalashada',d_passport:'Baasaboor / kaarka aqoonsiga',d_diploma:'Diblooma / shahaado',d_transcript:'Natiijada (transcript)',d_marriage:'Shahaadada guurka',d_other:'Dukumenti kale',
   to:'U turjun',photos:'Sawirrada dukumentiga (ilaa 3 bog)',camera:'Sawir qaad',gallery:'Dooro sawir',translate:'Turjun',working:'Waa la akhrinayaa oo la turjumayaa… qiyaastii 20 ilbiriqsi.',tips:'Meel siman, iftiin wanaagsan, bogga oo dhan muuqda, iftiin dib u soo noqonaya ma jiro.',
   result:'Turjumaadda',review:'Hubi oo sax faahfaahinta ka hor intaadan soo dejin.',title_l:'Cinwaanka',field:'Qaybta',value:'Qiimaha',text:'Qoraalka oo dhan',download:'Soo deji PDF',send:'U dir sheekadayda Telegram',copy_t:'Koobi qoraalka',again:'Turjun dukumenti kale',
-  history:'Turjumaadihii ugu dambeeyay',disclaimer:'Kani waa turjumaad aan rasmi ahayn oo lagu sameeyay qalab toos ah. Isticmaal rasmi ah, ha hubiyo turjubaan la shahaadeeyay.',e_pages:'Ku dar ugu yaraan hal sawir.',ai_fail:'Turjumaaddu hadda ma shaqaynayso. Lacag lagaama jarin.',
+  history:'Turjumaadihii ugu dambeeyay',disclaimer:'Kani waa turjumaad aan rasmi ahayn oo lagu sameeyay qalab toos ah. Isticmaal rasmi ah, ha hubiyo turjubaan la shahaadeeyay.',e_pages:'Ku dar ugu yaraan hal sawir.',ai_fail:'Turjumaaddu hadda ma shaqaynayso. Lacag lagaama jarin.',ai_budget:'Maanta aad bay u mashquul tahay. Fadlan isku day berri — lacag lagaama jarin.',ai_user_cap:'Waxaad gaartay xadka maanta. Berri soo noqo — lacag lagaama jarin.',
   demo_fb:'Natiijo demo ah — AI weli lama xirin. Akhrinta iyo turjumaadda dhabta ah waxay bilaabanayaan marka server-ka iyo furaha AI la dejiyo.',sent:'Waa loo diray sheekadaada'}},
  enter:{home:function(){api('trHistory').then(function(r){T.history=r.ok?r.items:[];K.render()})}},
  screens:{
@@ -91,7 +91,7 @@ K.app({
    T.busy=true;S.err='';K.render();
    api('trTranslate',{doc:T.doc,to:T.to,lang:K.lang(),pages:T.pages.map(function(p){return{data:p.b64,mime:p.mime}})}).then(function(r){T.busy=false;
     if(r.ok&&r.allowed===false){K.render();return K.paywall({title:t('appName'),text:t('tagline'),icon:'translate',after:function(){K.home()}})}
-    if(!r.ok){S.err=r.error==='network'?t('e_net'):t('ai_fail');return K.render()}
+    if(!r.ok){S.err=r.error==='network'?t('e_net'):/^ai_(budget|user_cap)$/.test(r.error)?t(r.error):t('ai_fail');return K.render()}
     if(r.access)S.me.access=r.access;else K.refreshMe();T.res=r.result;T.token=r.token||'';T.pages=[];K.haptic('ok');K.go('result')})},
   pdf:function(){readRes();buildPdf(T.res).then(function(b){saveBlob(b,(T.res.title||'translation').replace(/[^\w\- ]+/g,'').slice(0,40)+'.pdf')}).catch(function(e){console.error(e);S.err=t('e_gen');K.render()})},
   send:function(){readRes();K.toast('…');buildPdf(T.res).then(function(b){return new Promise(function(r){var f=new FileReader();f.onload=function(){r(String(f.result).split(',')[1])};f.readAsDataURL(b)})}).then(function(b64){

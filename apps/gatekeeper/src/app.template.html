@@ -61,7 +61,7 @@ K.app({
   aud:'Send to',aud_active:'All active members',aud_expiring:'Ending in 3 days',bc_ph:'Write your announcement…',bc_hint:'Messages are sent in batches within a few minutes.',bc_ok:'{n} messages queued.',
   active_until:'Your access is active until {d}.',join:'Open channel',renew:'Extend access',test_join:'Test mode: get access without paying',not_found:'This channel is not available.',
   f_instant:'Instant access after payment',f_auto:'Renew any time — days are added',f_remind:'Reminder before your access ends',paid_ok2:'Payment confirmed. The bot has sent you the join link.',
-  codes:'Discount codes',codes_sub:'Codes for your buyers. They type the code at checkout. Example: VIP20 = 20% off.',r_title:'Members report',r_active:'Active',r_expiring:'Ending in 3 days',r_ended:'Ended / stopped',r_revenue:'Gross revenue',name:'Name',status:'Status',until:'until {d}'},
+  codes:'Discount codes',codes_sub:'Codes for your buyers. They type the code at checkout. Example: VIP20 = 20% off.',ins_setup:'<b>{n} channel(s) not selling yet.</b> Give the bot its rights, add a plan and publish.',ins_open:'Open',r_title:'Members report',r_active:'Active',r_expiring:'Ending in 3 days',r_ended:'Ended / stopped',r_revenue:'Gross revenue',name:'Name',status:'Status',until:'until {d}'},
  so:{appName:'Channel Pass',tagline:'Iibi galitaanka kanaalkaaga gaarka ah',t_channels:'Kanaalladayda',t_subs:'Isdiiwaangelintayda',add:'Ku dar kanaal',refresh:'Cusboonaysii',
   none_ch:'Weli kanaal ma jiro. Ku dar kanaalkaaga gaarka ah si aad u bilowdo iibinta.',none_sub:'Ma lihid isdiiwaangelin firfircoon.',members_n:'{n} xubnood',active:'Shaqaynaya',paused:'Lama daabicin',notready:'Awoodaha bot-ka ayaa maqan',
   how_title:'Ku xir kanaal',s1:'Fur kanaalkaaga ama kooxdaada → Maamulayaasha → Ku dar maamule.',s2:'Raadi bot-ka @{bot} oo ku dar.',s3:'Oggolow “Ku casuun isticmaalayaal link” iyo “Mamnuuc isticmaalayaal”. Keydi.',s4:'Halkan ku soo noqo oo taabo Cusboonaysii. Kanaalkaagu si toos ah ayuu u soo muuqanayaa.',
@@ -78,7 +78,7 @@ K.app({
   aud:'U dir',aud_active:'Dhammaan xubnaha firfircoon',aud_expiring:'Kuwa 3 maalmood ku dhammaanaya',bc_ph:'Qor ogeysiiskaaga…',bc_hint:'Fariimaha waxaa loo diraa qaybo dhowr daqiiqo gudahood.',bc_ok:'{n} fariimood ayaa safka la geliyay.',
   active_until:'Galitaankaagu wuu shaqaynayaa ilaa {d}.',join:'Fur kanaalka',renew:'Kordhi muddada',test_join:'Habka tijaabada: hel galitaan lacag la\'aan',not_found:'Kanaalkan lama heli karo.',
   f_instant:'Galitaan degdeg ah kadib lacag-bixinta',f_auto:'Cusboonaysii waqti kasta — maalmaha waa lagu darayaa',f_remind:'Xusuusin ka hor dhammaadka',paid_ok2:'Lacag-bixinta waa la xaqiijiyay. Bot-ku wuxuu kuu soo diray link-ga.',
-  codes:'Koodhadhka',codes_sub:'Koodhad iibsadayaashaada. Waxay geliyaan koodhka marka ay bixinayaan. Tusaale: VIP20 = 20% qiimo dhimis.',r_title:'Warbixinta xubnaha',r_active:'Firfircoon',r_expiring:'3 maalmood ku dhammaanaya',r_ended:'Dhammaaday / la joojiyay',r_revenue:'Dakhliga guud',name:'Magaca',status:'Xaalad',until:'ilaa {d}'}},
+  codes:'Koodhadhka',codes_sub:'Koodhad iibsadayaashaada. Waxay geliyaan koodhka marka ay bixinayaan. Tusaale: VIP20 = 20% qiimo dhimis.',ins_setup:'<b>{n} kanaal weli ma iibinayaan.</b> Sii bot-ka awoodaha, ku dar qorshe oo daabac.',ins_open:'Fur',r_title:'Warbixinta xubnaha',r_active:'Firfircoon',r_expiring:'3 maalmood ku dhammaanaya',r_ended:'Dhammaaday / la joojiyay',r_revenue:'Dakhliga guud',name:'Magaca',status:'Xaalad',until:'ilaa {d}'}},
  enter:{
   home:function(){if(G.tab==='channels')api('gkMine').then(function(r){G.mine=r.ok?r.channels:[];G.fee=r.feePercent||0;K.render()});else api('gkMySubs').then(function(r){G.subs=r.ok?r.subs:[];K.render()})},
   offer:function(){G.offer=null;loadOffer()},
@@ -87,6 +87,7 @@ K.app({
  screens:{
   home:function(){var h=K.header(t('appName'),t('tagline'))+K.banners()+'<div class="tabs"><button data-a="tab" data-v="channels" class="'+(G.tab==='channels'?'on':'')+'">'+t('t_channels')+'</button><button data-a="tab" data-v="subs" class="'+(G.tab==='subs'?'on':'')+'">'+t('t_subs')+'</button></div>';
    if(G.tab==='channels'){if(!G.mine)return h+K.spin();if(!G.mine.length)h+=K.empty('channel',t('none_ch'));
+    var todo=G.mine.filter(function(c){return!c.botOk||c.status!=='active'||!c.plans.length});if(todo.length){G.todo=todo[0].key;h+=K.insight('alert',t('ins_setup',{n:todo.length}),t('ins_open'),'opentodo')}
     G.mine.forEach(function(c){h+='<button class="chrow" data-a="edit" data-key="'+esc(c.key)+'"><div class="av">'+esc((c.title||'?').charAt(0).toUpperCase())+'</div><div class="grow"><div class="fn">'+esc(c.title)+'</div><div class="fs">'+t('members_n',{n:c.members||0})+' · '+money(c.revenue.usd)+(c.revenue.stars?' + '+c.revenue.stars+' Stars':'')+'</div><div>'+statusChip(c)+'</div></div></button>'});
     return h+'<button class="btn" data-go="how">'+ic('plus')+t('add')+'</button><button class="btn ghost" data-a="reload">'+ic('refresh')+t('refresh')+'</button>'}
    if(!G.subs)return h+K.spin();if(!G.subs.length)h+=K.empty('users',t('none_sub'));
@@ -140,6 +141,7 @@ K.app({
  actions:{
   tab:function(el,d){G.tab=d.v;G.mine=G.subs=null;K.home()},
   reload:function(){G.mine=null;K.home()},
+  opentodo:function(){G.edit=JSON.parse(JSON.stringify(G.mine.filter(function(c){return c.key===G.todo})[0]));K.go('edit')},
   edit:function(el,d){G.edit=JSON.parse(JSON.stringify(G.mine.filter(function(c){return c.key===d.key})[0]));K.go('edit')},
   offer:function(el,d){KEY=d.key;K.go('offer')},
   pub:function(){keep();G.edit.status=G.edit.status==='active'?'paused':'active';K.render()},

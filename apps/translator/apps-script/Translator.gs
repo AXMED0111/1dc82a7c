@@ -7,7 +7,7 @@
 var THIS_APP = { id: 'translator', url: 'https://tran-49b0be25.netlify.app', button: 'Translate' };
 var EXTRA_SCHEMA = EXTRA_SCHEMA || {}, APP_HOOKS = APP_HOOKS || {}, APP_DEFAULTS = APP_DEFAULTS || {}, APP_SECRETS = APP_SECRETS || {};
 
-APP_DEFAULTS.translator = { appName: 'Document Translator', freeAllowance: 1, x_aiModel: 'gemini-2.5-flash', plans: [
+APP_DEFAULTS.translator = { appName: 'Document Translator', freeAllowance: 1, x_aiModel: 'gemini-2.5-flash', x_aiFallback: 'gemini-2.5-flash-lite', x_aiDailyBudget: 300, x_aiUserDaily: 20, plans: [
   { id: 'd1', label: '1 document', days: 0, credits: 1, usd: 3, stars: 200, region: 'ALL' },
   { id: 'd5', label: '5 documents', days: 0, credits: 5, usd: 12, stars: 850, region: 'ALL' },
   { id: 'pro_m', label: 'Unlimited · 1 month', days: 30, credits: 0, usd: 15, stars: 1000, region: 'ALL' } ] };
@@ -43,7 +43,7 @@ APP_HOOKS.translator = {
       pages.forEach(function (p) { var d = String(p.data || ''); total += d.length; parts.push({ inline_data: { mime_type: /^image\/(jpeg|png|webp)$/.test(p.mime) ? p.mime : 'image/jpeg', data: d } }); });
       if (total > 15 * 1024 * 1024) return { ok: false, error: 'too_large' };
       var res;
-      try { res = aiJson(parts, ctx.st.x_aiModel); } catch (e) { log(ctx.uid, 'translator', 'ai_error', e.message); return { ok: false, error: 'ai_failed' }; }
+      try { res = aiCall(ctx, parts); } catch (e) { return { ok: false, error: /^ai_(budget|user_cap)$/.test(e.message) ? e.message : 'ai_failed' }; }
       var c = consume(ctx, { tool: 'document' }); if (!c.allowed) return { ok: true, allowed: false, access: c.access };
       var out = { target: to, target_name: TR_NAME[to], source_language: String(res.source_language || '').slice(0, 40), title: String(res.title || '').slice(0, 120),
         fields: (res.fields || []).slice(0, 60).map(function (f) { return { label: String(f.label || '').slice(0, 80), value: String(f.value || '').slice(0, 400) }; }),

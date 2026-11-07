@@ -79,6 +79,23 @@ const subsBefore = E.sheets.Subscriptions.data.length;
 E.server('starsPaid', { order_id: r.order_id, user_id: 7007, charge_id: 'd2' });
 ok('referrer rewarded 7 days', E.call(U, 'refStats').rewarded === 1 && E.sheets.Subscriptions.data.length === subsBefore + 2 && E.sent.some((s) => /friend you invited/.test(s.payload)));
 ok('discount only first purchase', E.call(NEW, 'init').firstPct === 0);
+// --- reliability & governance (Modern Systems Engineering)
+let n0 = E.call(W, 'init').access.credits;
+r = E.call(W, 'consume', { rid: 'abc-1' }); const r2 = E.call(W, 'consume', { rid: 'abc-1' });
+ok('idempotent retry: same rid charged once', r.allowed && r2.replayed === true && E.call(W, 'init').access.credits === n0 - 1, { r, r2 });
+E.setSettings({ x_rateMin: 5 }); let limited = null; for (let i = 0; i < 8; i++) { const x = E.call(V, 'init'); if (x.error === 'rate_limited') { limited = x; break; } }
+ok('rate limit returns 429-style error', limited && limited.retryAfter > 0, limited); E.setSettings({ x_rateMin: 1000 });
+E.setSettings({ x_maintenance: true, x_maintenanceMsg: 'Back at 6pm' });
+r = E.call({ id: 9101, first_name: 'M' }, 'init'); ok('maintenance flag in init', r.maintenance === 'Back at 6pm', r.maintenance);
+ok('maintenance blocks writes', E.call({ id: 9101, first_name: 'M' }, 'consume').error === 'maintenance');
+ok('admin still works in maintenance', E.call(ADMIN, 'consume').ok);
+ok('maintenance: write regex covers all known writes', E.run("['consume','createOrder','dbSaveCustomer','dbDeleteCustomer','dbAddEntry','rsvReply','rsvPublish','gkMemberAction','gkBroadcast','mkSubmit','mkWithdraw','coScore','trTranslate','scSave','gkCodeToggle'].every(function(a){return WRITES.test(a)}) && !['init','dbCustomer','dbBook','gkMembers','rsvInvite','mkFeed','checkCode','refStats','dbReport','coHistory'].some(function(a){return WRITES.test(a)})"));
+E.setSettings({ x_maintenance: false });
+ok('audit log records admin actions (no secrets)', (() => { E.call(ADMIN, 'adminSetSecret', { key: 'TRONGRID_KEY', value: 'SUPERSECRET' }); const a = E.call(ADMIN, 'adminAudit'); return a.items.some((x) => x.action === 'adminSetSecret') && !JSON.stringify(a).includes('SUPERSECRET'); })());
+ok('client error reporting', E.call(U, 'clientError', { msg: 'TypeError x', where: 'home' }).ok);
+E.run('cronDaily()'); ok('daily backup made', !!E.props.LAST_BACKUP && Object.values(E.ctx.DriveApp.folders)[0].files.length === 1);
+E.run('cronDaily()'); ok('backup deduplicated per day', Object.values(E.ctx.DriveApp.folders)[0].files.length === 1);
+r = E.call(ADMIN, 'adminHealth'); ok('health report', r.ok && r.totals.requests > 10 && r.lastBackup && r.crons.daily && r.sheet.cells > 0 && Array.isArray(r.recentErrors) && r.webhook, r.totals);
 E.run('cronDaily(); cronHourly(); cronUsdt();'); ok('crons run', true);
 
 section('gatekeeper');
@@ -168,6 +185,12 @@ r = E.call(U, 'coScore', { category: 'visa', question: 'Why?', audio: 'A'.repeat
 ok('gemini called with wav', E.fetches.some((f) => /generativelanguage/.test(f.url) && /audio\/wav/.test(f.o.payload)));
 ok('progress report locked (credits plan)', E.call(U, 'coReport').allowed === false);
 E.setSettings({ testMode: true }); r = E.call(U, 'coReport'); ok('progress report data', r.allowed && r.sessions.length === 1 && r.sessions[0].scores.clarity === 80, r); E.setSettings({ testMode: false });
+let calls = 0; E.ctx.__fetchReply = (url) => { if (!/generativelanguage/.test(url)) return { ok: true, result: {} }; calls++; return calls === 1 ? { __code: 503 } : { candidates: [{ content: { parts: [{ text: JSON.stringify({ transcript: 't', overall: 50, scores: {} }) }] } }], usageMetadata: { totalTokenCount: 1234 } }; };
+E.setSettings({ testMode: true }); r = E.call(U, 'coScore', { category: 'job', question: 'Q', audio: 'A'.repeat(2000), seconds: 20 });
+ok('AI fallback model used after primary fails', r.ok && r.result.overall === 50 && E.fetches.filter((f) => /flash-lite/.test(f.url)).length >= 1, r);
+ok('AI prompt has injection guard', E.fetches.some((f) => /untrusted user/.test(String(f.o && f.o.payload))));
+calls = 5; E.setSettings({ x_aiUserDaily: 1, testMode: true }); r = E.call(V, 'coScore', { category: 'job', question: 'Q', audio: 'A'.repeat(2000), seconds: 20 }); r = E.call(V, 'coScore', { category: 'job', question: 'Q', audio: 'A'.repeat(2000), seconds: 20 });
+ok('AI per-user daily cap', r.error === 'ai_user_cap', r); E.setSettings({ x_aiUserDaily: 30, testMode: false });
 E.ctx.__fetchReply = () => ({ candidates: [{ content: { parts: [{ text: 'not json' }] } }] });
 r = E.call(U, 'coScore', { category: 'visa', question: 'Why?', audio: 'A'.repeat(2000), seconds: 30 }); ok('AI failure not charged', r.ok === false && E.call(U, 'init').access.freeLeft === 1, r);
 
