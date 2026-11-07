@@ -8,6 +8,7 @@
 <title>PDF Tools</title>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <script src="config.js"></script>
+<!--ABOUT--><script>window.APP_ABOUT={"short": "Images to PDF, merge, split and PDF to images — right on your phone.", "long": "PDF Tools does everyday document jobs on your phone.\n\n• Turn photos and scans into one PDF\n• Merge several PDFs into one\n• Split a PDF or take out pages\n• Save each page as JPG or PNG\n\nFiles are processed on your device. Your first 2 conversions are free. Tap Start, then open the app.", "title": "Everyday PDF tools", "intro": "Pick a tool, choose your files and download the result or receive it in this chat.", "steps": ["Choose a tool: Images to PDF, Merge, Split or PDF to images.", "Add your files and choose the options.", "Tap the button and download the result or send it to your Telegram chat."], "faq": [["Are my files uploaded?", "No. Files are processed on your phone. They leave your device only if you choose to send the result to your chat."], ["How many free conversions do I get?", "Two in total. After that a subscription gives unlimited use and bigger files."]]};</script><!--/ABOUT-->
 <style>
 :root{
   --bg:var(--tg-theme-secondary-bg-color,#f2f4f7);
@@ -515,7 +516,7 @@ function banners(){var h='';if(DEMO)h+='<div class="banner">'+ic('info','s')+'<s
 function render(){syncBack();var h='';
   if(!S.me){$app.innerHTML='<div class="center" style="padding:80px 0;color:var(--hint)"><div class="spin" style="margin:0 auto"></div></div>';return}
   switch(S.screen){
-  case 'home':h=header(t('appName'),t('tagline'))+'<div class="row" style="margin:-4px 0 12px">'+planChip()+'</div>'+banners()+
+  case 'home':h=header(t('appName'),t('tagline'))+'<div class="row" style="margin:-4px 0 12px">'+planChip()+'<span class="grow"></span><button class="chip" data-act="help">'+ic('info','s')+'How it works</button></div>'+banners()+introCard()+
     '<div class="grid">'+['img2pdf','merge','split','pdf2img'].map(function(k){return'<button class="tool" data-tool="'+k+'"><div class="ic">'+ic(TOOLS[k].icon)+'</div><div><b>'+t('t_'+k)+'</b><br><span>'+t('d_'+k)+'</span></div></button>'}).join('')+
     ['word','compress'].map(function(k){return'<div class="tool dis"><div class="row"><div class="ic">'+ic(k)+'</div><span class="tag" style="margin-left:auto">'+t('soon')+'</span></div><div><b>'+t('t_'+k)+'</b><br><span>'+t('d_'+k)+'</span></div></div>'}).join('')+'</div>'+
     '<div class="note">'+ic('shield','s')+'<span>'+t('privacy')+'</span></div><div class="foot">v'+esc(CFG.version)+'</div>';break;
@@ -523,6 +524,8 @@ function render(){syncBack();var h='';
   case 'paywall':h=renderPaywall();break;
   case 'pay':h=renderPay();break;
   case 'account':h=renderAccount();break;
+  case 'help':var A=window.APP_ABOUT||{};h=header('How it works',A.title||'')+'<div class="card"><p class="m" style="color:var(--text)">'+esc(A.intro||'')+'</p><ol style="margin:10px 0 0;padding-left:20px">'+(A.steps||[]).map(function(x){return'<li style="margin:6px 0">'+esc(x)+'</li>'}).join('')+'</ol></div>'+
+   ((A.faq||[]).length?'<div class="sec">Questions</div>'+A.faq.map(function(q){return'<details class="card"><summary style="cursor:pointer"><b>'+esc(q[0])+'</b></summary><p class="m" style="margin-top:8px">'+esc(q[1])+'</p></details>'}).join(''):'');break;
   case 'settings':h=renderSettings();break;
   }
   $app.innerHTML=h;
@@ -560,6 +563,8 @@ function renderTool(){var k=S.tool,T=TOOLS[k],o=S.opts,a=S.me.access,h=header(t(
 function discPct(){return Math.max(S.disc?S.disc.pct:0,S.me.firstPct||0)}
 function priceHtml(p){var d=discPct();if(!d)return'<div class="price">$'+(+p.usd).toFixed(2)+(p.stars?'<small>'+p.stars+' Stars</small>':'')+'</div>';
  return'<div class="price"><s style="color:var(--hint);font-weight:400;font-size:12px">$'+(+p.usd).toFixed(2)+'</s> $'+(Math.round(p.usd*(100-d))/100).toFixed(2)+(p.stars?'<small>'+Math.ceil(p.stars*(100-d)/100)+' Stars</small>':'')+'</div>'}
+function introCard(){var A=window.APP_ABOUT||{};if(!A.intro||lsGet('pdft_intro',false))return'';
+ return'<div class="card" style="border-color:color-mix(in srgb,var(--accent) 30%,var(--sep))"><b>'+esc(A.title)+'</b><p class="m" style="margin-top:4px">'+esc(A.intro)+'</p><div class="row" style="margin-top:10px;justify-content:flex-end"><button class="btn sm" data-act="introok">Got it</button></div></div>'}
 function renderPaywall(){var me=S.me,a=me.access,h=header(t('pw_title2'),'');var sel=S.payPlan||(me.plans[0]&&me.plans[0].id);S.payPlan=sel;
   h+='<div class="card"><div class="big">'+ic('lock','l')+'</div><h2 class="center">'+(a.reason==='blocked'?t('pw_title'):t('pw_title2'))+'</h2><p class="m center">'+(a.reason==='blocked'?t('pw_text',{n:a.freeAllowance}):t('pw_text2'))+'</p>'+
     '<ul class="feat"><li>'+ic('check')+t('f_unl')+'</li><li>'+ic('check')+t('f_size',{n:a.paidMaxMB})+'</li><li>'+ic('check')+t('f_all')+'</li></ul></div>';
@@ -733,6 +738,8 @@ document.addEventListener('click',function(ev){var el=ev.target.closest('[data-c
   case 'dlzip':Promise.all(S.results.map(function(r){return readBuf(r.blob).then(function(b){return{name:r.name,data:new Uint8Array(b)}})})).then(function(fs){saveBlob(makeZip(fs),baseName(S.files[0]?S.files[0].file.name:'files')+'.zip')});return;
   case 'sendall':return sendResults(null);
   case 'account':return go('account');
+  case 'help':return go('help');
+  case 'introok':lsSet('pdft_intro',true);return render();
   case 'paywall':S.err='';S.disc=null;S.codeErr='';return go('paywall');
   case 'settings':S.adminMsg='';go('settings');return loadAdmin();
   case 'addplan':S.admin.settings=collectSettings();S.admin.settings.plans.push({id:'plan_'+(S.admin.settings.plans.length+1),label:'New plan',days:30,usd:1,stars:75,region:'GLOBAL'});return render();

@@ -797,6 +797,11 @@ function connectTelegram() {
   if (!whSecret) { whSecret = Utilities.getUuid().replace(/-/g, ''); setProp('WEBHOOK_SECRET_' + app, whSecret); }
   Logger.log(tgCall(token, 'setWebhook', { url: THIS_APP.url + '/api/telegram', secret_token: whSecret, drop_pending_updates: true,
     allowed_updates: ['message', 'pre_checkout_query', 'my_chat_member', 'chat_join_request'] }));
+  // What users see before pressing Start (English): short line + "What can this bot do?" text.
+  if (typeof APP_ABOUT !== 'undefined') {
+    Logger.log(tgCall(token, 'setMyShortDescription', { short_description: APP_ABOUT.short.slice(0, 120) }));
+    Logger.log(tgCall(token, 'setMyDescription', { description: APP_ABOUT.long.slice(0, 512) }));
+  }
   Logger.log(tgCall(token, 'setChatMenuButton', { menu_button: { type: 'web_app', text: THIS_APP.button, web_app: { url: THIS_APP.url } } }));
   Logger.log(tgCall(token, 'setMyCommands', { commands: [
     { command: 'start', description: 'Open the app' }, { command: 'paysupport', description: 'Payment support' }, { command: 'terms', description: 'Terms of service' } ] }));

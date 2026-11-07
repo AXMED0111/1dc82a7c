@@ -182,6 +182,9 @@ table.tb{width:100%;border-collapse:collapse;font-size:13px}table.tb td{padding:
 .ht.warn:before{background:#f79009}.ht.bad:before{background:var(--danger)}
 .ht b{font-size:16px}.ht span{font-size:11.5px;color:var(--hint)}.ht small{font-size:10.5px;color:var(--hint)}.ht .dot{display:none}
 details summary{cursor:pointer}
+.intro{border-color:color-mix(in srgb,var(--accent) 30%,var(--sep));background:linear-gradient(160deg,color-mix(in srgb,var(--accent) 10%,var(--card)),var(--card) 60%)}
+.intro .ii{width:36px;height:36px;border-radius:10px;display:grid;place-items:center;background:var(--accent);color:var(--accent-text);flex:none}
+.faq summary{list-style:none}.faq summary::-webkit-details-marker{display:none}.faq summary:after{content:'+';float:right;color:var(--hint);font-weight:700}.faq[open] summary:after{content:'–'}
 @media (prefers-reduced-motion:reduce){#app>*,.sk{animation:none}.btn,.chrow,.tool{transition:none}}
 </style>
 <svg width="0" height="0" style="position:absolute" aria-hidden="true">
@@ -248,6 +251,7 @@ details summary{cursor:pointer}
 </svg>
 <div class="wrap" id="app"></div>
 <input type="file" id="cam" accept="image/*" capture="environment" class="hide">
+<script>window.APP_ABOUT={"short": "Earn money doing small tasks near you, or get real photos and data from the field for your business.", "long": "Field Tasks connects businesses with local people.\n\nFor workers:\n• See paid tasks in your city (photos, prices, short questions)\n• Do the task, submit, and get paid in USDT when it is approved\n\nFor businesses and NGOs:\n• Post a task, choose how many answers you need and pay once\n• Review photos, GPS and answers, and download a report\n\nTap Start, then open the app.", "title": "Small paid tasks · real field data", "intro": "Workers earn by doing short tasks nearby. Businesses get real photos, prices and answers from the field.", "steps": ["Workers: enter your city, pick a task and follow the instructions (photo, location, answers).", "Submit — the business reviews it and approved work is added to your balance.", "Withdraw your balance in USDT once it reaches the minimum."], "faq": [["When do I get paid?", "When the business approves your submission. Withdrawals are sent within 48 hours."], ["Why was my submission rejected?", "The business gives a reason. Common causes: blurry photo, wrong place or missing answers."], ["How do businesses pay?", "The full budget (rewards plus platform fee) is paid when the task is published."]]};</script>
 <script>
 /* Shared Mini App kit: Telegram, i18n (SO/EN), API + DEMO backend, payments, admin settings.
    Injected into every app by tools/build.py. Apps call K.app({...}). */
@@ -578,10 +582,12 @@ function header(title, sub, right) {
   return '<div class="top">' + (showBack ? '<button class="ibtn" data-act="back" aria-label="' + t('back') + '">' + ic('back') + '</button>' : '<div class="logo">' + ic(APP.icon || 'logo') + '</div>') +
     '<div class="grow"><h1>' + esc(title) + '</h1>' + (sub ? '<div class="sub">' + esc(sub) + '</div>' : '') + '</div>' + (right || '') +
     '<div class="lang"><button data-lang="so" class="' + (LANG === 'so' ? 'on' : '') + '">SO</button><button data-lang="en" class="' + (LANG === 'en' ? 'on' : '') + '">EN</button></div>' +
-    (S.me && S.me.ref && S.me.ref.on && !S.stack.length ? '<button class="ibtn" data-act="invite" aria-label="' + t('invite') + '">' + ic('users') + '</button>' : '') +
+    (window.APP_ABOUT && APP_ABOUT.title && !S.stack.length ? '<button class="ibtn" data-act="help" aria-label="Help">' + ic('info') + '</button>' : '') +
     (S.me && S.me.isAdmin ? '<button class="ibtn" data-act="settings" aria-label="' + t('settings') + '">' + ic('settings') + '</button>' : '') + '</div>';
 }
-function banners() { var h = ''; if (DEMO) h += '<div class="banner">' + ic('info', 's') + '<span>' + t('demo_banner') + '</span></div>';
+function banners() { var h = '', A = window.APP_ABOUT;
+  if (A && A.intro && S.screen === 'home' && !lsGet('intro_' + CFG.appId, false)) h += '<div class="card intro"><div class="row" style="align-items:flex-start;gap:12px"><div class="ii">' + ic('info') + '</div><div class="grow"><b>' + esc(A.title) + '</b><p class="m" style="margin-top:4px">' + esc(A.intro) + '</p>' +
+    '<ol class="steps" style="margin-top:8px">' + (A.steps || []).map(function (x) { return '<li>' + esc(x) + '</li>'; }).join('') + '</ol></div></div><div class="row" style="margin-top:10px;justify-content:flex-end"><button class="btn sm ghost" data-act="help">Learn more</button><button class="btn sm" data-act="introok">Got it</button></div></div>'; if (DEMO) h += '<div class="banner">' + ic('info', 's') + '<span>' + t('demo_banner') + '</span></div>';
   if (S.me && S.me.error) h += '<div class="banner bad">' + ic('alert', 's') + '<span class="grow">' + t(S.me.error === 'offline' ? 'e_offline' : 'e_server') + '</span><button class="btn sm" data-act="retryinit">' + t('retry') + '</button></div>';
   if (S.me && S.me.maintenance) h += '<div class="banner warn">' + ic('clock', 's') + '<span><b>' + t('maint') + '.</b> ' + esc(typeof S.me.maintenance === 'string' ? S.me.maintenance : t('maint_text')) + '</span></div>';
   if (S.me && S.me.access && S.me.access.reason === 'test') h += '<div class="banner">' + ic('shield', 's') + '<span>' + t('test_banner') + '</span></div>';
@@ -648,6 +654,15 @@ var BUILTIN = {
       (me.user && me.user.id ? kv(t('acc_id'), me.user.id) : '') + (me.support ? kv(t('support'), me.support) : '') + '</div>';
     if (me.plans.length) h += '<button class="btn" data-act="paywall">' + ic('star') + t('upgrade') + '</button>';
     if (me.ref && me.ref.on) h += '<button class="btn sec2" data-act="invite">' + ic('users') + t('invite') + '</button>';
+    return h;
+  },
+  help: function () {
+    var A = window.APP_ABOUT || {}, h = header('How it works', A.title || '');
+    h += '<div class="card"><p class="m" style="color:var(--text)">' + esc(A.intro || '') + '</p><ol class="steps" style="margin-top:10px">' + (A.steps || []).map(function (x) { return '<li>' + esc(x) + '</li>'; }).join('') + '</ol></div>';
+    if (A.faq && A.faq.length) h += '<div class="sec">Questions</div>' + A.faq.map(function (q) { return '<details class="card faq"><summary><b>' + esc(q[0]) + '</b></summary><p class="m" style="margin-top:8px">' + esc(q[1]) + '</p></details>'; }).join('');
+    if (S.me && S.me.support) h += '<div class="card">' + kv(t('support'), S.me.support, true) + '</div>';
+    if (S.me && S.me.ref && S.me.ref.on) h += '<button class="btn sec2" data-act="invite">' + ic('users') + t('invite') + '</button>';
+    if (S.me && S.me.plans && S.me.plans.length) h += '<button class="btn ghost" data-act="account">' + ic('star') + t('my_plan') + '</button>';
     return h;
   },
   invite: function () {
@@ -818,6 +833,8 @@ document.addEventListener('click', function (ev) {
     case 'codetgl': api(capi() ? capi().toggle : 'adminCodeToggle', Object.assign(capi() ? capi().extra() : {}, { code: el.dataset.code, active: el.dataset.on !== '1' })).then(function () { reloadCodes(); }); return;
     case 'revpdf': var scope = el.dataset.scope;
       showReport(function () { return api('adminRevenue', { scope: scope }).then(revenueReport); }, 'revenue-' + (scope === 'all' ? 'all-apps' : CFG.appId) + '-' + new Date().toISOString().slice(0, 7) + '.pdf'); return;
+    case 'help': return go('help');
+    case 'introok': lsSet('intro_' + CFG.appId, true); return render();
     case 'retryinit': S.me = null; render(); refreshMe().then(enter); return;
     case 'repdl': if (S.rep && S.rep.blob) saveBlob(S.rep.blob, S.rep.name); return;
     case 'repsend': if (!S.rep || !S.rep.blob) return; toast('…');

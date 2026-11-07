@@ -98,6 +98,8 @@ E.run('cronDaily()'); ok('backup deduplicated per day', Object.values(E.ctx.Driv
 r = E.call(ADMIN, 'adminHealth'); ok('health report', r.ok && r.totals.requests > 10 && r.lastBackup && r.crons.daily && r.sheet.cells > 0 && Array.isArray(r.recentErrors) && r.webhook, r.totals);
 E.run('cronDaily(); cronHourly(); cronUsdt();'); ok('crons run', true);
 
+E.props.WEBHOOK_SECRET_converter = 'w'; E.run('connectTelegram()');
+ok('connectTelegram sets English bot descriptions', E.sent.some((x) => x.method === 'setMyShortDescription' && /PDF/.test(x.payload)) && E.sent.some((x) => x.method === 'setMyDescription'));
 section('gatekeeper');
 E = makeEnv('gatekeeper');
 E.server('gkBotStatus', { chat: { id: -100555, title: 'VIP Signals', type: 'channel' }, from_id: 2002, status: 'administrator', can_invite: true, can_restrict: true });

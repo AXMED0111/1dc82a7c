@@ -50,5 +50,8 @@ table.tb{width:100%;border-collapse:collapse;font-size:13px}table.tb td{padding:
 .ht.warn:before{background:#f79009}.ht.bad:before{background:var(--danger)}
 .ht b{font-size:16px}.ht span{font-size:11.5px;color:var(--hint)}.ht small{font-size:10.5px;color:var(--hint)}.ht .dot{display:none}
 details summary{cursor:pointer}
+.intro{border-color:color-mix(in srgb,var(--accent) 30%,var(--sep));background:linear-gradient(160deg,color-mix(in srgb,var(--accent) 10%,var(--card)),var(--card) 60%)}
+.intro .ii{width:36px;height:36px;border-radius:10px;display:grid;place-items:center;background:var(--accent);color:var(--accent-text);flex:none}
+.faq summary{list-style:none}.faq summary::-webkit-details-marker{display:none}.faq summary:after{content:'+';float:right;color:var(--hint);font-weight:700}.faq[open] summary:after{content:'–'}
 @media (prefers-reduced-motion:reduce){#app>*,.sk{animation:none}.btn,.chrow,.tool{transition:none}}
 </style>

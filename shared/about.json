@@ -1,0 +1,66 @@
+{
+ "gatekeeper": {
+  "short": "Sell paid access to your private Telegram channel. Members are added and removed automatically.",
+  "long": "Channel Pass turns your private Telegram channel or group into a paid membership.\n\n• Set your prices (for example 1 month or 3 months)\n• Share one link — buyers pay with Telegram Stars, USDT or local mobile money\n• The bot lets paid members in, reminds them before their access ends, and removes them when it expires\n• See your members, earnings and send messages to everyone\n\nTap Start, then open the app.",
+  "title": "Paid access to your private channel",
+  "intro": "Add this bot as an admin of your private channel, set your prices and share your link. Buyers pay, the bot lets them in and removes them when their plan ends.",
+  "steps": ["Add the bot as admin of your private channel (rights: invite users, ban users).", "Open the channel in this app, add your plans and prices, then publish.", "Share your link. Payments, joining, reminders and removals happen automatically."],
+  "faq": [["How do I get paid?", "Buyers pay the platform. Your earnings minus the platform fee are paid to the payout details you enter on your channel page."], ["What happens when a membership ends?", "The member is reminded 2 days before, then removed automatically. They can pay again any time to come back."], ["Can I give someone free days?", "Yes. Open Members, choose the person and tap Extend access."], ["Can I make discount codes?", "Yes. On your channel page tap Discount codes, e.g. VIP20 for 20% off."]]
+ },
+ "coach": {
+  "short": "Practise job, visa and scholarship interviews out loud and get a score with clear feedback.",
+  "long": "Interview Coach helps you prepare for real interviews.\n\n• Choose: job interview, student visa interview, scholarship interview or English speaking\n• Read the question and record your answer with your voice\n• Get a score for content, structure, clarity and confidence\n• See what went well, what to improve and a stronger example answer\n\nYour first sessions are free. Tap Start, then open the app.",
+  "title": "Practise interviews and get feedback",
+  "intro": "Pick an interview type, answer the question out loud and get a score with clear advice on how to improve.",
+  "steps": ["Choose the interview type (job, visa, scholarship or English).", "Tap the red button and answer out loud for 45–90 seconds.", "Tap Get feedback to see your score, tips and a stronger example answer."],
+  "faq": [["Is my recording saved?", "No. The audio is used only to score your answer. We keep your score and the question, not the recording."], ["Which language should I answer in?", "Answer in the language of your real interview — usually English."], ["What if scoring fails?", "You are not charged. Try again in a moment."]]
+ },
+ "translator": {
+  "short": "Photo of a certificate or ID in — a clear English, Arabic or Somali translation PDF out.",
+  "long": "Document Translator turns a photo of an official document into a clean, readable translation.\n\n• Birth and marriage certificates, passports and ID cards, diplomas and transcripts\n• Translate into English, Arabic or Somali\n• Check and correct the details, then download the PDF or receive it in this chat\n\nImportant: this is an unofficial translation. For official use, have it certified by a sworn translator.\n\nTap Start, then open the app.",
+  "title": "Translate official documents",
+  "intro": "Take a clear photo of your document, choose the language and get a neat translation you can check, edit and download as PDF.",
+  "steps": ["Choose the document type and the language to translate into.", "Take a photo or choose one from your gallery (up to 3 pages).", "Check the details, correct anything if needed, then download the PDF or send it to your chat."],
+  "faq": [["Is this an official translation?", "No. It is an unofficial translation made with automated tools. Ask a sworn translator if you need a certified one."], ["Are my photos stored?", "No. Photos are used only to make the translation and are not kept."], ["The text is wrong — what can I do?", "Edit any field before you download. A sharper photo in good light also helps."]]
+ },
+ "rsvp": {
+  "short": "Wedding and event invitations: RSVPs, guest list and QR check-in at the door.",
+  "long": "Invitations makes event planning simple.\n\n• Create a beautiful invitation in a minute (date, venue, map, message)\n• Send it with one link, or give every guest a personal link\n• Guests reply Attending / Maybe / Can't attend and get a QR ticket\n• Scan tickets at the door and see live numbers\n\nTap Start, then open the app.",
+  "title": "Invitations, RSVPs and check-in",
+  "intro": "Create your invitation, share it, see who is coming and scan QR tickets at the door.",
+  "steps": ["Create your event: title, date, time, venue and a message.", "Publish and share the link, or add guests and send each a personal link.", "On the day, open Check-in and scan each guest's QR ticket."],
+  "faq": [["Do guests need to install anything?", "No. They open the link in Telegram and reply in seconds."], ["Can I limit how many people a guest brings?", "Yes. Add a number after the guest's name, for example \"Amina Ali, 3\"."], ["Can I get the guest list as a file?", "Yes. Open your event and tap Guest list PDF."]]
+ },
+ "scholar": {
+  "short": "Find scholarships that match your profile and get reminders before deadlines.",
+  "long": "Scholarship Finder shows scholarships that fit you.\n\n• Enter your country, study level and field once\n• See matching scholarships with funding and deadline\n• Save your favourites and get reminders 14, 7 and 2 days before deadlines\n• Download your shortlist as a PDF\n\nAlways confirm details on the official website before applying. Tap Start, then open the app.",
+  "title": "Scholarships that match you",
+  "intro": "Fill in your profile once and see the scholarships you can apply for, with deadlines and official links.",
+  "steps": ["Set your profile: country, study level, field and funding you need.", "Browse your matches — the best fit is at the top.", "Save the ones you like and get a reminder before each deadline."],
+  "faq": [["Are the details always correct?", "We list each program's official website. Always confirm the details and deadline there before applying."], ["What does the match % mean?", "How well the scholarship fits your level, country, field, funding need and language test."], ["How do deadline reminders work?", "With Pro, the bot sends you a message 14, 7 and 2 days before deadlines of saved and top-matching scholarships."]]
+ },
+ "debt": {
+  "short": "Record customer credit in your shop and send polite payment reminders.",
+  "long": "Debt Book replaces the paper notebook for shops that sell on credit.\n\n• Add customers and record credit sales and payments\n• See who owes what and who is overdue\n• Send polite reminders by WhatsApp, SMS or Telegram in one tap\n• Customers can see their own statement; the bot can remind them automatically\n• Financial reports as PDF (Pro)\n\nTap Start, then open the app.",
+  "title": "Customer credit, simply recorded",
+  "intro": "Record what customers buy on credit and what they pay. See who is overdue and send a polite reminder in one tap.",
+  "steps": ["Add a customer (name and phone).", "Record each credit sale and each payment — the balance updates itself.", "Tap Send reminder, or send the customer their link once so the bot reminds them automatically."],
+  "faq": [["Can customers see my other customers?", "No. Each customer sees only their own statement."], ["Which currency can I use?", "Choose your currency in Shop settings (USD, SOS, KES, ETB and more)."], ["How do automatic reminders work?", "When a customer opens their statement link once, the bot can remind them weekly or on the due date — you choose in Shop settings."]]
+ },
+ "market": {
+  "short": "Earn money doing small tasks near you, or get real photos and data from the field for your business.",
+  "long": "Field Tasks connects businesses with local people.\n\nFor workers:\n• See paid tasks in your city (photos, prices, short questions)\n• Do the task, submit, and get paid in USDT when it is approved\n\nFor businesses and NGOs:\n• Post a task, choose how many answers you need and pay once\n• Review photos, GPS and answers, and download a report\n\nTap Start, then open the app.",
+  "title": "Small paid tasks · real field data",
+  "intro": "Workers earn by doing short tasks nearby. Businesses get real photos, prices and answers from the field.",
+  "steps": ["Workers: enter your city, pick a task and follow the instructions (photo, location, answers).", "Submit — the business reviews it and approved work is added to your balance.", "Withdraw your balance in USDT once it reaches the minimum."],
+  "faq": [["When do I get paid?", "When the business approves your submission. Withdrawals are sent within 48 hours."], ["Why was my submission rejected?", "The business gives a reason. Common causes: blurry photo, wrong place or missing answers."], ["How do businesses pay?", "The full budget (rewards plus platform fee) is paid when the task is published."]]
+ },
+ "converter": {
+  "short": "Images to PDF, merge, split and PDF to images — right on your phone.",
+  "long": "PDF Tools does everyday document jobs on your phone.\n\n• Turn photos and scans into one PDF\n• Merge several PDFs into one\n• Split a PDF or take out pages\n• Save each page as JPG or PNG\n\nFiles are processed on your device. Your first 2 conversions are free. Tap Start, then open the app.",
+  "title": "Everyday PDF tools",
+  "intro": "Pick a tool, choose your files and download the result or receive it in this chat.",
+  "steps": ["Choose a tool: Images to PDF, Merge, Split or PDF to images.", "Add your files and choose the options.", "Tap the button and download the result or send it to your Telegram chat."],
+  "faq": [["Are my files uploaded?", "No. Files are processed on your phone. They leave your device only if you choose to send the result to your chat."], ["How many free conversions do I get?", "Two in total. After that a subscription gives unlimited use and bigger files."]]
+ }
+}
