@@ -212,6 +212,7 @@ function route(req) {
     case 'init': return initPayload(ctx);
     case 'consume': return consume(ctx, req);
     case 'sendFile': return sendFile(ctx, req);
+    case 'sendReport': return sendReport(ctx, req);
     case 'createOrder': return createOrder(ctx, req);
     case 'checkOrder': return checkOrder(ctx, req);
     case 'submitManual': return submitManual(ctx, req);
@@ -280,6 +281,22 @@ function sendFile(ctx, req) {
   if (!r.ok) return { ok: false, error: r.error_code === 403 ? 'write_access' : 'telegram_' + r.error_code };
   return { ok: true };
 }
+
+// PDF reports made in the app: PDF only, max 8 MB, max 30 per user per day (stops the bot being used as free file hosting).
+function sendReport(ctx, req) {
+  if (!ctx.token) return { ok: false, error: 'bot_not_configured' };
+  var c = CacheService.getScriptCache(), k = 'rep_' + ctx.app + '_' + ctx.uid + '_' + new Date().toISOString().slice(0, 10), n = Number(c.get(k) || 0);
+  if (n >= 30) return { ok: false, error: 'limit' };
+  var bytes = Utilities.base64Decode(String(req.data || ''));
+  if (bytes.length > 8 * 1024 * 1024) return { ok: false, error: 'too_large' };
+  if (bytes.length < 5 || String.fromCharCode(bytes[0], bytes[1], bytes[2], bytes[3]) !== '%PDF') return { ok: false, error: 'not_pdf' };
+  var name = String(req.name || 'report.pdf').replace(/[^\w\-. ]+/g, '_').slice(0, 80); if (!/\.pdf$/i.test(name)) name += '.pdf';
+  var r = tgCall(ctx.token, 'sendDocument', { chat_id: ctx.uid, document: Utilities.newBlob(bytes, 'application/pdf', name) });
+  if (!r.ok) return { ok: false, error: r.error_code === 403 ? 'write_access' : 'telegram_' + r.error_code };
+  c.put(k, String(n + 1), 86400);
+  return { ok: true };
+}
+function isPro(ctx) { var a = accessFor(ctx); return a.reason === 'sub' || a.reason === 'test'; }
 
 /* ======================= PAYMENTS ======================= */
 function newOrderId() { return 'O' + Date.now().toString(36).toUpperCase() + Math.floor(Math.random() * 1e4).toString(36).toUpperCase(); }

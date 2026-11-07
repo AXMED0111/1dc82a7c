@@ -256,7 +256,8 @@ en: {
   verify_phone: 'Verify phone number', verify_text: 'Local payment methods need a verified phone number.',
   paid_ok: 'Payment confirmed. Thank you.', no_methods: 'Payments are not set up yet. Please check back soon.',
   pay_demo: 'Demo: simulate a successful payment?', open_in_tg: 'Open this app inside Telegram to pay with Stars.', continue: 'Continue',
-  my_plan: 'My plan', acc_status: 'Status', acc_free: 'Free plan', acc_used: 'Free uses', acc_exp: 'Expires', acc_id: 'Telegram ID', support: 'Support', upgrade: 'Upgrade'
+  my_plan: 'My plan', acc_status: 'Status', acc_free: 'Free plan', acc_used: 'Free uses', acc_exp: 'Expires', acc_id: 'Telegram ID', support: 'Support', upgrade: 'Upgrade',
+  rep_ready: 'Your report is ready', rep_making: 'Preparing your PDF…', rep_dl: 'Download PDF', rep_send: 'Send to my Telegram chat', rep_sent: 'Sent to your Telegram chat', rep_hint: 'If the download does not start inside Telegram, use “Send to my Telegram chat”.', rep_pro: 'PDF reports are part of Pro.', generated: 'Generated', page: 'Page'
 },
 so: {
   back: 'Dib', settings: 'Dejinta', save: 'Keydi', saved: 'Waa la keydiyay', cancel: 'Jooji', copied: 'Waa la koobiyeeyay', remove: 'Ka saar', edit: 'Wax ka beddel', add: 'Ku dar', done: 'Dhammaad', close: 'Xir', share: 'La wadaag', search: 'Raadi',
@@ -275,7 +276,8 @@ so: {
   verify_phone: 'Xaqiiji lambarka taleefanka', verify_text: 'Hababka lacag-bixinta gudaha waxay u baahan yihiin lambar la xaqiijiyay.',
   paid_ok: 'Lacag-bixinta waa la xaqiijiyay. Mahadsanid.', no_methods: 'Lacag-bixinta weli lama diyaarin. Fadlan dib u eeg.',
   pay_demo: 'Demo: ma la jilaa lacag-bixin guulaysatay?', open_in_tg: 'App-kan ka fur Telegram si aad Stars ugu bixiso.', continue: 'Sii wad',
-  my_plan: 'Qorshahayga', acc_status: 'Xaaladda', acc_free: 'Qorshe bilaash', acc_used: 'Isticmaalka bilaashka', acc_exp: 'Wuxuu dhacayaa', acc_id: 'Aqoonsiga Telegram', support: 'Taageero', upgrade: 'U gudub Pro'
+  my_plan: 'Qorshahayga', acc_status: 'Xaaladda', acc_free: 'Qorshe bilaash', acc_used: 'Isticmaalka bilaashka', acc_exp: 'Wuxuu dhacayaa', acc_id: 'Aqoonsiga Telegram', support: 'Taageero', upgrade: 'U gudub Pro',
+  rep_ready: 'Warbixintaadu waa diyaar', rep_making: 'PDF-ka ayaa la diyaarinayaa…', rep_dl: 'Soo deji PDF', rep_send: 'U dir sheekadayda Telegram', rep_sent: 'Waa loo diray sheekadaada Telegram', rep_hint: 'Haddii soo dejintu aysan ka bilaabmin Telegram, isticmaal “U dir sheekadayda Telegram”.', rep_pro: 'Warbixinnada PDF waxay ka mid yihiin Pro.', generated: 'La sameeyay', page: 'Bogga'
 }};
 var LANG;
 function t(k, v) {
@@ -298,6 +300,86 @@ function appLink(arg) {
   if (CFG.botUsername) return 'https://t.me/' + CFG.botUsername + (arg ? '?start=' + arg : '');
   var i = arg ? arg.indexOf('_') : -1;
   return location.origin + location.pathname + (arg ? '?' + (i > 0 ? arg.slice(0, i) + '=' + arg.slice(i + 1) : 'startapp=' + arg) : '');
+}
+/* ---------------- PDF reports (shared engine) ----------------
+   K.report({title, subtitle, meta:[[k,v]], rtl, blocks:[{h}, {kpis:[[label,value,tone]]}, {table:{cols:[{label,w,align}], rows:[[...]], total:[...]}},
+   {text}, {images:[{src,caption}]}]}) -> Promise<Blob>. Pages are drawn on canvas (correct Arabic/Somali text) and wrapped with pdf-lib. */
+var scriptCache = {};
+function loadScript(src) { return scriptCache[src] || (scriptCache[src] = new Promise(function (r, j) { var s = document.createElement('script'); s.src = src; s.onload = r; s.onerror = function () { delete scriptCache[src]; j(new Error('load')); }; document.head.appendChild(s); })); }
+function loadImg(src) { return new Promise(function (r) { if (!src) return r(null); var im = new Image(); im.onload = function () { r(im); }; im.onerror = function () { r(null); }; im.src = src; }); }
+function report(R) {
+  var W = 1240, H = 1754, M = 90, rtl = !!R.rtl, ACC = '#2457d6', pages = [], c, x, y, pageNo = 0, FONT = 'Arial, "Noto Sans", sans-serif';
+  var imgs = [];
+  (R.blocks || []).forEach(function (b) { if (b.images) b.images.forEach(function (i) { imgs.push(i); }); });
+  return Promise.all(imgs.map(function (i) { return loadImg(i.src).then(function (im) { i._im = im; }); })).then(function () {
+    function X(px) { return rtl ? W - px : px; }
+    function txt(s, px, py, font, color, align) { x.font = font; x.fillStyle = color || '#101828'; x.textAlign = align ? (rtl ? (align === 'left' ? 'right' : align === 'right' ? 'left' : 'center') : align) : (rtl ? 'right' : 'left'); x.fillText(String(s == null ? '' : s), X(px), py); }
+    function fit(s, maxW, font) { x.font = font; s = String(s == null ? '' : s); if (x.measureText(s).width <= maxW) return s; while (s.length > 1 && x.measureText(s + '…').width > maxW) s = s.slice(0, -1); return s + '…'; }
+    function page() {
+      c = document.createElement('canvas'); c.width = W; c.height = H; x = c.getContext('2d'); x.direction = rtl ? 'rtl' : 'ltr'; x.fillStyle = '#fff'; x.fillRect(0, 0, W, H);
+      pages.push(c); pageNo++; x.fillStyle = ACC; x.fillRect(0, 0, W, 14);
+      if (pageNo === 1) {
+        txt(R.brand || '', M, 70, '600 22px ' + FONT, '#667085');
+        txt(R.title, M, 128, '700 46px ' + FONT, '#101828'); var yy = 170;
+        if (R.subtitle) { txt(R.subtitle, M, yy, '400 26px ' + FONT, '#475467'); yy += 38; }
+        (R.meta || []).forEach(function (m) { txt(m[0] + ': ' + m[1], M, yy, '400 22px ' + FONT, '#667085'); yy += 32; });
+        y = yy + 16; x.fillStyle = '#e4e7ec'; x.fillRect(M, y, W - 2 * M, 2); y += 34;
+      } else { txt(R.title, M, 64, '600 22px ' + FONT, '#667085'); y = 100; }
+    }
+    function need(h) { if (y + h > H - M - 50) { page(); return true; } return false; }
+    function wrapText(s, font, lh, maxW) { x.font = font; String(s || '').split('\n').forEach(function (par) { var line = ''; par.split(' ').forEach(function (w) { var tt = line ? line + ' ' + w : w; if (x.measureText(tt).width > maxW && line) { need(lh); txt(line, M, y + lh * 0.75, font); y += lh; line = w; } else line = tt; }); need(lh); txt(line, M, y + lh * 0.75, font); y += lh; }); }
+    page();
+    (R.blocks || []).forEach(function (b) {
+      if (b.h) { need(80); y += 12; txt(b.h, M, y + 30, '700 28px ' + FONT, '#101828'); y += 52; }
+      if (b.text) { wrapText(b.text, '400 23px ' + FONT, 34, W - 2 * M); y += 10; }
+      if (b.kpis) {
+        var n = Math.min(4, b.kpis.length), gap = 18, bw = (W - 2 * M - gap * (n - 1)) / n;
+        for (var i = 0; i < b.kpis.length; i += n) { need(130);
+          b.kpis.slice(i, i + n).forEach(function (k, j) { var bx = M + j * (bw + gap); x.fillStyle = '#f2f5fb'; x.fillRect(rtl ? W - bx - bw : bx, y, bw, 112);
+            txt(fit(k[0], bw - 36, '600 20px ' + FONT), bx + 18, y + 38, '600 20px ' + FONT, '#667085');
+            txt(fit(k[1], bw - 36, '700 34px ' + FONT), bx + 18, y + 88, '700 34px ' + FONT, k[2] === 'bad' ? '#d92d20' : k[2] === 'good' ? '#079455' : '#101828'); });
+          y += 130; }
+      }
+      if (b.table) {
+        var T = b.table, tw = W - 2 * M, cols = T.cols, tot = cols.reduce(function (a, cc) { return a + (cc.w || 1); }, 0), xs = [], acc = 0;
+        cols.forEach(function (cc) { xs.push(M + acc / tot * tw); acc += cc.w || 1; });
+        function head() { x.fillStyle = '#101828'; x.fillRect(M, y, tw, 44); cols.forEach(function (cc, i) { var cw = (cc.w || 1) / tot * tw; txt(fit(cc.label, cw - 20, '600 19px ' + FONT), cc.align === 'right' ? xs[i] + cw - 10 : xs[i] + 10, y + 29, '600 19px ' + FONT, '#fff', cc.align === 'right' ? 'right' : null); }); y += 44; }
+        function row(r, bold, idx) { if (need(40)) head(); if (idx % 2) { x.fillStyle = '#f8f9fb'; x.fillRect(M, y, tw, 40); }
+          var f = (bold ? '700 ' : '400 ') + '20px ' + FONT; cols.forEach(function (cc, i) { var cw = (cc.w || 1) / tot * tw, v = r[i], tone = null;
+            if (v && typeof v === 'object') { tone = v.tone; v = v.v; }
+            txt(fit(v, cw - 20, f), cc.align === 'right' ? xs[i] + cw - 10 : xs[i] + 10, y + 27, f, tone === 'bad' ? '#d92d20' : tone === 'good' ? '#079455' : '#101828', cc.align === 'right' ? 'right' : null); });
+          y += 40; }
+        need(90); head(); (T.rows || []).forEach(function (r, i) { row(r, false, i); });
+        if (!T.rows || !T.rows.length) { need(40); txt(T.empty || '—', M + 10, y + 27, '400 20px ' + FONT, '#667085'); y += 40; }
+        if (T.total) { x.fillStyle = '#101828'; x.fillRect(M, y, tw, 2); y += 4; row(T.total, true, 0); }
+        y += 22;
+      }
+      if (b.images) {
+        var per = 3, g = 16, iw = (W - 2 * M - g * (per - 1)) / per, ih = iw * 0.75;
+        for (var k = 0; k < b.images.length; k += per) { need(ih + 50);
+          b.images.slice(k, k + per).forEach(function (im, j) { var ix = M + j * (iw + g), rx = rtl ? W - ix - iw : ix; x.fillStyle = '#f2f4f7'; x.fillRect(rx, y, iw, ih);
+            if (im._im) { var sc = Math.max(iw / im._im.width, ih / im._im.height), sw = iw / sc, shh = ih / sc; x.drawImage(im._im, (im._im.width - sw) / 2, (im._im.height - shh) / 2, sw, shh, rx, y, iw, ih); }
+            txt(fit(im.caption || '', iw, '400 18px ' + FONT), ix, y + ih + 26, '400 18px ' + FONT, '#475467'); });
+          y += ih + 44; }
+      }
+    });
+    var stamp = t('generated') + ' ' + new Date().toISOString().slice(0, 16).replace('T', ' ') + ' UTC';
+    pages.forEach(function (pc, i) { x = pc.getContext('2d'); x.direction = rtl ? 'rtl' : 'ltr'; x.fillStyle = '#e4e7ec'; x.fillRect(M, H - M - 20, W - 2 * M, 1);
+      txt(R.footer || stamp, M, H - M + 14, '400 18px ' + FONT, '#98a2b3'); txt(t('page') + ' ' + (i + 1) + ' / ' + pages.length, W - M, H - M + 14, '400 18px ' + FONT, '#98a2b3', 'right'); if (R.footer) txt(stamp, M, H - M + 40, '400 16px ' + FONT, '#98a2b3'); });
+    return loadScript('vendor/pdf-lib.min.js');
+  }).then(function () { return PDFLib.PDFDocument.create(); }).then(function (doc) {
+    doc.setTitle(R.title); doc.setProducer(R.brand || 'Mini App'); var p = Promise.resolve();
+    pages.forEach(function (pc) { p = p.then(function () { return fetch(pc.toDataURL('image/jpeg', 0.88)).then(function (r) { return r.arrayBuffer(); }).then(function (b) { return doc.embedJpg(b); })
+      .then(function (im) { doc.addPage([595.28, 841.89]).drawImage(im, { x: 0, y: 0, width: 595.28, height: 841.89 }); pc.width = pc.height = 0; }); }); });
+    return p.then(function () { return doc.save(); });
+  }).then(function (bytes) { return new Blob([bytes], { type: 'application/pdf' }); });
+}
+function saveBlob(blob, name) { var u = URL.createObjectURL(blob), a = document.createElement('a'); a.href = u; a.download = name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(function () { URL.revokeObjectURL(u); }, 60000); }
+/* Build a report and show the "report ready" screen. def = K.report() definition (or a function returning a Promise of one). */
+function showReport(def, name) {
+  S.rep = { busy: true, name: name }; go('report');
+  Promise.resolve(typeof def === 'function' ? def() : def).then(report).then(function (b) { S.rep = { blob: b, name: name }; haptic('ok'); render(); })
+    .catch(function (e) { console.error(e); S.rep = null; S.err = t('e_gen'); back(); });
 }
 function fileB64(file, maxPx, q) { // images are downscaled to save data on low-end phones
   return new Promise(function (res, rej) {
@@ -442,7 +524,16 @@ var BUILTIN = {
     if (me.plans.length) h += '<button class="btn" data-act="paywall">' + ic('star') + t('upgrade') + '</button>';
     return h;
   },
-  settings: function () { return renderSettings(); }
+  settings: function () { return renderSettings(); },
+  report: function () {
+    var r = S.rep || {}, h = header(t('rep_ready'), r.name || '');
+    if (r.busy) return h + '<div class="card center"><div class="spin" style="margin:6px auto 10px;color:var(--accent)"></div><p class="m">' + t('rep_making') + '</p></div>';
+    h += '<div class="card center"><div class="big good">' + ic('file', 'l') + '</div><h2>' + esc(r.name) + '</h2><p class="m">' + (r.blob ? Math.max(1, Math.round(r.blob.size / 1024)) + ' KB' : '') + '</p></div>';
+    if (IN_TG && !DEMO) h += '<button class="btn" data-act="repsend">' + ic('send') + t('rep_send') + '</button>';
+    h += '<button class="btn ' + (IN_TG && !DEMO ? 'sec2' : '') + '" data-act="repdl">' + ic('download') + t('rep_dl') + '</button>';
+    if (IN_TG) h += '<div class="note" style="margin-top:12px">' + ic('info', 's') + '<span>' + t('rep_hint') + '</span></div>';
+    return h + errBox();
+  }
 };
 function startPayment(method) {
   S.err = '';
@@ -535,6 +626,10 @@ document.addEventListener('click', function (ev) {
     case 'afterpay': if (S.pw && S.pw.after) return S.pw.after(); return home();
     case 'addplan': S.admin.settings = collectSettings(); S.admin.settings.plans.push({ id: 'plan_' + (S.admin.settings.plans.length + 1), label: 'New plan', days: 30, credits: 0, usd: 1, stars: 75, region: 'GLOBAL' }); return render();
     case 'savesettings': var st2 = collectSettings(); api('adminSave', { settings: st2 }).then(function (r) { if (r.ok) { S.admin.settings = st2; S.msg = 'Saved'; refreshMe().then(render); } else toast(r.error || 'Error'); }); return;
+    case 'repdl': if (S.rep && S.rep.blob) saveBlob(S.rep.blob, S.rep.name); return;
+    case 'repsend': if (!S.rep || !S.rep.blob) return; toast('…');
+      var fr = new FileReader(); fr.onload = function () { api('sendReport', { name: S.rep.name, data: String(fr.result).split(',')[1] }).then(function (r) {
+        if (r.ok) { toast(t('rep_sent')); haptic('ok'); } else if (r.error === 'write_access' && TG.requestWriteAccess) TG.requestWriteAccess(); else toast(t('e_gen')); }); }; fr.readAsDataURL(S.rep.blob); return;
     case 'resetme': api('adminResetMe').then(function () { refreshMe().then(function () { toast('Reset'); render(); }); }); return;
     case 'checkpay': api('checkOrder', { order_id: S.payment.order_id }).then(function (r) { if (r.ok && r.status === 'paid') return onPaid(r);
         if (DEMO && confirm(t('pay_demo'))) return api('demoPay', { order_id: S.payment.order_id }).then(onPaid); S.err = t('not_yet'); render(); }); return;
@@ -558,7 +653,7 @@ function app(def) {
   refreshMe().then(function () { enter(); });
 }
 
-return { app: app, CFG: CFG, TG: TG, IN_TG: IN_TG, TGU: TGU, QS: QS, START: START, EDITION: EDITION, DEMO: DEMO, MB: MB, S: S,
+return { app: app, report: report, showReport: showReport, saveBlob: saveBlob, loadScript: loadScript, isPro: function () { return S.me && /^(sub|test)$/.test(S.me.access.reason); }, CFG: CFG, TG: TG, IN_TG: IN_TG, TGU: TGU, QS: QS, START: START, EDITION: EDITION, DEMO: DEMO, MB: MB, S: S,
   t: t, esc: esc, ic: ic, fmtDate: fmtDate, money: money, uid: uid, toast: toast, copy: copy, openLink: openLink, shareTg: shareTg, haptic: haptic, appLink: appLink, param: param, fileB64: fileB64,
   lsGet: lsGet, lsSet: lsSet, api: api, refreshMe: refreshMe, go: go, back: back, home: home, render: render, header: header, banners: banners, planChip: planChip, spin: spin, errBox: errBox, empty: empty, kv: kv, seg: seg,
   paywall: paywall, needAccess: needAccess, consume: consume, lang: function () { return LANG; } };
@@ -569,7 +664,7 @@ return { app: app, CFG: CFG, TG: TG, IN_TG: IN_TG, TGU: TGU, QS: QS, START: STAR
 (function(){
 var t=K.t,esc=K.esc,ic=K.ic,S=K.S,api=K.api;
 var TOKEN=K.param('d');
-var D={book:null,cust:null,q:'',entryType:'debt',stmt:null,form:null};
+var D={period:'month',rep:null,book:null,cust:null,q:'',entryType:'debt',stmt:null,form:null};
 var CURRENCIES=['USD','SOS','SLSH','KES','ETB','DJF','UGX','TZS','AED','SAR','PKR','INR','BDT','EUR'];
 function m(n,c){n=+n||0;return(c||'USD')==='USD'?'$'+n.toFixed(2).replace(/\.00$/,''):n.toLocaleString('en-US',{maximumFractionDigits:2})+' '+c}
 function today(){return new Date().toISOString().slice(0,10)}
@@ -588,17 +683,18 @@ K.app({
   auto:'Automatic reminders',auto_on:'Linked — the bot sends reminders automatically.',auto_off:'Send this link once. When the customer opens it, the bot can remind them automatically.',send_link:'Send link',
   shop_name:'Shop name',currency:'Currency',freq:'Automatic reminders',f_off:'Off',f_weekly:'Weekly',f_due:'On due date',rlang:'Reminder language',
   stmt_title:'Account statement',stmt_from:'From {s}',paid_up:'Fully paid. Thank you.',not_found:'Statement not found.',search_ph:'Search customers',due_on:'due {d}',settled:'Settled',delete_entry:'Delete',delete_customer:'Delete customer',confirm_del:'Delete this customer and all records?',
-  e_amount:'Enter an amount.',e_name:'Enter a name.'},
+  e_amount:'Enter an amount.',e_name:'Enter a name.',reports:'Reports',fin_report:'Financial report',p_month:'This month',p_lastmonth:'Last month',p_year:'This year',p_all:'All time',credit_sales:'Credit sales',received:'Payments received',outstanding_now:'Outstanding today',overdue_amt:'Overdue',make_pdf:'Create PDF report',statement_pdf:'Statement PDF',pro_reports:'Financial reports and PDF statements are part of Pro.',see_pro:'See Pro plans',cust_balances:'Customer balances',transactions:'Transactions in the period',period:'Period',total:'Total',customer:'Customer',type:'Type',phone_l:'Phone',no_tx:'No transactions in this period.',stmt_for:'Statement for {n}'},
  so:{appName:'Buugga Deynta',tagline:'La soco deymaha macaamiisha oo dir xusuusin edeb leh',outstanding:'Deynta maqan',customers:'Macaamiisha',overdue:'Dib u dhacay',add_customer:'Ku dar macmiil',shop:'Dejinta dukaanka',
   no_customers:'Weli macmiil ma jiro. Ku dar dadka deynta wax ka iibsada.',name:'Magaca macmiilka',phone:'Taleefanka (WhatsApp / SMS)',save:'Keydi',balance:'Haraaga',add_debt:'Ku dar iib deyn ah',add_payment:'Diiwaangeli lacag-bixin',
   amount:'Qadarka',date:'Taariikhda',due:'Waqtiga bixinta (ikhtiyaari)',note:'Qoraal (ikhtiyaari)',note_ph:'tusaale bariis 2 kiish',history:'Taariikhda',debt:'Deyn',payment:'La bixiyay',remind:'Dir xusuusin',sms:'SMS',whatsapp:'WhatsApp',telegram:'Telegram',copy:'Koobi qoraalka',
   auto:'Xusuusin toos ah',auto_on:'Waa la xiray — bot-ku si toos ah ayuu u xusuusinayaa.',auto_off:'U dir link-gan hal mar. Marka macmiilku furo, bot-ku si toos ah ayuu u xusuusin karaa.',send_link:'Dir link-ga',
   shop_name:'Magaca dukaanka',currency:'Lacagta',freq:'Xusuusin toos ah',f_off:'Dansan',f_weekly:'Toddobaad kasta',f_due:'Maalinta bixinta',rlang:'Luqadda xusuusinta',
   stmt_title:'Warbixinta xisaabta',stmt_from:'Laga bilaabo {s}',paid_up:'Si buuxda ayaa loo bixiyay. Mahadsanid.',not_found:'Warbixinta lama helin.',search_ph:'Raadi macaamiisha',due_on:'waqtigu {d}',settled:'La dhammeeyay',delete_entry:'Tirtir',delete_customer:'Tirtir macmiilka',confirm_del:'Ma tirtirtaa macmiilkan iyo diiwaannadiisa oo dhan?',
-  e_amount:'Geli qadarka.',e_name:'Geli magaca.'}},
+  e_amount:'Geli qadarka.',e_name:'Geli magaca.',reports:'Warbixinno',fin_report:'Warbixinta maaliyadda',p_month:'Bishan',p_lastmonth:'Bishii hore',p_year:'Sannadkan',p_all:'Waqti kasta',credit_sales:'Iibka deynta',received:'Lacagaha la helay',outstanding_now:'Deynta maanta maqan',overdue_amt:'Dib u dhacay',make_pdf:'Samee warbixin PDF',statement_pdf:'Warbixin PDF',pro_reports:'Warbixinnada maaliyadda iyo PDF-yada waxay ka mid yihiin Pro.',see_pro:'Eeg qorshayaasha Pro',cust_balances:'Haraaga macaamiisha',transactions:'Dhaqdhaqaaqa muddadan',period:'Muddada',total:'Wadarta',customer:'Macmiil',type:'Nooca',phone_l:'Taleefan',no_tx:'Muddadan wax dhaqdhaqaaq ah ma jiro.',stmt_for:'Warbixinta {n}'}},
  enter:{
   home:function(){api('dbBook').then(function(r){D.book=r.ok?r:{shop:{name:'',currency:'USD',freq:'off',lang:'so'},customers:[]};K.render()})},
   customer:function(){api('dbCustomer',{id:D.cust.id}).then(function(r){if(r.ok)D.cust=r.customer;K.render()})},
+  reports:function(){D.rep=null;K.render();api('dbReport',{period:D.period}).then(function(r){D.rep=r.ok?r:{allowed:false};K.render()})},
   statement:function(){api('dbStatement',{token:TOKEN}).then(function(r){D.stmt=r;K.render()})}
  },
  screens:{
@@ -609,7 +705,7 @@ K.app({
    else{h+='<input class="t" id="q" placeholder="'+t('search_ph')+'" value="'+esc(D.q)+'" style="margin-bottom:10px">';
     b.customers.filter(function(c){return!D.q||c.name.toLowerCase().indexOf(D.q.toLowerCase())>=0}).sort(function(a,b2){return b2.balance-a.balance}).forEach(function(c){
      h+='<button class="chrow" data-a="cust" data-id="'+esc(c.id)+'"><div class="av">'+esc(c.name.charAt(0).toUpperCase())+'</div><div class="grow"><div class="fn">'+esc(c.name)+'</div><div>'+(c.overdue?'<span class="pill bad">'+t('overdue')+'</span>':c.balance<=0?'<span class="pill ok">'+t('settled')+'</span>':c.dueDate?'<span class="pill">'+t('due_on',{d:c.dueDate})+'</span>':'')+(c.linked?'<span class="pill ac">'+ic('bell','s')+'</span>':'')+'</div></div><b>'+m(c.balance,b.shop.currency)+'</b></button>'})}
-   return h+'<button class="btn" data-a="newcust">'+ic('plus')+t('add_customer')+'</button><button class="btn ghost" data-go="shop">'+ic('store')+t('shop')+'</button>'},
+   return h+'<button class="btn" data-a="newcust">'+ic('plus')+t('add_customer')+'</button><button class="btn sec2" data-a="reports">'+ic('chart')+t('reports')+'</button><button class="btn ghost" data-go="shop">'+ic('store')+t('shop')+'</button>'},
   shop:function(){var s=D.book.shop,h=K.header(t('shop'),'');
    h+='<div class="card"><label class="f">'+t('shop_name')+'</label><input class="t" id="sname" value="'+esc(s.name)+'"><label class="f">'+t('currency')+'</label><select class="t" id="scur">'+CURRENCIES.map(function(c){return'<option '+(s.currency===c?'selected':'')+'>'+c+'</option>'}).join('')+'</select>'+
     '<label class="f">'+t('freq')+'</label>'+K.seg('freq',s.freq,[['off',t('f_off')],['weekly',t('f_weekly')],['due',t('f_due')]])+'<label class="f">'+t('rlang')+'</label>'+K.seg('rlang',s.lang,[['so','Soomaali'],['en','English']])+'</div>';
@@ -619,7 +715,7 @@ K.app({
    return h+'<button class="btn" data-a="savecust">'+ic('check')+t('save')+'</button>'+(c.id?'<button class="btn ghost" data-a="delcust" style="color:var(--danger)">'+ic('trash')+t('delete_customer')+'</button>':'')+K.errBox()},
   customer:function(){var c=D.cust,shop=D.book.shop,h=K.header(c.name,c.phone||'','<button class="ibtn" data-a="editcust">'+ic('edit')+'</button>');
    h+='<div class="card center"><div class="fs">'+t('balance')+'</div><div class="num" style="color:'+(c.overdue?'var(--danger)':'inherit')+'">'+m(c.balance,shop.currency)+'</div>'+(c.dueDate?'<span class="pill '+(c.overdue?'bad':'')+'">'+t('due_on',{d:c.dueDate})+'</span>':'')+'</div>';
-   h+='<div class="g2"><button class="btn" data-a="entry" data-type="debt">'+ic('plus')+t('add_debt')+'</button><button class="btn sec2" data-a="entry" data-type="payment">'+ic('cash')+t('add_payment')+'</button></div>'+K.errBox();
+   h+='<div class="g2"><button class="btn" data-a="entry" data-type="debt">'+ic('plus')+t('add_debt')+'</button><button class="btn sec2" data-a="entry" data-type="payment">'+ic('cash')+t('add_payment')+'</button></div><button class="btn ghost" data-a="stmtpdf">'+ic('file')+t('statement_pdf')+(K.isPro()?'':' · Pro')+'</button>'+K.errBox();
    if(c.balance>0)h+='<div class="sec">'+t('remind')+'</div><div class="card"><div class="g2"><button class="btn sm sec2" data-a="wa">'+ic('message','s')+t('whatsapp')+'</button><button class="btn sm sec2" data-a="sms">'+ic('phone','s')+t('sms')+'</button><button class="btn sm sec2" data-a="tgshare">'+ic('send','s')+t('telegram')+'</button><button class="btn sm sec2" data-a="copytext">'+ic('copy','s')+t('copy')+'</button></div></div>';
    h+='<div class="sec">'+t('auto')+'</div><div class="card"><div class="row">'+ic('bell')+'<p class="m grow">'+(c.linked?t('auto_on'):t('auto_off'))+'</p></div>'+(c.linked?'':'<button class="btn sm sec2" style="margin-top:10px;width:100%" data-a="sendlink">'+ic('link','s')+t('send_link')+'</button>')+'</div>';
    h+='<div class="sec">'+t('history')+'</div><div class="card"><ul class="files">'+(c.entries||[]).slice().reverse().map(function(e){return'<li><div class="thumb">'+ic(e.type==='debt'?'plus':'cash')+'</div><div class="grow"><div class="fn">'+t(e.type)+(e.note?' · '+esc(e.note):'')+'</div><div class="fs">'+esc(e.date)+(e.due?' · '+t('due_on',{d:e.due}):'')+'</div></div><b style="color:'+(e.type==='payment'?'var(--ok)':'inherit')+'">'+(e.type==='payment'?'−':'+')+m(e.amount,shop.currency)+'</b><button class="mini" data-a="delentry" data-id="'+esc(e.id)+'">'+ic('x')+'</button></li>'}).join('')+'</ul></div>';
@@ -628,13 +724,21 @@ K.app({
    h+='<div class="card"><label class="f">'+t('amount')+' ('+esc(D.book.shop.currency)+')</label><input class="t" id="eamt" type="number" inputmode="decimal" step="0.01" style="font-size:22px;font-weight:700"><div class="g2"><div><label class="f">'+t('date')+'</label><input class="t" id="edate" type="date" value="'+today()+'"></div>'+
     (debt?'<div><label class="f">'+t('due')+'</label><input class="t" id="edue" type="date"></div>':'<div></div>')+'</div><label class="f">'+t('note')+'</label><input class="t" id="enote" placeholder="'+t('note_ph')+'"></div>';
    return h+'<button class="btn" data-a="saveentry">'+ic('check')+t('save')+'</button>'+K.errBox()},
+  reports:function(){var h=K.header(t('fin_report'),D.book?D.book.shop.name:'');
+   h+=K.seg('period',D.period,[['month',t('p_month')],['lastmonth',t('p_lastmonth')],['year',t('p_year')],['all',t('p_all')]]);
+   var r=D.rep;if(!r)return h+'<div style="height:12px"></div>'+K.spin();
+   if(!r.allowed)return h+'<div style="height:12px"></div>'+K.empty('lock',t('pro_reports'),'<button class="btn" style="margin-top:12px" data-act="paywall">'+ic('star')+t('see_pro')+'</button>');
+   var R2=r.report,T=R2.totals,cur=R2.shop.currency;
+   h+='<div class="card stat" style="margin-top:12px"><div><b>'+m(T.credit,cur)+'</b><span>'+t('credit_sales')+'</span></div><div><b>'+m(T.paid,cur)+'</b><span>'+t('received')+'</span></div><div><b>'+m(T.outstanding,cur)+'</b><span>'+t('outstanding_now')+'</span></div><div><b style="color:var(--danger)">'+m(T.overdueAmount,cur)+'</b><span>'+t('overdue_amt')+' ('+T.overdueCount+')</span></div></div>';
+   h+='<div class="fs center" style="margin-bottom:10px">'+esc(R2.from==='0000-01-01'?t('p_all'):R2.from+' → '+R2.to)+'</div>';
+   return h+'<button class="btn" data-a="mkpdf">'+ic('file')+t('make_pdf')+'</button>'},
   statement:function(){var r=D.stmt,h=K.header(t('stmt_title'),'');if(!r)return h+K.spin();if(!r.ok)return h+K.empty('alert',t('not_found'));
    var c=r.customer,cur=r.shop.currency;h=K.header(t('stmt_title'),t('stmt_from',{s:r.shop.name}));
    h+='<div class="card center"><div class="fs">'+esc(c.name)+'</div><div class="num">'+m(c.balance,cur)+'</div>'+(c.balance<=0?'<div class="okmsg" style="justify-content:center">'+ic('check','s')+t('paid_up')+'</div>':c.dueDate?'<span class="pill '+(c.overdue?'bad':'')+'">'+t('due_on',{d:c.dueDate})+'</span>':'')+'</div>';
    h+='<div class="sec">'+t('history')+'</div><div class="card"><ul class="files">'+c.entries.slice().reverse().map(function(e){return'<li><div class="grow"><div class="fn">'+t(e.type)+(e.note?' · '+esc(e.note):'')+'</div><div class="fs">'+esc(e.date)+'</div></div><b>'+(e.type==='payment'?'−':'+')+m(e.amount,cur)+'</b></li>'}).join('')+'</ul></div>';
    return h}
  },
- onSeg:function(n,v){var s=D.book.shop;s.name=document.getElementById('sname').value;s.currency=document.getElementById('scur').value;if(n==='freq')s.freq=v;if(n==='rlang')s.lang=v;K.render()},
+ onSeg:function(n,v){if(n==='period'){D.period=v;D.rep=null;K.render();api('dbReport',{period:v}).then(function(r){D.rep=r.ok?r:{allowed:false};K.render()});return}var s=D.book.shop;s.name=document.getElementById('sname').value;s.currency=document.getElementById('scur').value;if(n==='freq')s.freq=v;if(n==='rlang')s.lang=v;K.render()},
  actions:{
   cust:function(el,d){D.cust=D.book.customers.filter(function(c){return c.id===d.id})[0];K.go('customer')},
   newcust:function(){D.form={id:'',name:'',phone:''};K.go('custform')},
@@ -654,6 +758,10 @@ K.app({
   copytext:function(){K.copy(remindText(D.cust,D.book.shop,D.book.shop.lang))},
   sendlink:function(){var c=D.cust,link=K.appLink('d_'+c.token),txt=D.book.shop.lang==='so'?'Halkan ka eeg xisaabtaada '+D.book.shop.name+':':'View your account with '+D.book.shop.name+':';
    if(c.phone)K.openLink('https://wa.me/'+c.phone.replace(/[^\d]/g,'')+'?text='+encodeURIComponent(txt+' '+link));else K.shareTg(link,txt)},
+  reports:function(){K.go('reports')},
+  mkpdf:function(){var r=D.rep.report;K.showReport(finReport(r),(r.shop.name||'report').replace(/[^\w\- ]+/g,'')+' '+t('fin_report')+' '+(r.to>'9000'?new Date().toISOString().slice(0,10):r.to)+'.pdf')},
+  stmtpdf:function(){if(!K.isPro())return K.paywall({title:t('reports'),text:t('pro_reports'),icon:'chart',features:[t('fin_report'),t('statement_pdf'),t('customers')+' ∞']});
+   var c=D.cust;K.showReport(function(){return api('dbReport',{period:'all',customer:c.id}).then(function(r){return stmtReport(r.report,c)})},c.name.replace(/[^\w\- ]+/g,'')+' statement.pdf')},
   saveshop:function(){var s=D.book.shop;s.name=document.getElementById('sname').value.trim();s.currency=document.getElementById('scur').value;api('dbSaveShop',{shop:s}).then(function(r){S.msg=r.ok?t('saved'):'';S.err=r.ok?'':t('e_gen');K.render()})}
  },
  demoSeed:function(){var d=function(n){return new Date(Date.now()+n*864e5).toISOString().slice(0,10)};
@@ -672,9 +780,28 @@ K.app({
   dbAddEntry:function(d,s){var c=fc(s,d.id);c.entries.push({id:'e'+K.uid(),type:d.type,amount:+d.amount,date:d.date,due:d.due,note:d.note});return{ok:true,customer:sum(c)}},
   dbDeleteEntry:function(d,s){var c=fc(s,d.id);c.entries=c.entries.filter(function(e){return e.id!==d.entry});return{ok:true,customer:sum(c)}},
   dbSaveShop:function(d,s){s.app.shop=d.shop;return{ok:true}},
+  dbReport:function(d,s){if(!K.isPro())return{ok:true,allowed:false};var n=new Date(),y=n.getUTCFullYear(),mo=n.getUTCMonth(),f=function(x){return x.toISOString().slice(0,10)},P;
+   P=d.period==='lastmonth'?{from:f(new Date(Date.UTC(y,mo-1,1))),to:f(new Date(Date.UTC(y,mo,0)))}:d.period==='year'?{from:y+'-01-01',to:f(n)}:d.period==='all'?{from:'0000-01-01',to:'9999-12-31'}:{from:f(new Date(Date.UTC(y,mo,1))),to:f(n)};
+   var out={shop:s.app.shop,period:d.period,from:P.from,to:P.to,totals:{credit:0,paid:0,outstanding:0,overdueCount:0,overdueAmount:0,customers:0},customers:[],entries:[]};
+   s.app.customers.forEach(function(c){if(d.customer&&c.id!==d.customer)return;var sm=sum(c),cr=0,pd=0;c.entries.forEach(function(e){if(e.date<P.from||e.date>P.to)return;if(e.type==='debt')cr+=+e.amount;else pd+=+e.amount;out.entries.push({date:e.date,name:c.name,type:e.type,amount:+e.amount,note:e.note,due:e.due})});
+    out.totals.customers++;out.totals.credit+=cr;out.totals.paid+=pd;if(sm.balance>0)out.totals.outstanding+=sm.balance;if(sm.overdue){out.totals.overdueCount++;out.totals.overdueAmount+=sm.balance}
+    out.customers.push({name:c.name,phone:c.phone,credit:cr,paid:pd,balance:sm.balance,due:sm.dueDate,overdue:sm.overdue})});
+   out.customers.sort(function(a,b){return b.balance-a.balance});out.entries.sort(function(a,b){return a.date<b.date?-1:1});return{ok:true,allowed:true,report:out}},
   dbStatement:function(d,s){var c=s.app.customers.filter(function(x){return x.token===d.token})[0];return c?{ok:true,shop:s.app.shop,customer:sum(c)}:{ok:false}}
  }
 });
+function periodLabel(r){return r.from==='0000-01-01'?t('p_all'):t('p_'+r.period)+' · '+r.from+' → '+r.to}
+function finReport(r){var cur=r.shop.currency,T=r.totals;return{brand:r.shop.name||t('appName'),title:t('fin_report'),subtitle:periodLabel(r),rtl:false,
+ blocks:[{kpis:[[t('credit_sales'),m(T.credit,cur)],[t('received'),m(T.paid,cur),'good'],[t('outstanding_now'),m(T.outstanding,cur)],[t('overdue_amt')+' ('+T.overdueCount+')',m(T.overdueAmount,cur),'bad']]},
+  {h:t('cust_balances')},{table:{cols:[{label:t('customer'),w:2},{label:t('phone_l'),w:1.5},{label:t('credit_sales'),w:1.25,align:'right'},{label:t('received'),w:1.55,align:'right'},{label:t('balance'),w:1.2,align:'right'},{label:t('due').replace(/\s*\(.*\)/,''),w:1.2}],
+   rows:r.customers.map(function(c){return[c.name,c.phone||'',m(c.credit,cur),m(c.paid,cur),{v:m(c.balance,cur),tone:c.overdue?'bad':c.balance<=0?'good':null},c.due||'']}),
+   total:[t('total'),'',m(T.credit,cur),m(T.paid,cur),m(T.outstanding,cur),'']}},
+  {h:t('transactions')},{table:{cols:[{label:t('date'),w:1.2},{label:t('customer'),w:2},{label:t('type'),w:1},{label:t('amount'),w:1.2,align:'right'},{label:t('note').replace(/\s*\(.*\)/,''),w:2.2}],empty:t('no_tx'),
+   rows:r.entries.map(function(e){return[e.date,e.name,t(e.type),{v:(e.type==='payment'?'−':'+')+m(e.amount,cur),tone:e.type==='payment'?'good':null},e.note||'']})}}]}}
+function stmtReport(r,c){var cur=r.shop.currency,cc=r.customers[0]||{balance:0},bal=0;return{brand:r.shop.name||t('appName'),title:t('stmt_title'),subtitle:c.name+(c.phone?' · '+c.phone:''),
+ blocks:[{kpis:[[t('balance'),m(cc.balance,cur),cc.overdue?'bad':cc.balance<=0?'good':null],[t('credit_sales'),m(cc.credit,cur)],[t('received'),m(cc.paid,cur),'good']]},
+  {h:t('history')},{table:{cols:[{label:t('date'),w:1.2},{label:t('type'),w:1},{label:t('note').replace(/\s*\(.*\)/,''),w:2.4},{label:t('amount'),w:1.2,align:'right'},{label:t('balance'),w:1.2,align:'right'}],empty:t('no_tx'),
+   rows:r.entries.map(function(e){bal+=e.type==='debt'?e.amount:-e.amount;return[e.date,t(e.type),e.note||'',(e.type==='payment'?'−':'+')+m(e.amount,cur),m(bal,cur)]})}}]}}
 function fc(s,id){return s.app.customers.filter(function(c){return c.id===id})[0]}
 function computeA(s,d){var st=s.settings,test=st.testMode&&!d.simulateFree,left=Math.max(0,st.freeAllowance-s.freeUsed);return{entitled:test||left>0,reason:test?'test':left>0?'free':'blocked',freeLeft:left,freeUsed:s.freeUsed,freeAllowance:st.freeAllowance,credits:0}}
 /* balance + oldest open due date (same rule as the server) */

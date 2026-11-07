@@ -257,7 +257,8 @@ en: {
   verify_phone: 'Verify phone number', verify_text: 'Local payment methods need a verified phone number.',
   paid_ok: 'Payment confirmed. Thank you.', no_methods: 'Payments are not set up yet. Please check back soon.',
   pay_demo: 'Demo: simulate a successful payment?', open_in_tg: 'Open this app inside Telegram to pay with Stars.', continue: 'Continue',
-  my_plan: 'My plan', acc_status: 'Status', acc_free: 'Free plan', acc_used: 'Free uses', acc_exp: 'Expires', acc_id: 'Telegram ID', support: 'Support', upgrade: 'Upgrade'
+  my_plan: 'My plan', acc_status: 'Status', acc_free: 'Free plan', acc_used: 'Free uses', acc_exp: 'Expires', acc_id: 'Telegram ID', support: 'Support', upgrade: 'Upgrade',
+  rep_ready: 'Your report is ready', rep_making: 'Preparing your PDF…', rep_dl: 'Download PDF', rep_send: 'Send to my Telegram chat', rep_sent: 'Sent to your Telegram chat', rep_hint: 'If the download does not start inside Telegram, use “Send to my Telegram chat”.', rep_pro: 'PDF reports are part of Pro.', generated: 'Generated', page: 'Page'
 },
 so: {
   back: 'Dib', settings: 'Dejinta', save: 'Keydi', saved: 'Waa la keydiyay', cancel: 'Jooji', copied: 'Waa la koobiyeeyay', remove: 'Ka saar', edit: 'Wax ka beddel', add: 'Ku dar', done: 'Dhammaad', close: 'Xir', share: 'La wadaag', search: 'Raadi',
@@ -276,7 +277,8 @@ so: {
   verify_phone: 'Xaqiiji lambarka taleefanka', verify_text: 'Hababka lacag-bixinta gudaha waxay u baahan yihiin lambar la xaqiijiyay.',
   paid_ok: 'Lacag-bixinta waa la xaqiijiyay. Mahadsanid.', no_methods: 'Lacag-bixinta weli lama diyaarin. Fadlan dib u eeg.',
   pay_demo: 'Demo: ma la jilaa lacag-bixin guulaysatay?', open_in_tg: 'App-kan ka fur Telegram si aad Stars ugu bixiso.', continue: 'Sii wad',
-  my_plan: 'Qorshahayga', acc_status: 'Xaaladda', acc_free: 'Qorshe bilaash', acc_used: 'Isticmaalka bilaashka', acc_exp: 'Wuxuu dhacayaa', acc_id: 'Aqoonsiga Telegram', support: 'Taageero', upgrade: 'U gudub Pro'
+  my_plan: 'Qorshahayga', acc_status: 'Xaaladda', acc_free: 'Qorshe bilaash', acc_used: 'Isticmaalka bilaashka', acc_exp: 'Wuxuu dhacayaa', acc_id: 'Aqoonsiga Telegram', support: 'Taageero', upgrade: 'U gudub Pro',
+  rep_ready: 'Warbixintaadu waa diyaar', rep_making: 'PDF-ka ayaa la diyaarinayaa…', rep_dl: 'Soo deji PDF', rep_send: 'U dir sheekadayda Telegram', rep_sent: 'Waa loo diray sheekadaada Telegram', rep_hint: 'Haddii soo dejintu aysan ka bilaabmin Telegram, isticmaal “U dir sheekadayda Telegram”.', rep_pro: 'Warbixinnada PDF waxay ka mid yihiin Pro.', generated: 'La sameeyay', page: 'Bogga'
 }};
 var LANG;
 function t(k, v) {
@@ -299,6 +301,86 @@ function appLink(arg) {
   if (CFG.botUsername) return 'https://t.me/' + CFG.botUsername + (arg ? '?start=' + arg : '');
   var i = arg ? arg.indexOf('_') : -1;
   return location.origin + location.pathname + (arg ? '?' + (i > 0 ? arg.slice(0, i) + '=' + arg.slice(i + 1) : 'startapp=' + arg) : '');
+}
+/* ---------------- PDF reports (shared engine) ----------------
+   K.report({title, subtitle, meta:[[k,v]], rtl, blocks:[{h}, {kpis:[[label,value,tone]]}, {table:{cols:[{label,w,align}], rows:[[...]], total:[...]}},
+   {text}, {images:[{src,caption}]}]}) -> Promise<Blob>. Pages are drawn on canvas (correct Arabic/Somali text) and wrapped with pdf-lib. */
+var scriptCache = {};
+function loadScript(src) { return scriptCache[src] || (scriptCache[src] = new Promise(function (r, j) { var s = document.createElement('script'); s.src = src; s.onload = r; s.onerror = function () { delete scriptCache[src]; j(new Error('load')); }; document.head.appendChild(s); })); }
+function loadImg(src) { return new Promise(function (r) { if (!src) return r(null); var im = new Image(); im.onload = function () { r(im); }; im.onerror = function () { r(null); }; im.src = src; }); }
+function report(R) {
+  var W = 1240, H = 1754, M = 90, rtl = !!R.rtl, ACC = '#2457d6', pages = [], c, x, y, pageNo = 0, FONT = 'Arial, "Noto Sans", sans-serif';
+  var imgs = [];
+  (R.blocks || []).forEach(function (b) { if (b.images) b.images.forEach(function (i) { imgs.push(i); }); });
+  return Promise.all(imgs.map(function (i) { return loadImg(i.src).then(function (im) { i._im = im; }); })).then(function () {
+    function X(px) { return rtl ? W - px : px; }
+    function txt(s, px, py, font, color, align) { x.font = font; x.fillStyle = color || '#101828'; x.textAlign = align ? (rtl ? (align === 'left' ? 'right' : align === 'right' ? 'left' : 'center') : align) : (rtl ? 'right' : 'left'); x.fillText(String(s == null ? '' : s), X(px), py); }
+    function fit(s, maxW, font) { x.font = font; s = String(s == null ? '' : s); if (x.measureText(s).width <= maxW) return s; while (s.length > 1 && x.measureText(s + '…').width > maxW) s = s.slice(0, -1); return s + '…'; }
+    function page() {
+      c = document.createElement('canvas'); c.width = W; c.height = H; x = c.getContext('2d'); x.direction = rtl ? 'rtl' : 'ltr'; x.fillStyle = '#fff'; x.fillRect(0, 0, W, H);
+      pages.push(c); pageNo++; x.fillStyle = ACC; x.fillRect(0, 0, W, 14);
+      if (pageNo === 1) {
+        txt(R.brand || '', M, 70, '600 22px ' + FONT, '#667085');
+        txt(R.title, M, 128, '700 46px ' + FONT, '#101828'); var yy = 170;
+        if (R.subtitle) { txt(R.subtitle, M, yy, '400 26px ' + FONT, '#475467'); yy += 38; }
+        (R.meta || []).forEach(function (m) { txt(m[0] + ': ' + m[1], M, yy, '400 22px ' + FONT, '#667085'); yy += 32; });
+        y = yy + 16; x.fillStyle = '#e4e7ec'; x.fillRect(M, y, W - 2 * M, 2); y += 34;
+      } else { txt(R.title, M, 64, '600 22px ' + FONT, '#667085'); y = 100; }
+    }
+    function need(h) { if (y + h > H - M - 50) { page(); return true; } return false; }
+    function wrapText(s, font, lh, maxW) { x.font = font; String(s || '').split('\n').forEach(function (par) { var line = ''; par.split(' ').forEach(function (w) { var tt = line ? line + ' ' + w : w; if (x.measureText(tt).width > maxW && line) { need(lh); txt(line, M, y + lh * 0.75, font); y += lh; line = w; } else line = tt; }); need(lh); txt(line, M, y + lh * 0.75, font); y += lh; }); }
+    page();
+    (R.blocks || []).forEach(function (b) {
+      if (b.h) { need(80); y += 12; txt(b.h, M, y + 30, '700 28px ' + FONT, '#101828'); y += 52; }
+      if (b.text) { wrapText(b.text, '400 23px ' + FONT, 34, W - 2 * M); y += 10; }
+      if (b.kpis) {
+        var n = Math.min(4, b.kpis.length), gap = 18, bw = (W - 2 * M - gap * (n - 1)) / n;
+        for (var i = 0; i < b.kpis.length; i += n) { need(130);
+          b.kpis.slice(i, i + n).forEach(function (k, j) { var bx = M + j * (bw + gap); x.fillStyle = '#f2f5fb'; x.fillRect(rtl ? W - bx - bw : bx, y, bw, 112);
+            txt(fit(k[0], bw - 36, '600 20px ' + FONT), bx + 18, y + 38, '600 20px ' + FONT, '#667085');
+            txt(fit(k[1], bw - 36, '700 34px ' + FONT), bx + 18, y + 88, '700 34px ' + FONT, k[2] === 'bad' ? '#d92d20' : k[2] === 'good' ? '#079455' : '#101828'); });
+          y += 130; }
+      }
+      if (b.table) {
+        var T = b.table, tw = W - 2 * M, cols = T.cols, tot = cols.reduce(function (a, cc) { return a + (cc.w || 1); }, 0), xs = [], acc = 0;
+        cols.forEach(function (cc) { xs.push(M + acc / tot * tw); acc += cc.w || 1; });
+        function head() { x.fillStyle = '#101828'; x.fillRect(M, y, tw, 44); cols.forEach(function (cc, i) { var cw = (cc.w || 1) / tot * tw; txt(fit(cc.label, cw - 20, '600 19px ' + FONT), cc.align === 'right' ? xs[i] + cw - 10 : xs[i] + 10, y + 29, '600 19px ' + FONT, '#fff', cc.align === 'right' ? 'right' : null); }); y += 44; }
+        function row(r, bold, idx) { if (need(40)) head(); if (idx % 2) { x.fillStyle = '#f8f9fb'; x.fillRect(M, y, tw, 40); }
+          var f = (bold ? '700 ' : '400 ') + '20px ' + FONT; cols.forEach(function (cc, i) { var cw = (cc.w || 1) / tot * tw, v = r[i], tone = null;
+            if (v && typeof v === 'object') { tone = v.tone; v = v.v; }
+            txt(fit(v, cw - 20, f), cc.align === 'right' ? xs[i] + cw - 10 : xs[i] + 10, y + 27, f, tone === 'bad' ? '#d92d20' : tone === 'good' ? '#079455' : '#101828', cc.align === 'right' ? 'right' : null); });
+          y += 40; }
+        need(90); head(); (T.rows || []).forEach(function (r, i) { row(r, false, i); });
+        if (!T.rows || !T.rows.length) { need(40); txt(T.empty || '—', M + 10, y + 27, '400 20px ' + FONT, '#667085'); y += 40; }
+        if (T.total) { x.fillStyle = '#101828'; x.fillRect(M, y, tw, 2); y += 4; row(T.total, true, 0); }
+        y += 22;
+      }
+      if (b.images) {
+        var per = 3, g = 16, iw = (W - 2 * M - g * (per - 1)) / per, ih = iw * 0.75;
+        for (var k = 0; k < b.images.length; k += per) { need(ih + 50);
+          b.images.slice(k, k + per).forEach(function (im, j) { var ix = M + j * (iw + g), rx = rtl ? W - ix - iw : ix; x.fillStyle = '#f2f4f7'; x.fillRect(rx, y, iw, ih);
+            if (im._im) { var sc = Math.max(iw / im._im.width, ih / im._im.height), sw = iw / sc, shh = ih / sc; x.drawImage(im._im, (im._im.width - sw) / 2, (im._im.height - shh) / 2, sw, shh, rx, y, iw, ih); }
+            txt(fit(im.caption || '', iw, '400 18px ' + FONT), ix, y + ih + 26, '400 18px ' + FONT, '#475467'); });
+          y += ih + 44; }
+      }
+    });
+    var stamp = t('generated') + ' ' + new Date().toISOString().slice(0, 16).replace('T', ' ') + ' UTC';
+    pages.forEach(function (pc, i) { x = pc.getContext('2d'); x.direction = rtl ? 'rtl' : 'ltr'; x.fillStyle = '#e4e7ec'; x.fillRect(M, H - M - 20, W - 2 * M, 1);
+      txt(R.footer || stamp, M, H - M + 14, '400 18px ' + FONT, '#98a2b3'); txt(t('page') + ' ' + (i + 1) + ' / ' + pages.length, W - M, H - M + 14, '400 18px ' + FONT, '#98a2b3', 'right'); if (R.footer) txt(stamp, M, H - M + 40, '400 16px ' + FONT, '#98a2b3'); });
+    return loadScript('vendor/pdf-lib.min.js');
+  }).then(function () { return PDFLib.PDFDocument.create(); }).then(function (doc) {
+    doc.setTitle(R.title); doc.setProducer(R.brand || 'Mini App'); var p = Promise.resolve();
+    pages.forEach(function (pc) { p = p.then(function () { return fetch(pc.toDataURL('image/jpeg', 0.88)).then(function (r) { return r.arrayBuffer(); }).then(function (b) { return doc.embedJpg(b); })
+      .then(function (im) { doc.addPage([595.28, 841.89]).drawImage(im, { x: 0, y: 0, width: 595.28, height: 841.89 }); pc.width = pc.height = 0; }); }); });
+    return p.then(function () { return doc.save(); });
+  }).then(function (bytes) { return new Blob([bytes], { type: 'application/pdf' }); });
+}
+function saveBlob(blob, name) { var u = URL.createObjectURL(blob), a = document.createElement('a'); a.href = u; a.download = name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(function () { URL.revokeObjectURL(u); }, 60000); }
+/* Build a report and show the "report ready" screen. def = K.report() definition (or a function returning a Promise of one). */
+function showReport(def, name) {
+  S.rep = { busy: true, name: name }; go('report');
+  Promise.resolve(typeof def === 'function' ? def() : def).then(report).then(function (b) { S.rep = { blob: b, name: name }; haptic('ok'); render(); })
+    .catch(function (e) { console.error(e); S.rep = null; S.err = t('e_gen'); back(); });
 }
 function fileB64(file, maxPx, q) { // images are downscaled to save data on low-end phones
   return new Promise(function (res, rej) {
@@ -443,7 +525,16 @@ var BUILTIN = {
     if (me.plans.length) h += '<button class="btn" data-act="paywall">' + ic('star') + t('upgrade') + '</button>';
     return h;
   },
-  settings: function () { return renderSettings(); }
+  settings: function () { return renderSettings(); },
+  report: function () {
+    var r = S.rep || {}, h = header(t('rep_ready'), r.name || '');
+    if (r.busy) return h + '<div class="card center"><div class="spin" style="margin:6px auto 10px;color:var(--accent)"></div><p class="m">' + t('rep_making') + '</p></div>';
+    h += '<div class="card center"><div class="big good">' + ic('file', 'l') + '</div><h2>' + esc(r.name) + '</h2><p class="m">' + (r.blob ? Math.max(1, Math.round(r.blob.size / 1024)) + ' KB' : '') + '</p></div>';
+    if (IN_TG && !DEMO) h += '<button class="btn" data-act="repsend">' + ic('send') + t('rep_send') + '</button>';
+    h += '<button class="btn ' + (IN_TG && !DEMO ? 'sec2' : '') + '" data-act="repdl">' + ic('download') + t('rep_dl') + '</button>';
+    if (IN_TG) h += '<div class="note" style="margin-top:12px">' + ic('info', 's') + '<span>' + t('rep_hint') + '</span></div>';
+    return h + errBox();
+  }
 };
 function startPayment(method) {
   S.err = '';
@@ -536,6 +627,10 @@ document.addEventListener('click', function (ev) {
     case 'afterpay': if (S.pw && S.pw.after) return S.pw.after(); return home();
     case 'addplan': S.admin.settings = collectSettings(); S.admin.settings.plans.push({ id: 'plan_' + (S.admin.settings.plans.length + 1), label: 'New plan', days: 30, credits: 0, usd: 1, stars: 75, region: 'GLOBAL' }); return render();
     case 'savesettings': var st2 = collectSettings(); api('adminSave', { settings: st2 }).then(function (r) { if (r.ok) { S.admin.settings = st2; S.msg = 'Saved'; refreshMe().then(render); } else toast(r.error || 'Error'); }); return;
+    case 'repdl': if (S.rep && S.rep.blob) saveBlob(S.rep.blob, S.rep.name); return;
+    case 'repsend': if (!S.rep || !S.rep.blob) return; toast('…');
+      var fr = new FileReader(); fr.onload = function () { api('sendReport', { name: S.rep.name, data: String(fr.result).split(',')[1] }).then(function (r) {
+        if (r.ok) { toast(t('rep_sent')); haptic('ok'); } else if (r.error === 'write_access' && TG.requestWriteAccess) TG.requestWriteAccess(); else toast(t('e_gen')); }); }; fr.readAsDataURL(S.rep.blob); return;
     case 'resetme': api('adminResetMe').then(function () { refreshMe().then(function () { toast('Reset'); render(); }); }); return;
     case 'checkpay': api('checkOrder', { order_id: S.payment.order_id }).then(function (r) { if (r.ok && r.status === 'paid') return onPaid(r);
         if (DEMO && confirm(t('pay_demo'))) return api('demoPay', { order_id: S.payment.order_id }).then(onPaid); S.err = t('not_yet'); render(); }); return;
@@ -559,7 +654,7 @@ function app(def) {
   refreshMe().then(function () { enter(); });
 }
 
-return { app: app, CFG: CFG, TG: TG, IN_TG: IN_TG, TGU: TGU, QS: QS, START: START, EDITION: EDITION, DEMO: DEMO, MB: MB, S: S,
+return { app: app, report: report, showReport: showReport, saveBlob: saveBlob, loadScript: loadScript, isPro: function () { return S.me && /^(sub|test)$/.test(S.me.access.reason); }, CFG: CFG, TG: TG, IN_TG: IN_TG, TGU: TGU, QS: QS, START: START, EDITION: EDITION, DEMO: DEMO, MB: MB, S: S,
   t: t, esc: esc, ic: ic, fmtDate: fmtDate, money: money, uid: uid, toast: toast, copy: copy, openLink: openLink, shareTg: shareTg, haptic: haptic, appLink: appLink, param: param, fileB64: fileB64,
   lsGet: lsGet, lsSet: lsSet, api: api, refreshMe: refreshMe, go: go, back: back, home: home, render: render, header: header, banners: banners, planChip: planChip, spin: spin, errBox: errBox, empty: empty, kv: kv, seg: seg,
   paywall: paywall, needAccess: needAccess, consume: consume, lang: function () { return LANG; } };
@@ -591,7 +686,7 @@ K.app({
   scan:'Scan ticket QR',manual:'Or enter ticket code',check:'Check in',ok_in:'Welcome — checked in',already:'Already checked in at {t}',bad_code:'Ticket not found for this event.',not_attending:'This guest did not confirm attendance.',
   you_invited:'You are invited',reply:'Your reply',yes:'Attending',no:'Can\'t attend',maybe:'Maybe',party:'Number of people',your_name:'Your name',message:'Message to the hosts (optional)',send_reply:'Send reply',
   thanks_yes:'Thank you. Your reply is saved. Show this ticket at the entrance.',thanks_no:'Thank you for letting the hosts know.',ticket:'Your ticket',code:'Ticket code',change:'Change reply',directions:'Directions',
-  not_found:'This invitation is not available.',reply_by:'Please reply by {d}',edit_event:'Edit event',delete_guest:'Remove'},
+  not_found:'This invitation is not available.',reply_by:'Please reply by {d}',edit_event:'Edit event',delete_guest:'Remove',guest_pdf:'Guest list PDF',name:'Name',reply_l:'Reply',people_l:'People',checked_l:'Checked in',message_l:'Message',total_people:'Total people attending'},
  so:{appName:'Casuumado',tagline:'Arooska iyo munaasabadaha, jawaabaha iyo hubinta albaabka',my_events:'Munaasabadahayga',create:'Samee munaasabad',no_events:'Weli munaasabad ma jirto. Samee casuumaddaada ugu horreysa hal daqiiqo gudaheed.',
   draft:'Qabyo',live:'La daabacay',title:'Magaca munaasabadda',title_ph:'Aroosga Aamina & Yuusuf',hosts:'Martigeliyayaasha',date:'Taariikhda',time:'Waqtiga',venue:'Goobta',address:'Cinwaanka',map:'Link khariidad (ikhtiyaari)',
   notes:'Fariin martida',dress:'Labiska (ikhtiyaari)',deadline:'Jawaab ka hor (ikhtiyaari)',open_max:'Tirada ugu badan ee dadka jawaabtii link-ga furan',save_draft:'Keydi qabyo',publish:'Daabac',publish_hint:'Daabacaaddu waxay isticmaashaa 1 dhibic munaasabad.',
@@ -601,7 +696,7 @@ K.app({
   scan:'Iskaan QR-ka tigidhka',manual:'Ama geli koodhka tigidhka',check:'Hubi',ok_in:'Soo dhawoow — waa la hubiyay',already:'Horey ayaa loo hubiyay {t}',bad_code:'Tigidhkan lagama helin munaasabaddan.',not_attending:'Martidan ma xaqiijin imaanshaha.',
   you_invited:'Waa lagu martiqaaday',reply:'Jawaabtaada',yes:'Waan imanayaa',no:'Ma imaan karo',maybe:'Laga yaabee',party:'Tirada dadka',your_name:'Magacaaga',message:'Fariin martigeliyayaasha (ikhtiyaari)',send_reply:'Dir jawaabta',
   thanks_yes:'Mahadsanid. Jawaabtaada waa la keydiyay. Tigidhkan ku tus albaabka.',thanks_no:'Mahadsanid in aad ogeysiisay martigeliyayaasha.',ticket:'Tigidhkaaga',code:'Koodhka tigidhka',change:'Beddel jawaabta',directions:'Tilmaamaha',
-  not_found:'Casuumaddan lama heli karo.',reply_by:'Fadlan jawaab ka hor {d}',edit_event:'Wax ka beddel',delete_guest:'Ka saar'}},
+  not_found:'Casuumaddan lama heli karo.',reply_by:'Fadlan jawaab ka hor {d}',edit_event:'Wax ka beddel',delete_guest:'Ka saar',guest_pdf:'Liiska martida PDF',name:'Magaca',reply_l:'Jawaab',people_l:'Dad',checked_l:'Soo galay',message_l:'Fariin',total_people:'Wadarta dadka imanaya'}},
  enter:{
   home:function(){R.events=null;api('rsvMine').then(function(r){R.events=r.ok?r.events:[];K.render()})},
   event:function(){api('rsvEvent',{key:R.ev.key}).then(function(r){if(r.ok)R.ev=r.event;K.render()})},
@@ -626,7 +721,7 @@ K.app({
    h+='<div class="card stat"><div><b>'+(s.yesPeople||0)+'</b><span>'+t('attending')+' ('+t('people',{n:s.yes||0}).replace(/^\d+ /,'')+')</span></div><div><b>'+(s.no||0)+'</b><span>'+t('declined')+'</span></div><div><b>'+(s.pending||0)+'</b><span>'+t('pending')+'</span></div><div><b>'+(s.checked||0)+'</b><span>'+t('checked')+'</span></div></div>';
    if(e.status!=='published')h+='<div class="banner">'+ic('info','s')+'<span>'+t('draft')+' — '+t('publish_hint')+'</span></div><button class="btn" data-a="publish">'+ic('send')+t('publish')+'</button>';
    else h+='<div class="sec">'+t('open_link')+'</div><div class="card">'+K.kv(t('open_link'),link,true)+'<p class="m">'+t('open_link_sub')+'</p><div class="g2" style="margin-top:10px"><button class="btn sm sec2" data-a="sharetg" data-link="'+esc(link)+'">'+ic('send','s')+t('telegram')+'</button><button class="btn sm sec2" data-a="sharewa" data-link="'+esc(link)+'">'+ic('message','s')+t('whatsapp')+'</button></div></div>';
-   h+='<div class="g2"><button class="btn" data-a="guests">'+ic('users')+t('guests')+'</button><button class="btn" data-a="checkin">'+ic('scan')+t('checkin')+'</button></div><button class="btn ghost" data-a="edit">'+ic('edit')+t('edit_event')+'</button>';
+   h+='<div class="g2"><button class="btn" data-a="guests">'+ic('users')+t('guests')+'</button><button class="btn" data-a="checkin">'+ic('scan')+t('checkin')+'</button></div>'+(e.status==='published'?'<button class="btn sec2" data-a="guestpdf">'+ic('file')+t('guest_pdf')+'</button>':'')+'<button class="btn ghost" data-a="edit">'+ic('edit')+t('edit_event')+'</button>';
    return h},
   guests:function(){var e=R.ev,h=K.header(t('guests'),e.title);
    h+='<div class="card"><label class="f">'+t('add_guests')+'</label><textarea class="t" id="bulk" placeholder="'+esc(t('add_guests_ph'))+'"></textarea><div class="fs" style="margin:6px 0 10px">'+t('add_guests_hint')+'</div><button class="btn sm" data-a="addguests">'+ic('plus','s')+t('add')+'</button></div>';
@@ -666,6 +761,12 @@ K.app({
   savedraft:function(){save(false)},
   publish:function(){if(S.screen==='editor')save(true);else publish(R.ev.key)},
   guests:function(){K.go('guests')},
+  guestpdf:function(){var e=R.ev,s=e.stats||{},order={yes:0,maybe:1,pending:2,no:3};var gs=(e.guests||[]).slice().sort(function(a,b){return order[a.rsvp]-order[b.rsvp]||a.name.localeCompare(b.name)});
+   K.showReport({brand:t('appName'),title:e.title,subtitle:fmtWhen(e)+(e.venue?' · '+e.venue:''),meta:e.hosts?[[t('hosts'),e.hosts]]:[],
+    blocks:[{kpis:[[t('attending'),s.yesPeople||0,'good'],[t('declined'),s.no||0],[t('pending'),s.pending||0],[t('checked'),s.checked||0]]},{h:t('guests')+' ('+gs.length+')'},
+     {table:{cols:[{label:t('name'),w:2.2},{label:t('reply_l'),w:1.3},{label:t('people_l'),w:0.8,align:'right'},{label:t('checked_l'),w:1.1},{label:t('message_l'),w:2.6}],
+      rows:gs.map(function(g){return[g.name,{v:t(g.rsvp==='pending'?'pending':g.rsvp==='yes'?'attending':g.rsvp==='no'?'declined':'maybe'),tone:g.rsvp==='yes'?'good':g.rsvp==='no'?'bad':null},g.rsvp==='yes'?g.party:'',g.checked_in_at?new Date(g.checked_in_at).toISOString().slice(11,16):'',g.message||'']}),
+      total:[t('total_people'),'',s.yesPeople||0,'','']}}]},(e.title.replace(/[^\w\- ]+/g,'')||'event')+' guests.pdf')},
   checkin:function(){R.scan=null;K.go('checkin')},
   addguests:function(){var lines=document.getElementById('bulk').value.split('\n').map(function(l){var p=l.split(',');return{name:p[0].trim(),max:Math.max(1,parseInt(p[1],10)||1)}}).filter(function(x){return x.name});
    if(!lines.length)return;api('rsvGuestAdd',{key:R.ev.key,guests:lines}).then(function(r){if(r.ok){R.ev=r.event;K.render()}else K.toast(t('e_gen'))})},

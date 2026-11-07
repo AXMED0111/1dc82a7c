@@ -34,6 +34,12 @@ APP_HOOKS.coach = {
       return { ok: true, items: rows('Sessions').filter(function (r) { return String(r.user_id) === ctx.uid; }).reverse().slice(0, 20)
         .map(function (r) { return { category: r.category, question: r.question, score: r.overall, created: iso(r.created_at) }; }) };
     },
+    coReport: function (ctx) {
+      if (!isPro(ctx)) return { ok: true, allowed: false };
+      return { ok: true, allowed: true, sessions: rows('Sessions').filter(function (r) { return String(r.user_id) === ctx.uid; }).map(function (r) {
+        return { category: r.category, question: r.question, score: Number(r.overall) || 0, created: iso(r.created_at),
+          scores: { content: Number(r.content) || 0, structure: Number(r.structure) || 0, clarity: Number(r.clarity) || 0, confidence: Number(r.confidence) || 0 } }; }) };
+    },
     coScore: function (ctx, req) {
       var a = accessFor(ctx); if (!a.entitled) return { ok: true, allowed: false, access: a };
       var audio = String(req.audio || ''); if (audio.length < 1000) return { ok: false, error: 'too_short' };

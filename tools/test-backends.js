@@ -101,6 +101,13 @@ E.call(U, 'dbSaveCustomer', { name: 'B' }); ok('3rd customer blocked', E.call(U,
 ok('other shop cannot read', E.call(V, 'dbCustomer', { id: cid }).ok === false);
 r = E.server('botStart', { arg: 'd_' + tok, user_id: 3003 }); ok('bot /start links customer', /Hodan Store/.test(r.text) && r.query === 'd=' + tok, r);
 r = E.call(V, 'dbStatement', { token: tok }); ok('statement hides phone', r.ok && r.customer.balance === 30 && !r.customer.phone, r);
+r = E.call(U, 'dbReport', { period: 'all' }); ok('report locked for free shop', r.ok && r.allowed === false, r);
+E.setSettings({ testMode: true }); r = E.call(U, 'dbReport', { period: 'all' });
+ok('report totals (test=pro)', r.allowed && r.report.totals.credit === 45 && r.report.totals.paid === 15 && r.report.totals.outstanding === 30 && r.report.totals.overdueCount === 1, r.report && r.report.totals);
+r = E.call(U, 'dbReport', { period: 'all', customer: cid }); ok('single-customer statement', r.report.customers.length === 1 && r.report.entries.length === 2, r.report);
+ok('sendReport rejects non-PDF', E.call(U, 'sendReport', { name: 'x.pdf', data: 'aGVsbG8=' }).error === 'not_pdf');
+ok('sendReport PDF ok', E.call(U, 'sendReport', { name: 'r.pdf', data: Buffer.from('%PDF-1.4 test').toString('base64') }).ok);
+E.setSettings({ testMode: false });
 E.run('cronDaily()'); ok('weekly reminder sent in Somali', E.sent.some((s) => s.method === 'sendMessage' && /Asc Abdi/.test(s.payload)));
 
 section('scholar');
@@ -116,6 +123,8 @@ E = makeEnv('coach'); E.setSettings({ testMode: false }); E.props.GEMINI_KEY = '
 E.ctx.__fetchReply = (url) => /generativelanguage/.test(url) ? { candidates: [{ content: { parts: [{ text: JSON.stringify({ transcript: 'I want to study', overall: 72, scores: { content: 70, structure: 75, clarity: 80, confidence: 60 }, strengths: ['a'], improvements: ['b'], better_answer: 'c' }) }] } }] } : { ok: true, result: {} };
 r = E.call(U, 'coScore', { category: 'visa', question: 'Why?', audio: 'A'.repeat(2000), seconds: 30, lang: 'so' }); ok('scored + charged', r.ok && r.result.overall === 72 && r.access.freeLeft === 1, r);
 ok('gemini called with wav', E.fetches.some((f) => /generativelanguage/.test(f.url) && /audio\/wav/.test(f.o.payload)));
+ok('progress report locked (credits plan)', E.call(U, 'coReport').allowed === false);
+E.setSettings({ testMode: true }); r = E.call(U, 'coReport'); ok('progress report data', r.allowed && r.sessions.length === 1 && r.sessions[0].scores.clarity === 80, r); E.setSettings({ testMode: false });
 E.ctx.__fetchReply = () => ({ candidates: [{ content: { parts: [{ text: 'not json' }] } }] });
 r = E.call(U, 'coScore', { category: 'visa', question: 'Why?', audio: 'A'.repeat(2000), seconds: 30 }); ok('AI failure not charged', r.ok === false && E.call(U, 'init').access.freeLeft === 1, r);
 

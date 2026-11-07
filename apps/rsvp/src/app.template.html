@@ -41,7 +41,7 @@ K.app({
   scan:'Scan ticket QR',manual:'Or enter ticket code',check:'Check in',ok_in:'Welcome — checked in',already:'Already checked in at {t}',bad_code:'Ticket not found for this event.',not_attending:'This guest did not confirm attendance.',
   you_invited:'You are invited',reply:'Your reply',yes:'Attending',no:'Can\'t attend',maybe:'Maybe',party:'Number of people',your_name:'Your name',message:'Message to the hosts (optional)',send_reply:'Send reply',
   thanks_yes:'Thank you. Your reply is saved. Show this ticket at the entrance.',thanks_no:'Thank you for letting the hosts know.',ticket:'Your ticket',code:'Ticket code',change:'Change reply',directions:'Directions',
-  not_found:'This invitation is not available.',reply_by:'Please reply by {d}',edit_event:'Edit event',delete_guest:'Remove'},
+  not_found:'This invitation is not available.',reply_by:'Please reply by {d}',edit_event:'Edit event',delete_guest:'Remove',guest_pdf:'Guest list PDF',name:'Name',reply_l:'Reply',people_l:'People',checked_l:'Checked in',message_l:'Message',total_people:'Total people attending'},
  so:{appName:'Casuumado',tagline:'Arooska iyo munaasabadaha, jawaabaha iyo hubinta albaabka',my_events:'Munaasabadahayga',create:'Samee munaasabad',no_events:'Weli munaasabad ma jirto. Samee casuumaddaada ugu horreysa hal daqiiqo gudaheed.',
   draft:'Qabyo',live:'La daabacay',title:'Magaca munaasabadda',title_ph:'Aroosga Aamina & Yuusuf',hosts:'Martigeliyayaasha',date:'Taariikhda',time:'Waqtiga',venue:'Goobta',address:'Cinwaanka',map:'Link khariidad (ikhtiyaari)',
   notes:'Fariin martida',dress:'Labiska (ikhtiyaari)',deadline:'Jawaab ka hor (ikhtiyaari)',open_max:'Tirada ugu badan ee dadka jawaabtii link-ga furan',save_draft:'Keydi qabyo',publish:'Daabac',publish_hint:'Daabacaaddu waxay isticmaashaa 1 dhibic munaasabad.',
@@ -51,7 +51,7 @@ K.app({
   scan:'Iskaan QR-ka tigidhka',manual:'Ama geli koodhka tigidhka',check:'Hubi',ok_in:'Soo dhawoow — waa la hubiyay',already:'Horey ayaa loo hubiyay {t}',bad_code:'Tigidhkan lagama helin munaasabaddan.',not_attending:'Martidan ma xaqiijin imaanshaha.',
   you_invited:'Waa lagu martiqaaday',reply:'Jawaabtaada',yes:'Waan imanayaa',no:'Ma imaan karo',maybe:'Laga yaabee',party:'Tirada dadka',your_name:'Magacaaga',message:'Fariin martigeliyayaasha (ikhtiyaari)',send_reply:'Dir jawaabta',
   thanks_yes:'Mahadsanid. Jawaabtaada waa la keydiyay. Tigidhkan ku tus albaabka.',thanks_no:'Mahadsanid in aad ogeysiisay martigeliyayaasha.',ticket:'Tigidhkaaga',code:'Koodhka tigidhka',change:'Beddel jawaabta',directions:'Tilmaamaha',
-  not_found:'Casuumaddan lama heli karo.',reply_by:'Fadlan jawaab ka hor {d}',edit_event:'Wax ka beddel',delete_guest:'Ka saar'}},
+  not_found:'Casuumaddan lama heli karo.',reply_by:'Fadlan jawaab ka hor {d}',edit_event:'Wax ka beddel',delete_guest:'Ka saar',guest_pdf:'Liiska martida PDF',name:'Magaca',reply_l:'Jawaab',people_l:'Dad',checked_l:'Soo galay',message_l:'Fariin',total_people:'Wadarta dadka imanaya'}},
  enter:{
   home:function(){R.events=null;api('rsvMine').then(function(r){R.events=r.ok?r.events:[];K.render()})},
   event:function(){api('rsvEvent',{key:R.ev.key}).then(function(r){if(r.ok)R.ev=r.event;K.render()})},
@@ -76,7 +76,7 @@ K.app({
    h+='<div class="card stat"><div><b>'+(s.yesPeople||0)+'</b><span>'+t('attending')+' ('+t('people',{n:s.yes||0}).replace(/^\d+ /,'')+')</span></div><div><b>'+(s.no||0)+'</b><span>'+t('declined')+'</span></div><div><b>'+(s.pending||0)+'</b><span>'+t('pending')+'</span></div><div><b>'+(s.checked||0)+'</b><span>'+t('checked')+'</span></div></div>';
    if(e.status!=='published')h+='<div class="banner">'+ic('info','s')+'<span>'+t('draft')+' — '+t('publish_hint')+'</span></div><button class="btn" data-a="publish">'+ic('send')+t('publish')+'</button>';
    else h+='<div class="sec">'+t('open_link')+'</div><div class="card">'+K.kv(t('open_link'),link,true)+'<p class="m">'+t('open_link_sub')+'</p><div class="g2" style="margin-top:10px"><button class="btn sm sec2" data-a="sharetg" data-link="'+esc(link)+'">'+ic('send','s')+t('telegram')+'</button><button class="btn sm sec2" data-a="sharewa" data-link="'+esc(link)+'">'+ic('message','s')+t('whatsapp')+'</button></div></div>';
-   h+='<div class="g2"><button class="btn" data-a="guests">'+ic('users')+t('guests')+'</button><button class="btn" data-a="checkin">'+ic('scan')+t('checkin')+'</button></div><button class="btn ghost" data-a="edit">'+ic('edit')+t('edit_event')+'</button>';
+   h+='<div class="g2"><button class="btn" data-a="guests">'+ic('users')+t('guests')+'</button><button class="btn" data-a="checkin">'+ic('scan')+t('checkin')+'</button></div>'+(e.status==='published'?'<button class="btn sec2" data-a="guestpdf">'+ic('file')+t('guest_pdf')+'</button>':'')+'<button class="btn ghost" data-a="edit">'+ic('edit')+t('edit_event')+'</button>';
    return h},
   guests:function(){var e=R.ev,h=K.header(t('guests'),e.title);
    h+='<div class="card"><label class="f">'+t('add_guests')+'</label><textarea class="t" id="bulk" placeholder="'+esc(t('add_guests_ph'))+'"></textarea><div class="fs" style="margin:6px 0 10px">'+t('add_guests_hint')+'</div><button class="btn sm" data-a="addguests">'+ic('plus','s')+t('add')+'</button></div>';
@@ -116,6 +116,12 @@ K.app({
   savedraft:function(){save(false)},
   publish:function(){if(S.screen==='editor')save(true);else publish(R.ev.key)},
   guests:function(){K.go('guests')},
+  guestpdf:function(){var e=R.ev,s=e.stats||{},order={yes:0,maybe:1,pending:2,no:3};var gs=(e.guests||[]).slice().sort(function(a,b){return order[a.rsvp]-order[b.rsvp]||a.name.localeCompare(b.name)});
+   K.showReport({brand:t('appName'),title:e.title,subtitle:fmtWhen(e)+(e.venue?' · '+e.venue:''),meta:e.hosts?[[t('hosts'),e.hosts]]:[],
+    blocks:[{kpis:[[t('attending'),s.yesPeople||0,'good'],[t('declined'),s.no||0],[t('pending'),s.pending||0],[t('checked'),s.checked||0]]},{h:t('guests')+' ('+gs.length+')'},
+     {table:{cols:[{label:t('name'),w:2.2},{label:t('reply_l'),w:1.3},{label:t('people_l'),w:0.8,align:'right'},{label:t('checked_l'),w:1.1},{label:t('message_l'),w:2.6}],
+      rows:gs.map(function(g){return[g.name,{v:t(g.rsvp==='pending'?'pending':g.rsvp==='yes'?'attending':g.rsvp==='no'?'declined':'maybe'),tone:g.rsvp==='yes'?'good':g.rsvp==='no'?'bad':null},g.rsvp==='yes'?g.party:'',g.checked_in_at?new Date(g.checked_in_at).toISOString().slice(11,16):'',g.message||'']}),
+      total:[t('total_people'),'',s.yesPeople||0,'','']}}]},(e.title.replace(/[^\w\- ]+/g,'')||'event')+' guests.pdf')},
   checkin:function(){R.scan=null;K.go('checkin')},
   addguests:function(){var lines=document.getElementById('bulk').value.split('\n').map(function(l){var p=l.split(',');return{name:p[0].trim(),max:Math.max(1,parseInt(p[1],10)||1)}}).filter(function(x){return x.name});
    if(!lines.length)return;api('rsvGuestAdd',{key:R.ev.key,guests:lines}).then(function(r){if(r.ok){R.ev=r.event;K.render()}else K.toast(t('e_gen'))})},

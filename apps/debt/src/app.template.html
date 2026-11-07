@@ -19,7 +19,7 @@
 (function(){
 var t=K.t,esc=K.esc,ic=K.ic,S=K.S,api=K.api;
 var TOKEN=K.param('d');
-var D={book:null,cust:null,q:'',entryType:'debt',stmt:null,form:null};
+var D={period:'month',rep:null,book:null,cust:null,q:'',entryType:'debt',stmt:null,form:null};
 var CURRENCIES=['USD','SOS','SLSH','KES','ETB','DJF','UGX','TZS','AED','SAR','PKR','INR','BDT','EUR'];
 function m(n,c){n=+n||0;return(c||'USD')==='USD'?'$'+n.toFixed(2).replace(/\.00$/,''):n.toLocaleString('en-US',{maximumFractionDigits:2})+' '+c}
 function today(){return new Date().toISOString().slice(0,10)}
@@ -38,17 +38,18 @@ K.app({
   auto:'Automatic reminders',auto_on:'Linked — the bot sends reminders automatically.',auto_off:'Send this link once. When the customer opens it, the bot can remind them automatically.',send_link:'Send link',
   shop_name:'Shop name',currency:'Currency',freq:'Automatic reminders',f_off:'Off',f_weekly:'Weekly',f_due:'On due date',rlang:'Reminder language',
   stmt_title:'Account statement',stmt_from:'From {s}',paid_up:'Fully paid. Thank you.',not_found:'Statement not found.',search_ph:'Search customers',due_on:'due {d}',settled:'Settled',delete_entry:'Delete',delete_customer:'Delete customer',confirm_del:'Delete this customer and all records?',
-  e_amount:'Enter an amount.',e_name:'Enter a name.'},
+  e_amount:'Enter an amount.',e_name:'Enter a name.',reports:'Reports',fin_report:'Financial report',p_month:'This month',p_lastmonth:'Last month',p_year:'This year',p_all:'All time',credit_sales:'Credit sales',received:'Payments received',outstanding_now:'Outstanding today',overdue_amt:'Overdue',make_pdf:'Create PDF report',statement_pdf:'Statement PDF',pro_reports:'Financial reports and PDF statements are part of Pro.',see_pro:'See Pro plans',cust_balances:'Customer balances',transactions:'Transactions in the period',period:'Period',total:'Total',customer:'Customer',type:'Type',phone_l:'Phone',no_tx:'No transactions in this period.',stmt_for:'Statement for {n}'},
  so:{appName:'Buugga Deynta',tagline:'La soco deymaha macaamiisha oo dir xusuusin edeb leh',outstanding:'Deynta maqan',customers:'Macaamiisha',overdue:'Dib u dhacay',add_customer:'Ku dar macmiil',shop:'Dejinta dukaanka',
   no_customers:'Weli macmiil ma jiro. Ku dar dadka deynta wax ka iibsada.',name:'Magaca macmiilka',phone:'Taleefanka (WhatsApp / SMS)',save:'Keydi',balance:'Haraaga',add_debt:'Ku dar iib deyn ah',add_payment:'Diiwaangeli lacag-bixin',
   amount:'Qadarka',date:'Taariikhda',due:'Waqtiga bixinta (ikhtiyaari)',note:'Qoraal (ikhtiyaari)',note_ph:'tusaale bariis 2 kiish',history:'Taariikhda',debt:'Deyn',payment:'La bixiyay',remind:'Dir xusuusin',sms:'SMS',whatsapp:'WhatsApp',telegram:'Telegram',copy:'Koobi qoraalka',
   auto:'Xusuusin toos ah',auto_on:'Waa la xiray — bot-ku si toos ah ayuu u xusuusinayaa.',auto_off:'U dir link-gan hal mar. Marka macmiilku furo, bot-ku si toos ah ayuu u xusuusin karaa.',send_link:'Dir link-ga',
   shop_name:'Magaca dukaanka',currency:'Lacagta',freq:'Xusuusin toos ah',f_off:'Dansan',f_weekly:'Toddobaad kasta',f_due:'Maalinta bixinta',rlang:'Luqadda xusuusinta',
   stmt_title:'Warbixinta xisaabta',stmt_from:'Laga bilaabo {s}',paid_up:'Si buuxda ayaa loo bixiyay. Mahadsanid.',not_found:'Warbixinta lama helin.',search_ph:'Raadi macaamiisha',due_on:'waqtigu {d}',settled:'La dhammeeyay',delete_entry:'Tirtir',delete_customer:'Tirtir macmiilka',confirm_del:'Ma tirtirtaa macmiilkan iyo diiwaannadiisa oo dhan?',
-  e_amount:'Geli qadarka.',e_name:'Geli magaca.'}},
+  e_amount:'Geli qadarka.',e_name:'Geli magaca.',reports:'Warbixinno',fin_report:'Warbixinta maaliyadda',p_month:'Bishan',p_lastmonth:'Bishii hore',p_year:'Sannadkan',p_all:'Waqti kasta',credit_sales:'Iibka deynta',received:'Lacagaha la helay',outstanding_now:'Deynta maanta maqan',overdue_amt:'Dib u dhacay',make_pdf:'Samee warbixin PDF',statement_pdf:'Warbixin PDF',pro_reports:'Warbixinnada maaliyadda iyo PDF-yada waxay ka mid yihiin Pro.',see_pro:'Eeg qorshayaasha Pro',cust_balances:'Haraaga macaamiisha',transactions:'Dhaqdhaqaaqa muddadan',period:'Muddada',total:'Wadarta',customer:'Macmiil',type:'Nooca',phone_l:'Taleefan',no_tx:'Muddadan wax dhaqdhaqaaq ah ma jiro.',stmt_for:'Warbixinta {n}'}},
  enter:{
   home:function(){api('dbBook').then(function(r){D.book=r.ok?r:{shop:{name:'',currency:'USD',freq:'off',lang:'so'},customers:[]};K.render()})},
   customer:function(){api('dbCustomer',{id:D.cust.id}).then(function(r){if(r.ok)D.cust=r.customer;K.render()})},
+  reports:function(){D.rep=null;K.render();api('dbReport',{period:D.period}).then(function(r){D.rep=r.ok?r:{allowed:false};K.render()})},
   statement:function(){api('dbStatement',{token:TOKEN}).then(function(r){D.stmt=r;K.render()})}
  },
  screens:{
@@ -59,7 +60,7 @@ K.app({
    else{h+='<input class="t" id="q" placeholder="'+t('search_ph')+'" value="'+esc(D.q)+'" style="margin-bottom:10px">';
     b.customers.filter(function(c){return!D.q||c.name.toLowerCase().indexOf(D.q.toLowerCase())>=0}).sort(function(a,b2){return b2.balance-a.balance}).forEach(function(c){
      h+='<button class="chrow" data-a="cust" data-id="'+esc(c.id)+'"><div class="av">'+esc(c.name.charAt(0).toUpperCase())+'</div><div class="grow"><div class="fn">'+esc(c.name)+'</div><div>'+(c.overdue?'<span class="pill bad">'+t('overdue')+'</span>':c.balance<=0?'<span class="pill ok">'+t('settled')+'</span>':c.dueDate?'<span class="pill">'+t('due_on',{d:c.dueDate})+'</span>':'')+(c.linked?'<span class="pill ac">'+ic('bell','s')+'</span>':'')+'</div></div><b>'+m(c.balance,b.shop.currency)+'</b></button>'})}
-   return h+'<button class="btn" data-a="newcust">'+ic('plus')+t('add_customer')+'</button><button class="btn ghost" data-go="shop">'+ic('store')+t('shop')+'</button>'},
+   return h+'<button class="btn" data-a="newcust">'+ic('plus')+t('add_customer')+'</button><button class="btn sec2" data-a="reports">'+ic('chart')+t('reports')+'</button><button class="btn ghost" data-go="shop">'+ic('store')+t('shop')+'</button>'},
   shop:function(){var s=D.book.shop,h=K.header(t('shop'),'');
    h+='<div class="card"><label class="f">'+t('shop_name')+'</label><input class="t" id="sname" value="'+esc(s.name)+'"><label class="f">'+t('currency')+'</label><select class="t" id="scur">'+CURRENCIES.map(function(c){return'<option '+(s.currency===c?'selected':'')+'>'+c+'</option>'}).join('')+'</select>'+
     '<label class="f">'+t('freq')+'</label>'+K.seg('freq',s.freq,[['off',t('f_off')],['weekly',t('f_weekly')],['due',t('f_due')]])+'<label class="f">'+t('rlang')+'</label>'+K.seg('rlang',s.lang,[['so','Soomaali'],['en','English']])+'</div>';
@@ -69,7 +70,7 @@ K.app({
    return h+'<button class="btn" data-a="savecust">'+ic('check')+t('save')+'</button>'+(c.id?'<button class="btn ghost" data-a="delcust" style="color:var(--danger)">'+ic('trash')+t('delete_customer')+'</button>':'')+K.errBox()},
   customer:function(){var c=D.cust,shop=D.book.shop,h=K.header(c.name,c.phone||'','<button class="ibtn" data-a="editcust">'+ic('edit')+'</button>');
    h+='<div class="card center"><div class="fs">'+t('balance')+'</div><div class="num" style="color:'+(c.overdue?'var(--danger)':'inherit')+'">'+m(c.balance,shop.currency)+'</div>'+(c.dueDate?'<span class="pill '+(c.overdue?'bad':'')+'">'+t('due_on',{d:c.dueDate})+'</span>':'')+'</div>';
-   h+='<div class="g2"><button class="btn" data-a="entry" data-type="debt">'+ic('plus')+t('add_debt')+'</button><button class="btn sec2" data-a="entry" data-type="payment">'+ic('cash')+t('add_payment')+'</button></div>'+K.errBox();
+   h+='<div class="g2"><button class="btn" data-a="entry" data-type="debt">'+ic('plus')+t('add_debt')+'</button><button class="btn sec2" data-a="entry" data-type="payment">'+ic('cash')+t('add_payment')+'</button></div><button class="btn ghost" data-a="stmtpdf">'+ic('file')+t('statement_pdf')+(K.isPro()?'':' · Pro')+'</button>'+K.errBox();
    if(c.balance>0)h+='<div class="sec">'+t('remind')+'</div><div class="card"><div class="g2"><button class="btn sm sec2" data-a="wa">'+ic('message','s')+t('whatsapp')+'</button><button class="btn sm sec2" data-a="sms">'+ic('phone','s')+t('sms')+'</button><button class="btn sm sec2" data-a="tgshare">'+ic('send','s')+t('telegram')+'</button><button class="btn sm sec2" data-a="copytext">'+ic('copy','s')+t('copy')+'</button></div></div>';
    h+='<div class="sec">'+t('auto')+'</div><div class="card"><div class="row">'+ic('bell')+'<p class="m grow">'+(c.linked?t('auto_on'):t('auto_off'))+'</p></div>'+(c.linked?'':'<button class="btn sm sec2" style="margin-top:10px;width:100%" data-a="sendlink">'+ic('link','s')+t('send_link')+'</button>')+'</div>';
    h+='<div class="sec">'+t('history')+'</div><div class="card"><ul class="files">'+(c.entries||[]).slice().reverse().map(function(e){return'<li><div class="thumb">'+ic(e.type==='debt'?'plus':'cash')+'</div><div class="grow"><div class="fn">'+t(e.type)+(e.note?' · '+esc(e.note):'')+'</div><div class="fs">'+esc(e.date)+(e.due?' · '+t('due_on',{d:e.due}):'')+'</div></div><b style="color:'+(e.type==='payment'?'var(--ok)':'inherit')+'">'+(e.type==='payment'?'−':'+')+m(e.amount,shop.currency)+'</b><button class="mini" data-a="delentry" data-id="'+esc(e.id)+'">'+ic('x')+'</button></li>'}).join('')+'</ul></div>';
@@ -78,13 +79,21 @@ K.app({
    h+='<div class="card"><label class="f">'+t('amount')+' ('+esc(D.book.shop.currency)+')</label><input class="t" id="eamt" type="number" inputmode="decimal" step="0.01" style="font-size:22px;font-weight:700"><div class="g2"><div><label class="f">'+t('date')+'</label><input class="t" id="edate" type="date" value="'+today()+'"></div>'+
     (debt?'<div><label class="f">'+t('due')+'</label><input class="t" id="edue" type="date"></div>':'<div></div>')+'</div><label class="f">'+t('note')+'</label><input class="t" id="enote" placeholder="'+t('note_ph')+'"></div>';
    return h+'<button class="btn" data-a="saveentry">'+ic('check')+t('save')+'</button>'+K.errBox()},
+  reports:function(){var h=K.header(t('fin_report'),D.book?D.book.shop.name:'');
+   h+=K.seg('period',D.period,[['month',t('p_month')],['lastmonth',t('p_lastmonth')],['year',t('p_year')],['all',t('p_all')]]);
+   var r=D.rep;if(!r)return h+'<div style="height:12px"></div>'+K.spin();
+   if(!r.allowed)return h+'<div style="height:12px"></div>'+K.empty('lock',t('pro_reports'),'<button class="btn" style="margin-top:12px" data-act="paywall">'+ic('star')+t('see_pro')+'</button>');
+   var R2=r.report,T=R2.totals,cur=R2.shop.currency;
+   h+='<div class="card stat" style="margin-top:12px"><div><b>'+m(T.credit,cur)+'</b><span>'+t('credit_sales')+'</span></div><div><b>'+m(T.paid,cur)+'</b><span>'+t('received')+'</span></div><div><b>'+m(T.outstanding,cur)+'</b><span>'+t('outstanding_now')+'</span></div><div><b style="color:var(--danger)">'+m(T.overdueAmount,cur)+'</b><span>'+t('overdue_amt')+' ('+T.overdueCount+')</span></div></div>';
+   h+='<div class="fs center" style="margin-bottom:10px">'+esc(R2.from==='0000-01-01'?t('p_all'):R2.from+' → '+R2.to)+'</div>';
+   return h+'<button class="btn" data-a="mkpdf">'+ic('file')+t('make_pdf')+'</button>'},
   statement:function(){var r=D.stmt,h=K.header(t('stmt_title'),'');if(!r)return h+K.spin();if(!r.ok)return h+K.empty('alert',t('not_found'));
    var c=r.customer,cur=r.shop.currency;h=K.header(t('stmt_title'),t('stmt_from',{s:r.shop.name}));
    h+='<div class="card center"><div class="fs">'+esc(c.name)+'</div><div class="num">'+m(c.balance,cur)+'</div>'+(c.balance<=0?'<div class="okmsg" style="justify-content:center">'+ic('check','s')+t('paid_up')+'</div>':c.dueDate?'<span class="pill '+(c.overdue?'bad':'')+'">'+t('due_on',{d:c.dueDate})+'</span>':'')+'</div>';
    h+='<div class="sec">'+t('history')+'</div><div class="card"><ul class="files">'+c.entries.slice().reverse().map(function(e){return'<li><div class="grow"><div class="fn">'+t(e.type)+(e.note?' · '+esc(e.note):'')+'</div><div class="fs">'+esc(e.date)+'</div></div><b>'+(e.type==='payment'?'−':'+')+m(e.amount,cur)+'</b></li>'}).join('')+'</ul></div>';
    return h}
  },
- onSeg:function(n,v){var s=D.book.shop;s.name=document.getElementById('sname').value;s.currency=document.getElementById('scur').value;if(n==='freq')s.freq=v;if(n==='rlang')s.lang=v;K.render()},
+ onSeg:function(n,v){if(n==='period'){D.period=v;D.rep=null;K.render();api('dbReport',{period:v}).then(function(r){D.rep=r.ok?r:{allowed:false};K.render()});return}var s=D.book.shop;s.name=document.getElementById('sname').value;s.currency=document.getElementById('scur').value;if(n==='freq')s.freq=v;if(n==='rlang')s.lang=v;K.render()},
  actions:{
   cust:function(el,d){D.cust=D.book.customers.filter(function(c){return c.id===d.id})[0];K.go('customer')},
   newcust:function(){D.form={id:'',name:'',phone:''};K.go('custform')},
@@ -104,6 +113,10 @@ K.app({
   copytext:function(){K.copy(remindText(D.cust,D.book.shop,D.book.shop.lang))},
   sendlink:function(){var c=D.cust,link=K.appLink('d_'+c.token),txt=D.book.shop.lang==='so'?'Halkan ka eeg xisaabtaada '+D.book.shop.name+':':'View your account with '+D.book.shop.name+':';
    if(c.phone)K.openLink('https://wa.me/'+c.phone.replace(/[^\d]/g,'')+'?text='+encodeURIComponent(txt+' '+link));else K.shareTg(link,txt)},
+  reports:function(){K.go('reports')},
+  mkpdf:function(){var r=D.rep.report;K.showReport(finReport(r),(r.shop.name||'report').replace(/[^\w\- ]+/g,'')+' '+t('fin_report')+' '+(r.to>'9000'?new Date().toISOString().slice(0,10):r.to)+'.pdf')},
+  stmtpdf:function(){if(!K.isPro())return K.paywall({title:t('reports'),text:t('pro_reports'),icon:'chart',features:[t('fin_report'),t('statement_pdf'),t('customers')+' ∞']});
+   var c=D.cust;K.showReport(function(){return api('dbReport',{period:'all',customer:c.id}).then(function(r){return stmtReport(r.report,c)})},c.name.replace(/[^\w\- ]+/g,'')+' statement.pdf')},
   saveshop:function(){var s=D.book.shop;s.name=document.getElementById('sname').value.trim();s.currency=document.getElementById('scur').value;api('dbSaveShop',{shop:s}).then(function(r){S.msg=r.ok?t('saved'):'';S.err=r.ok?'':t('e_gen');K.render()})}
  },
  demoSeed:function(){var d=function(n){return new Date(Date.now()+n*864e5).toISOString().slice(0,10)};
@@ -122,9 +135,28 @@ K.app({
   dbAddEntry:function(d,s){var c=fc(s,d.id);c.entries.push({id:'e'+K.uid(),type:d.type,amount:+d.amount,date:d.date,due:d.due,note:d.note});return{ok:true,customer:sum(c)}},
   dbDeleteEntry:function(d,s){var c=fc(s,d.id);c.entries=c.entries.filter(function(e){return e.id!==d.entry});return{ok:true,customer:sum(c)}},
   dbSaveShop:function(d,s){s.app.shop=d.shop;return{ok:true}},
+  dbReport:function(d,s){if(!K.isPro())return{ok:true,allowed:false};var n=new Date(),y=n.getUTCFullYear(),mo=n.getUTCMonth(),f=function(x){return x.toISOString().slice(0,10)},P;
+   P=d.period==='lastmonth'?{from:f(new Date(Date.UTC(y,mo-1,1))),to:f(new Date(Date.UTC(y,mo,0)))}:d.period==='year'?{from:y+'-01-01',to:f(n)}:d.period==='all'?{from:'0000-01-01',to:'9999-12-31'}:{from:f(new Date(Date.UTC(y,mo,1))),to:f(n)};
+   var out={shop:s.app.shop,period:d.period,from:P.from,to:P.to,totals:{credit:0,paid:0,outstanding:0,overdueCount:0,overdueAmount:0,customers:0},customers:[],entries:[]};
+   s.app.customers.forEach(function(c){if(d.customer&&c.id!==d.customer)return;var sm=sum(c),cr=0,pd=0;c.entries.forEach(function(e){if(e.date<P.from||e.date>P.to)return;if(e.type==='debt')cr+=+e.amount;else pd+=+e.amount;out.entries.push({date:e.date,name:c.name,type:e.type,amount:+e.amount,note:e.note,due:e.due})});
+    out.totals.customers++;out.totals.credit+=cr;out.totals.paid+=pd;if(sm.balance>0)out.totals.outstanding+=sm.balance;if(sm.overdue){out.totals.overdueCount++;out.totals.overdueAmount+=sm.balance}
+    out.customers.push({name:c.name,phone:c.phone,credit:cr,paid:pd,balance:sm.balance,due:sm.dueDate,overdue:sm.overdue})});
+   out.customers.sort(function(a,b){return b.balance-a.balance});out.entries.sort(function(a,b){return a.date<b.date?-1:1});return{ok:true,allowed:true,report:out}},
   dbStatement:function(d,s){var c=s.app.customers.filter(function(x){return x.token===d.token})[0];return c?{ok:true,shop:s.app.shop,customer:sum(c)}:{ok:false}}
  }
 });
+function periodLabel(r){return r.from==='0000-01-01'?t('p_all'):t('p_'+r.period)+' · '+r.from+' → '+r.to}
+function finReport(r){var cur=r.shop.currency,T=r.totals;return{brand:r.shop.name||t('appName'),title:t('fin_report'),subtitle:periodLabel(r),rtl:false,
+ blocks:[{kpis:[[t('credit_sales'),m(T.credit,cur)],[t('received'),m(T.paid,cur),'good'],[t('outstanding_now'),m(T.outstanding,cur)],[t('overdue_amt')+' ('+T.overdueCount+')',m(T.overdueAmount,cur),'bad']]},
+  {h:t('cust_balances')},{table:{cols:[{label:t('customer'),w:2},{label:t('phone_l'),w:1.5},{label:t('credit_sales'),w:1.25,align:'right'},{label:t('received'),w:1.55,align:'right'},{label:t('balance'),w:1.2,align:'right'},{label:t('due').replace(/\s*\(.*\)/,''),w:1.2}],
+   rows:r.customers.map(function(c){return[c.name,c.phone||'',m(c.credit,cur),m(c.paid,cur),{v:m(c.balance,cur),tone:c.overdue?'bad':c.balance<=0?'good':null},c.due||'']}),
+   total:[t('total'),'',m(T.credit,cur),m(T.paid,cur),m(T.outstanding,cur),'']}},
+  {h:t('transactions')},{table:{cols:[{label:t('date'),w:1.2},{label:t('customer'),w:2},{label:t('type'),w:1},{label:t('amount'),w:1.2,align:'right'},{label:t('note').replace(/\s*\(.*\)/,''),w:2.2}],empty:t('no_tx'),
+   rows:r.entries.map(function(e){return[e.date,e.name,t(e.type),{v:(e.type==='payment'?'−':'+')+m(e.amount,cur),tone:e.type==='payment'?'good':null},e.note||'']})}}]}}
+function stmtReport(r,c){var cur=r.shop.currency,cc=r.customers[0]||{balance:0},bal=0;return{brand:r.shop.name||t('appName'),title:t('stmt_title'),subtitle:c.name+(c.phone?' · '+c.phone:''),
+ blocks:[{kpis:[[t('balance'),m(cc.balance,cur),cc.overdue?'bad':cc.balance<=0?'good':null],[t('credit_sales'),m(cc.credit,cur)],[t('received'),m(cc.paid,cur),'good']]},
+  {h:t('history')},{table:{cols:[{label:t('date'),w:1.2},{label:t('type'),w:1},{label:t('note').replace(/\s*\(.*\)/,''),w:2.4},{label:t('amount'),w:1.2,align:'right'},{label:t('balance'),w:1.2,align:'right'}],empty:t('no_tx'),
+   rows:r.entries.map(function(e){bal+=e.type==='debt'?e.amount:-e.amount;return[e.date,t(e.type),e.note||'',(e.type==='payment'?'−':'+')+m(e.amount,cur),m(bal,cur)]})}}]}}
 function fc(s,id){return s.app.customers.filter(function(c){return c.id===id})[0]}
 function computeA(s,d){var st=s.settings,test=st.testMode&&!d.simulateFree,left=Math.max(0,st.freeAllowance-s.freeUsed);return{entitled:test||left>0,reason:test?'test':left>0?'free':'blocked',freeLeft:left,freeUsed:s.freeUsed,freeAllowance:st.freeAllowance,credits:0}}
 /* balance + oldest open due date (same rule as the server) */

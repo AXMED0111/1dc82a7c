@@ -44,7 +44,7 @@ K.app({
   cost:'Cost',c_base:'Rewards',c_fee:'Platform fee ({p}%)',c_total:'Total to pay',save_pay:'Save and pay',review:'Review submissions',approve:'Approve',reject:'Reject',reason:'Reason for rejecting',none_subs:'No submissions yet.',
   progress:'{a} of {b} done',pay_task:'Pay for this task',paid_task:'Payment received. Your task is now live.',map:'Map',
   st_draft:'Draft',st_pay:'Awaiting payment',st_live:'Live',st_closed:'Closed',st_pending:'Waiting review',st_approved:'Approved',st_rejected:'Rejected',st_requested:'Requested',st_paid:'Paid',
-  e_photo:'Take the photo first.',e_gps:'Add your location first.',e_answers:'Answer all questions.',e_fields:'Fill in title, instructions, city, reward and number of submissions.',e_addr:'Enter your USDT TRC20 address.',e_min:'Your balance is below the minimum.',no_gps:'Location is not available. Turn on location for Telegram.',own:'You cannot do your own task.',full:'This task is full.',already:'You already submitted this task.'},
+  e_photo:'Take the photo first.',e_gps:'Add your location first.',e_answers:'Answer all questions.',e_fields:'Fill in title, instructions, city, reward and number of submissions.',e_addr:'Enter your USDT TRC20 address.',e_min:'Your balance is below the minimum.',no_gps:'Location is not available. Turn on location for Telegram.',own:'You cannot do your own task.',full:'This task is full.',already:'You already submitted this task.',task_pdf:'Task report (PDF)',spent:'Spent on rewards',date_l:'Date',worker_l:'Worker',status_l:'Status',gps_l:'GPS',photos_l:'Photos',sub_l:'Submissions'},
  so:{appName:'Hawlo Goob',tagline:'Hawlo yar oo lacag leh oo kuu dhow. Xog dhab ah ganacsiyada.',earn:'Kasbo',post:'Soo dhig hawlo',wallet:'Boorsada',city:'Magaaladaada',city_ph:'tusaale Hargeysa, Muqdisho',all_cities:'Dhammaan magaalooyinka',
   no_tasks:'Hadda hawl furan kuma jirto magaaladaada. Dib u eeg.',reward:'Abaalmarin',left:'{n} ayaa haray',per:'gudbin kasta',start:'Bilow hawsha',instructions:'Tilmaamaha',needs:'Loo baahan yahay',photo:'Sawir',gps:'Goobta',answers:'Su\'aalo',
   take_photo:'Sawir qaad',retake:'Dib u qaad',get_loc:'Ku dar goobtayda',loc_ok:'Goobta waa la daray',submit:'Gudbi',submitted:'Waa la gudbiyay. Waa lagu siin doonaa marka ganacsigu oggolaado.',my_work:'Gudbintayda',none_work:'Weli wax gudbin ah ma jiraan.',
@@ -54,7 +54,7 @@ K.app({
   cost:'Kharashka',c_base:'Abaalmarinnada',c_fee:'Khidmadda ({p}%)',c_total:'Wadarta la bixinayo',save_pay:'Keydi oo bixi',review:'Eeg gudbinta',approve:'Oggolow',reject:'Diid',reason:'Sababta diidmada',none_subs:'Weli gudbin ma jiro.',
   progress:'{a} / {b} la dhammeeyay',pay_task:'Bixi hawshan',paid_task:'Lacagta waa la helay. Hawshaadu hadda way shaqaynaysaa.',map:'Khariidad',
   st_draft:'Qabyo',st_pay:'Sugaya lacag',st_live:'Furan',st_closed:'Xiran',st_pending:'Sugaya',st_approved:'La oggolaaday',st_rejected:'La diiday',st_requested:'La codsaday',st_paid:'La bixiyay',
-  e_photo:'Marka hore sawirka qaad.',e_gps:'Marka hore goobta ku dar.',e_answers:'Ka jawaab dhammaan su\'aalaha.',e_fields:'Buuxi cinwaanka, tilmaamaha, magaalada, abaalmarinta iyo tirada.',e_addr:'Geli cinwaankaaga USDT TRC20.',e_min:'Haraagaagu wuu ka yar yahay xadka.',no_gps:'Goobta lama heli karo. Shid goobta Telegram.',own:'Ma qaban kartid hawshaada.',full:'Hawshan way buuxsantay.',already:'Horey ayaad u gudbisay hawshan.'}},
+  e_photo:'Marka hore sawirka qaad.',e_gps:'Marka hore goobta ku dar.',e_answers:'Ka jawaab dhammaan su\'aalaha.',e_fields:'Buuxi cinwaanka, tilmaamaha, magaalada, abaalmarinta iyo tirada.',e_addr:'Geli cinwaankaaga USDT TRC20.',e_min:'Haraagaagu wuu ka yar yahay xadka.',no_gps:'Goobta lama heli karo. Shid goobta Telegram.',own:'Ma qaban kartid hawshaada.',full:'Hawshan way buuxsantay.',already:'Horey ayaad u gudbisay hawshan.',task_pdf:'Warbixinta hawsha (PDF)',spent:'Abaalmarinnada la bixiyay',date_l:'Taariikh',worker_l:'Shaqaale',status_l:'Xaalad',gps_l:'GPS',photos_l:'Sawirro',sub_l:'Gudbinta'}},
  enter:{
   home:function(){if(M.tab==='earn')api('mkFeed',{city:M.city}).then(function(r){M.feed=r.ok?r.tasks:[];K.render()});
    else if(M.tab==='post')api('mkMine').then(function(r){M.mine=r.ok?r.tasks:[];M.fee=r.feePercent;K.render()});
@@ -96,7 +96,7 @@ K.app({
   mytask:function(){var k=M.task,h=K.header(k.title,k.city)+K.errBox();
    h+='<div class="card"><div class="row"><div class="grow">'+statusPill(k.status)+'<div class="fs" style="margin-top:6px">'+t('progress',{a:k.filled,b:k.slots})+' · '+usd(k.reward)+' '+t('per')+'</div></div><b>'+usd(k.total)+'</b></div></div>';
    if(k.status==='awaiting_payment')h+='<button class="btn" data-a="paytask">'+ic('cash')+t('pay_task')+' · '+usd(k.total)+'</button>';
-   if(k.status==='live'||k.status==='closed')h+='<button class="btn" data-a="review">'+ic('list')+t('review')+(k.pending?' ('+k.pending+')':'')+'</button>';
+   if(k.status==='live'||k.status==='closed')h+='<button class="btn" data-a="review">'+ic('list')+t('review')+(k.pending?' ('+k.pending+')':'')+'</button><button class="btn sec2" data-a="taskpdf">'+ic('file')+t('task_pdf')+'</button>';
    return h},
   review:function(){var h=K.header(t('review'),M.task.title);if(!M.review)return h+K.spin();if(!M.review.length)return h+K.empty('list',t('none_subs'));
    M.review.forEach(function(s){h+='<div class="card">'+(s.photo?'<img class="photo" src="'+s.photo+'" alt="">':'')+'<div class="row" style="margin-top:8px"><div class="grow fs">'+K.fmtDate(s.created)+' · '+esc(s.worker)+'</div>'+statusPill(s.status)+'</div>'+
@@ -120,6 +120,12 @@ K.app({
    api('mkSaveTask',{task:Object.assign({},f,{questions:f.questions.split('\n').map(function(x){return x.trim()}).filter(Boolean).slice(0,3)})}).then(function(r){if(!r.ok){S.err=t('e_gen');return K.render()}M.task=r.task;K.go('mytask',{replace:true});if(r.task.status==='awaiting_payment')payTask()})},
   mytask:function(el,d){M.task=M.mine.filter(function(k){return k.id===d.id})[0];K.go('mytask')},
   paytask:function(){payTask()},
+  taskpdf:function(){var k=M.task;K.showReport(function(){return api('mkSubs',{task:k.id}).then(function(r){var subs=r.subs||[],c={approved:0,pending:0,rejected:0};subs.forEach(function(x){c[x.status]=(c[x.status]||0)+1});
+    return{brand:t('appName'),title:k.title,subtitle:k.city+' · '+usd(k.reward)+' '+t('per'),meta:[[t('instructions'),k.instructions.slice(0,140)]],
+     blocks:[{kpis:[[t('st_approved'),c.approved+' / '+k.slots,'good'],[t('st_pending'),c.pending],[t('st_rejected'),c.rejected,c.rejected?'bad':null],[t('spent'),usd(c.approved*k.reward)]]},
+      {h:t('sub_l')},{table:{cols:[{label:t('date_l'),w:1.1},{label:t('worker_l'),w:1},{label:t('status_l'),w:1.1},{label:t('gps_l'),w:1.6}].concat(k.questions.map(function(q){return{label:q,w:1.6}})),
+       rows:subs.map(function(x){return[K.fmtDate(x.created),x.worker,{v:t('st_'+x.status),tone:x.status==='approved'?'good':x.status==='rejected'?'bad':null},x.lat?(+x.lat).toFixed(4)+', '+(+x.lng).toFixed(4):''].concat(k.questions.map(function(q,i){return(x.answers||[])[i]||''}))})}},
+      {h:t('photos_l')},{images:subs.filter(function(x){return x.photo&&x.status!=='rejected'}).map(function(x){return{src:x.photo,caption:x.worker+' · '+K.fmtDate(x.created)+(x.answers&&x.answers[0]?' · '+x.answers[0]:'')}})}]}})},(k.title.replace(/[^\w\- ]+/g,'')||'task')+' report.pdf')},
   review:function(){M.review=null;K.go('review')},
   approve:function(el,d){api('mkDecide',{sub:d.id,approve:true}).then(function(r){if(r.ok){M.review=null;K.render();K.S.screen='review';api('mkSubs',{task:M.task.id}).then(function(x){M.review=x.subs;K.render()})}else K.toast(t('e_gen'))})},
   reject:function(el,d){var why=prompt(t('reason'))||'';api('mkDecide',{sub:d.id,approve:false,reason:why}).then(function(){api('mkSubs',{task:M.task.id}).then(function(x){M.review=x.subs;K.render()})})},

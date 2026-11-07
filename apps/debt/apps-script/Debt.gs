@@ -80,6 +80,10 @@ APP_HOOKS.debt = {
       if (!c.tg_chat) update('Customers', c, { tg_chat: ctx.uid }); // opening the statement in Telegram links the customer for reminders
       var shop = dbShop(c.owner_id), out = dbCustOut(c); delete out.phone; delete out.token;
       return { ok: true, shop: { name: shop.name, currency: shop.currency }, customer: out };
+    },
+    dbReport: function (ctx, req) {
+      if (!isPro(ctx)) return { ok: true, allowed: false };
+      return { ok: true, allowed: true, report: dbBuildReport(ctx.uid, String(req.period || 'month'), req.customer || '') };
     }
   },
   // /start d_TOKEN from the bot chat: link the customer and open their statement
@@ -91,6 +95,32 @@ APP_HOOKS.debt = {
     return { ok: true, text: shop.lang === 'so' ? 'Waad ku xiran tahay ' + shop.name + '. Halkan ka eeg xisaabtaada.' : 'You are connected to ' + shop.name + '. View your account here.', query: 'd=' + m[1] };
   }
 };
+
+function dbPeriod(p) {
+  var n = new Date(), y = n.getUTCFullYear(), m = n.getUTCMonth(), f = function (d) { return Utilities.formatDate(d, 'UTC', 'yyyy-MM-dd'); };
+  if (p === 'lastmonth') return { from: f(new Date(Date.UTC(y, m - 1, 1))), to: f(new Date(Date.UTC(y, m, 0))) };
+  if (p === 'year') return { from: y + '-01-01', to: f(n) };
+  if (p === 'all') return { from: '0000-01-01', to: '9999-12-31' };
+  return { from: f(new Date(Date.UTC(y, m, 1))), to: f(n) };
+}
+function dbBuildReport(uid, period, onlyCust) {
+  var P = dbPeriod(period), shop = dbShop(uid), ents = rows('Entries'), out = { shop: { name: shop.name, currency: shop.currency }, period: period, from: P.from, to: P.to,
+    totals: { credit: 0, paid: 0, outstanding: 0, overdueCount: 0, overdueAmount: 0, customers: 0 }, customers: [], entries: [] };
+  rows('Customers').forEach(function (c) {
+    if (String(c.owner_id) !== String(uid) || c.status === 'deleted' || (onlyCust && c.cust_id !== onlyCust)) return;
+    var sm = dbSum(c, ents), credit = 0, paid = 0;
+    sm.entries.forEach(function (e) { if (e.date < P.from || e.date > P.to) return; if (e.type === 'debt') credit += e.amount; else paid += e.amount;
+      out.entries.push({ date: e.date, name: c.name, type: e.type, amount: e.amount, note: e.note, due: e.due }); });
+    out.totals.customers++; out.totals.credit += credit; out.totals.paid += paid;
+    if (sm.balance > 0) out.totals.outstanding += sm.balance;
+    if (sm.overdue) { out.totals.overdueCount++; out.totals.overdueAmount += sm.balance; }
+    out.customers.push({ name: c.name, phone: c.phone, credit: credit, paid: paid, balance: sm.balance, due: sm.dueDate, overdue: sm.overdue });
+  });
+  ['credit', 'paid', 'outstanding', 'overdueAmount'].forEach(function (k) { out.totals[k] = Math.round(out.totals[k] * 100) / 100; });
+  out.customers.sort(function (a, b) { return b.balance - a.balance; });
+  out.entries.sort(function (a, b) { return a.date < b.date ? -1 : 1; });
+  return out;
+}
 
 /* Daily: polite automatic reminders for linked customers with a balance. */
 DAILY_JOBS.push(function dbReminders() {

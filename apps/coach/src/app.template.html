@@ -44,6 +44,14 @@ function stopRec(){clearInterval(C.timer);if(C.rec&&C.rec.state!=='inactive')C.r
 function fmt(s){return Math.floor(s/60)+':'+('0'+s%60).slice(-2)}
 function meter(label,v){return'<div style="margin-bottom:10px"><div class="row"><span class="grow fs" style="font-weight:600">'+label+'</span><b>'+v+'</b></div><div class="meter"><i style="width:'+v+'%"></i></div></div>'}
 
+function progressReport(list){var n=list.length,avg=function(a,k){return a.length?Math.round(a.reduce(function(x,y){return x+(+(k?(y.scores||{})[k]:y.score)||0)},0)/a.length):0};
+ var best=list.reduce(function(m,x){return Math.max(m,x.score)},0),delta=n>1?list[n-1].score-list[0].score:0,cats=['job','visa','scholar','english'].filter(function(c){return list.some(function(x){return x.category===c})});
+ return{brand:t('appName'),title:t('progress').replace(' (PDF)',''),subtitle:(K.TGU?K.TGU.first_name+' · ':'')+t('sessions')+': '+n,
+  blocks:[{kpis:[[t('sessions'),n],[t('average'),avg(list)],[t('best'),best,'good'],[t('improved'),(delta>0?'+':'')+delta,delta>0?'good':delta<0?'bad':null]]},
+   {h:t('by_type')},{table:{cols:[{label:t('type_l'),w:2.2},{label:t('sessions'),w:1,align:'right'},{label:t('overall'),w:1,align:'right'},{label:t('content'),w:1,align:'right'},{label:t('structure'),w:1,align:'right'},{label:t('clarity'),w:1,align:'right'},{label:t('confidence'),w:1.1,align:'right'}],
+    rows:cats.map(function(c){var a=list.filter(function(x){return x.category===c});return[t('c_'+c),a.length,avg(a),avg(a,'content'),avg(a,'structure'),avg(a,'clarity'),avg(a,'confidence')]})}},
+   {h:t('all_sessions')},{table:{cols:[{label:t('date'),w:1.2},{label:t('type_l'),w:1.6},{label:t('q_l'),w:3.6},{label:t('overall'),w:0.9,align:'right'}],
+    rows:list.map(function(x){return[K.fmtDate(x.created),t('c_'+x.category),x.question,{v:x.score,tone:x.score>=75?'good':x.score<50?'bad':null}]})}}]}}
 K.app({
  icon:'mic',freeLabel:'Free practice sessions (total)',
  defaults:{appName:'Interview Coach',freeAllowance:2,x_aiModel:'gemini-2.5-flash',plans:[{id:'s1',label:'1 session',days:0,credits:1,usd:1,stars:75,region:'ALL'},{id:'s10',label:'10 sessions',days:0,credits:10,usd:7,stars:500,region:'ALL'},{id:'pro_m',label:'Unlimited · 1 month',days:30,credits:0,usd:9,stars:650,region:'ALL'}]},
@@ -55,18 +63,18 @@ K.app({
   record:'Tap to record',recording:'Recording… tap to stop',again:'Record again',get:'Get feedback',scoring:'Listening and scoring… this takes about 10 seconds.',next:'Next question',skip:'Different question',
   overall:'Overall',content:'Content',structure:'Structure',clarity:'Clarity',confidence:'Confidence',transcript:'What we heard',strengths:'What went well',improve:'What to improve',better:'A stronger answer',
   no_mic:'Your device does not support recording here. Update Telegram and try again.',mic_denied:'Microphone access was blocked. Allow the microphone for Telegram in your phone settings.',too_short:'The answer is too short. Speak for at least 10 seconds.',
-  demo_fb:'Demo feedback — no AI connected yet. Real scoring starts when the server and AI key are set.',ai_fail:'Scoring is not available right now. Your session was not charged.'},
+  demo_fb:'Demo feedback — no AI connected yet. Real scoring starts when the server and AI key are set.',ai_fail:'Scoring is not available right now. Your session was not charged.',progress:'Progress report (PDF)',sessions:'Sessions',average:'Average score',best:'Best score',improved:'Change since first',by_type:'By interview type',all_sessions:'All sessions',date:'Date',type_l:'Type',q_l:'Question',pro_rep:'Progress reports are part of the unlimited plan.'},
  so:{appName:'Tababaraha Waraysiga',tagline:'Ku celceli cod dheer. Hel dhibco iyo talo cad.',choose:'Dooro waraysigaaga',c_job:'Waraysi shaqo',c_visa:'Waraysi fiisaha ardayga',c_scholar:'Waraysi deeq waxbarasho',c_english:'Ku hadlidda Ingiriisiga',
   d_job:'Su\'aalaha caadiga ah ee HR',d_visa:'Su\'aalo nooca safaaradda',d_scholar:'Su\'aalaha guddiga',d_english:'Mawduucyo maalinle ah',history:'Fadhiyadii ugu dambeeyay',question:'Su\'aasha {n}',tip:'U jawaab sidii adoo jooga waraysiga dhabta ah. Isku day 45–90 ilbiriqsi.',
   record:'Taabo si aad u duubto',recording:'Waa la duubayaa… taabo si aad u joojiso',again:'Dib u duub',get:'Hel talooyin',scoring:'Waa la dhageysanayaa oo la qiimeynayaa… qiyaastii 10 ilbiriqsi.',next:'Su\'aasha xigta',skip:'Su\'aal kale',
   overall:'Guud ahaan',content:'Nuxurka',structure:'Habaynta',clarity:'Caddaanta',confidence:'Kalsoonida',transcript:'Waxa aan maqalnay',strengths:'Waxa si fiican u socday',improve:'Waxa la hagaajiyo',better:'Jawaab ka xoog badan',
   no_mic:'Qalabkaagu ma taageerayo duubista halkan. Cusboonaysii Telegram oo isku day.',mic_denied:'Makarafoonka waa la xannibay. U oggolow makarafoonka Telegram dejinta taleefanka.',too_short:'Jawaabtu aad bay u gaaban tahay. Ka hadal ugu yaraan 10 ilbiriqsi.',
-  demo_fb:'Talo demo ah — AI weli lama xirin. Qiimaynta dhabta ah waxay bilaabataa marka server-ka iyo furaha AI la dejiyo.',ai_fail:'Qiimayntu hadda ma shaqaynayso. Lacag lagaama jarin.'}},
+  demo_fb:'Talo demo ah — AI weli lama xirin. Qiimaynta dhabta ah waxay bilaabataa marka server-ka iyo furaha AI la dejiyo.',ai_fail:'Qiimayntu hadda ma shaqaynayso. Lacag lagaama jarin.',progress:'Warbixinta horumarka (PDF)',sessions:'Fadhiyo',average:'Celceliska dhibcaha',best:'Dhibcaha ugu sarreeya',improved:'Isbeddelka tan iyo kii ugu horreeyay',by_type:'Nooca waraysiga',all_sessions:'Dhammaan fadhiyada',date:'Taariikh',type_l:'Nooc',q_l:'Su\'aal',pro_rep:'Warbixinnada horumarka waxay ka mid yihiin qorshaha aan xadka lahayn.'}},
  enter:{home:function(){api('coHistory').then(function(r){C.history=r.ok?r.items:[];K.render()})}},
  screens:{
   home:function(){var h=K.header(t('appName'),t('tagline'))+'<div class="row" style="margin:-4px 0 12px">'+K.planChip()+'</div>'+K.banners()+'<div class="sec">'+t('choose')+'</div><div class="grid">';
    [['job','briefcase'],['visa','globe'],['scholar','award'],['english','message']].forEach(function(c){h+='<button class="tool" data-a="cat" data-c="'+c[0]+'"><div class="ic">'+ic(c[1])+'</div><div><b>'+t('c_'+c[0])+'</b><br><span>'+t('d_'+c[0])+'</span></div></button>'});
-   h+='</div>';if(C.history&&C.history.length){h+='<div class="sec">'+t('history')+'</div><div class="card"><ul class="files">'+C.history.slice(0,8).map(function(x){return'<li><div class="thumb"><b>'+x.score+'</b></div><div class="grow"><div class="fn">'+esc(x.question)+'</div><div class="fs">'+t('c_'+x.category)+' · '+K.fmtDate(x.created)+'</div></div></li>'}).join('')+'</ul></div>'}
+   h+='</div>';if(C.history&&C.history.length){h+='<div class="sec">'+t('history')+'</div><div class="card"><ul class="files">'+C.history.slice(0,8).map(function(x){return'<li><div class="thumb"><b>'+x.score+'</b></div><div class="grow"><div class="fn">'+esc(x.question)+'</div><div class="fs">'+t('c_'+x.category)+' · '+K.fmtDate(x.created)+'</div></div></li>'}).join('')+'</ul></div><button class="btn sec2" data-a="progress">'+ic('chart')+t('progress')+(K.isPro()?'':' · Pro')+'</button>'}
    return h},
   practice:function(){var h=K.header(t('c_'+C.cat),t('question',{n:C.qi+1}));
    h+='<div class="card"><div class="fs">'+t('question',{n:C.qi+1})+'</div><h2 style="margin-top:6px;font-size:19px;line-height:1.35">'+esc(q())+'</h2><div class="note" style="margin-top:10px;padding:0">'+ic('info','s')+'<span>'+t('tip')+'</span></div></div>';
@@ -99,18 +107,21 @@ K.app({
     if(!r.ok){C.state='done';S.err=r.error==='network'?t('e_net'):t('ai_fail');return K.render()}
     if(r.access)S.me.access=r.access;else K.refreshMe();C.result=r.result;C.state='idle';K.haptic('ok');K.go('result',{replace:true})})
    .catch(function(e){console.error(e);C.state='done';S.err=t('e_gen');K.render()})},
+  progress:function(){api('coReport').then(function(r){if(!r.ok||!r.allowed)return K.paywall({title:t('progress'),text:t('pro_rep'),icon:'chart',features:[t('progress'),t('f_unl')]});
+    K.showReport(progressReport(r.sessions),'interview-progress.pdf')})},
   next:function(){C.qi++;C.state='idle';C.sec=0;K.go('practice',{replace:true})},
   retry:function(){C.state='idle';C.sec=0;K.go('practice',{replace:true})}
  },
  demoSeed:function(){return{history:[]}},
  demo:{
   coHistory:function(d,s){return{ok:true,items:s.app.history}},
+  coReport:function(d,s){if(!K.isPro())return{ok:true,allowed:false};return{ok:true,allowed:true,sessions:s.app.history.slice().reverse()}},
   coScore:function(d,s){var st=s.settings,a=K.S.me.access;if(!a.entitled)return{ok:true,allowed:false};
    if(a.reason==='free')s.freeUsed++;else if(a.reason==='credits')s.credits--;
    var len=Math.min(1,d.seconds/60),base=Math.round(55+len*30),r={demo:true,overall:base,scores:{content:Math.min(100,base+4),structure:base-3,clarity:Math.min(100,base+6),confidence:base-6},
     strengths:['You answered the question directly.','Your pace was easy to follow.'],improvements:['Add one concrete example with a result (numbers help).','Finish with a short summary sentence that links back to the role or program.'],
     better_answer:'Start with a one-line summary, give one specific example (situation, action, result), and close by connecting it to what the interviewer needs.',transcript:''};
-   s.app.history.unshift({category:d.category,question:d.question,score:base,created:new Date().toISOString()});
+   s.app.history.unshift({category:d.category,question:d.question,score:base,scores:r.scores,created:new Date().toISOString()});
    return{ok:true,allowed:true,result:r}}
  }
 });
