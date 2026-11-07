@@ -1,0 +1,249 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex,nofollow">
+<meta name="color-scheme" content="light dark">
+<title>Control Center</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<script src="config.js"></script>
+%%STYLE%%
+%%EXTRA%%
+<style>
+/* Chart palette: validated categorical order (light / dark), one color per app, never re-assigned by rank */
+:root{--s1:#2a78d6;--s2:#eb6834;--s3:#1baf7a;--s4:#eda100;--s5:#e87ba4;--s6:#008300;--s7:#6250d6;--s8:#e34948;--grid:rgba(128,128,128,.18)}
+.dk{--s1:#3987e5;--s2:#d95926;--s3:#199e70;--s4:#c98500;--s5:#d55181;--s6:#008300;--s7:#9085e9;--s8:#e66767}
+html{scroll-padding-bottom:90px}.wrap{padding-bottom:84px}
+.nav{position:fixed;left:0;right:0;bottom:0;display:flex;background:var(--card);border-top:1px solid var(--sep);padding:6px 4px calc(6px + env(safe-area-inset-bottom));z-index:5}
+.nav button{flex:1;border:0;background:none;display:flex;flex-direction:column;align-items:center;gap:2px;font-size:11px;font-weight:600;color:var(--hint);padding:4px 0;cursor:pointer;position:relative}
+.nav button.on{color:var(--accent)}
+.nav .badge{position:absolute;top:0;right:calc(50% - 20px);background:var(--danger);color:#fff;border-radius:999px;font-size:10px;padding:0 5px;min-width:16px}
+.kpis{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px}
+.kpi{background:var(--card);border:1px solid var(--sep);border-radius:14px;padding:12px}
+.kpi .l{font-size:11.5px;color:var(--hint);font-weight:600}.kpi .v{font-size:22px;font-weight:700;letter-spacing:-.02em;margin-top:2px}.kpi .d{font-size:11.5px;color:var(--hint);margin-top:2px}
+.kpi.hero{grid-column:1/-1;background:linear-gradient(135deg,color-mix(in srgb,var(--accent) 14%,var(--card)),var(--card))}.kpi.hero .v{font-size:30px}
+.up{color:#079455}.down{color:var(--danger)}
+.chart{background:var(--card);border:1px solid var(--sep);border-radius:14px;padding:12px;margin-bottom:12px}
+.chart h3{font-size:14px;margin:0;font-weight:650}.chart .sub{font-size:11.5px;color:var(--hint)}
+.chart svg{display:block;width:100%;height:auto;overflow:visible}
+.chart svg text{fill:var(--hint);font-size:10px;font-family:inherit}
+.legend{display:flex;flex-wrap:wrap;gap:4px 12px;margin-top:8px;font-size:11.5px;color:var(--text)}
+.legend span{display:inline-flex;align-items:center;gap:5px}.legend i{width:10px;height:10px;border-radius:3px;display:inline-block}
+.hb{display:grid;grid-template-columns:96px 1fr 64px;align-items:center;gap:8px;font-size:12.5px;margin:6px 0}
+.hb .tr{height:14px;background:var(--bg);border-radius:4px;overflow:hidden}.hb .tr i{display:block;height:100%;border-radius:0 4px 4px 0}
+.hb .val{text-align:right;font-weight:600}
+.filters{display:flex;gap:6px;overflow-x:auto;padding-bottom:4px;margin-bottom:10px;scrollbar-width:none}
+.filters button{flex:none;border:1px solid var(--sep);background:var(--card);border-radius:999px;padding:6px 12px;font-size:12.5px;font-weight:600;color:var(--hint);cursor:pointer;display:inline-flex;align-items:center;gap:6px}
+.filters button.on{background:var(--accent);color:var(--accent-text);border-color:var(--accent)}
+.filters button i{width:8px;height:8px;border-radius:50%}
+.tip{position:fixed;z-index:20;pointer-events:none;background:var(--text);color:var(--card);font-size:12px;padding:6px 9px;border-radius:8px;max-width:220px;white-space:pre-line;box-shadow:0 6px 18px rgba(0,0,0,.2);display:none}
+.ctog{float:right;border:0;background:none;color:var(--link);font-size:12px;font-weight:600;cursor:pointer}
+table.dt{width:100%;border-collapse:collapse;font-size:12.5px;margin-top:8px}table.dt th,table.dt td{padding:6px 4px;border-bottom:1px solid var(--sep);text-align:right}table.dt th:first-child,table.dt td:first-child{text-align:left}table.dt th{color:var(--hint);font-weight:600;font-size:11.5px}
+.st{display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:600}.st:before{content:"";width:8px;height:8px;border-radius:50%;background:#0ca30c}.st.warn:before{background:#fab219}.st.bad:before{background:#d03b3b}
+.chat .bub{max-width:92%}
+.ai-note{font-size:11.5px;color:var(--hint);text-align:center;margin:6px 0 10px}
+.checks{display:flex;flex-wrap:wrap;gap:6px}.checks label{display:inline-flex;align-items:center;gap:5px;border:1px solid var(--sep);border-radius:999px;padding:5px 10px;font-size:12.5px;cursor:pointer}
+</style>
+</head>
+<body>
+%%ICONS%%
+<div class="wrap" id="app"></div>
+<div class="tip" id="tip"></div>
+%%KIT%%
+<script>
+(function(){
+var t=K.t,esc=K.esc,ic=K.ic,S=K.S,api=K.api;
+var ORDER=['gatekeeper','coach','translator','rsvp','scholar','debt','market','converter'];
+var NAMES={gatekeeper:'Channel Pass',coach:'Interview Coach',translator:'Translator',rsvp:'Invitations',scholar:'Scholarships',debt:'Debt Book',market:'Field Tasks',converter:'PDF Tools'};
+var C={only:'',ov:null,health:null,tickets:null,tf:'open',ticket:null,chat:[],admins:null,tables:{},asking:false};
+var dark=(K.TG&&K.TG.colorScheme==='dark')||(!K.IN_TG&&window.matchMedia&&matchMedia('(prefers-color-scheme: dark)').matches);if(dark)document.documentElement.classList.add('dk');
+/* color follows the app (entity), never its rank; 9th+ apps share a neutral "other" color */
+function slot(app){var i=ORDER.indexOf(app);if(i<0&&C.ov){var extra=C.ov.apps.map(function(a){return a.app}).filter(function(a){return ORDER.indexOf(a)<0}).sort();i=ORDER.length+extra.indexOf(app)}return i>=0&&i<8?'var(--s'+(i+1)+')':'var(--hint)'}
+function nm(app){var a=C.ov&&C.ov.apps.filter(function(x){return x.app===app})[0];return(a&&a.name&&a.name!==app?a.name:NAMES[app])||app}
+function usd(n){n=+n||0;return'$'+(n>=1000?(n/1000).toFixed(n>=10000?0:1)+'k':n.toFixed(n<100?2:0))}
+function usdF(n){return'$'+(+n||0).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})}
+function mlab(m){var d=new Date(m+'-01T00:00:00Z');return d.toLocaleString('en-US',{month:'short',timeZone:'UTC'})}
+function nav(){var open=C.badge||0,isSup=S.me&&S.me.perms&&S.me.perms.indexOf('super')>=0;
+ var tabs=[['home','chart','Dashboard'],['inbox','message','Inbox'],['apps','shield','Apps'],['ai','info','AI']];if(isSup)tabs.push(['admins','users','Admins']);
+ return'<div class="nav">'+tabs.map(function(x){return'<button data-a="tab" data-v="'+x[0]+'" class="'+(S.screen===x[0]?'on':'')+'">'+ic(x[1])+x[2]+(x[0]==='inbox'&&open?'<span class="badge">'+open+'</span>':'')+'</button>'}).join('')+'</div>'}
+function denied(){return K.header('Control Center','')+K.empty('lock','This area is for admins only. Ask the owner to add your Telegram ID in Control Center → Admins.')}
+function isAdm(){return S.me&&S.me.isAdmin}
+
+/* ---------------- charts (SVG, hover tooltips, table view) ---------------- */
+function stackChart(months,apps){var W=340,H=170,L=36,B=20,n=months.length,cw=(W-L)/n,mx=Math.max.apply(null,months.map(function(m){return m.total}).concat([1])),s='';
+ [0,.5,1].forEach(function(g){var y=H-B-g*(H-B-8);s+='<line x1="'+L+'" x2="'+W+'" y1="'+y+'" y2="'+y+'" stroke="var(--grid)"/><text x="'+(L-4)+'" y="'+(y+3)+'" text-anchor="end">'+usd(mx*g)+'</text>'});
+ months.forEach(function(m,i){var y=H-B,x=L+i*cw+cw*.18,w=cw*.64;apps.forEach(function(a){var v=m.byApp[a]||0,h=v/mx*(H-B-8);if(h<=0)return;y-=h;
+   s+='<rect x="'+x.toFixed(1)+'" y="'+y.toFixed(1)+'" width="'+w.toFixed(1)+'" height="'+Math.max(.5,h-1.5).toFixed(1)+'" rx="2" fill="'+slot(a)+'" data-tip="'+esc(mlab(m.month)+' '+m.month.slice(0,4)+'\n'+nm(a)+': '+usdF(v)+'\nMonth total: '+usdF(m.total))+'"/>'});
+   s+='<text x="'+(L+i*cw+cw/2)+'" y="'+(H-6)+'" text-anchor="middle">'+mlab(m.month)+'</text>'});
+ var last=months[n-1];s+='<text x="'+(L+(n-1)*cw+cw/2)+'" y="'+Math.max(10,H-B-last.total/mx*(H-B-8)-4)+'" text-anchor="middle" style="fill:var(--text);font-weight:700">'+usd(last.total)+'</text>';
+ return'<svg viewBox="0 0 '+W+' '+H+'" role="img" aria-label="Revenue by month, stacked by app">'+s+'</svg>'}
+function lineChart(daily,today,proj,dim){var W=340,H=150,L=36,B=18,pts=[],cum=0;daily.forEach(function(d,i){if(i<today){cum+=d.usd;pts.push([i+1,cum])}});
+ var mx=Math.max(proj,cum,1),X=function(d){return L+(d-1)/(dim-1)*(W-L-4)},Y=function(v){return H-B-v/mx*(H-B-10)},s='';
+ [0,.5,1].forEach(function(g){var y=Y(mx*g);s+='<line x1="'+L+'" x2="'+W+'" y1="'+y+'" y2="'+y+'" stroke="var(--grid)"/><text x="'+(L-4)+'" y="'+(y+3)+'" text-anchor="end">'+usd(mx*g)+'</text>'});
+ [1,Math.ceil(dim/2),dim].forEach(function(d){s+='<text x="'+X(d)+'" y="'+(H-4)+'" text-anchor="middle">'+d+'</text>'});
+ if(pts.length){var path=pts.map(function(p,i){return(i?'L':'M')+X(p[0]).toFixed(1)+' '+Y(p[1]).toFixed(1)}).join(' ');
+  s+='<path d="'+path+' L'+X(pts[pts.length-1][0]).toFixed(1)+' '+Y(0)+' L'+X(1)+' '+Y(0)+'Z" fill="var(--s1)" opacity=".12"/><path d="'+path+'" fill="none" stroke="var(--s1)" stroke-width="2"/>';
+  var lp=pts[pts.length-1];s+='<line x1="'+X(lp[0])+'" y1="'+Y(lp[1])+'" x2="'+X(dim)+'" y2="'+Y(proj)+'" stroke="var(--s1)" stroke-width="2" stroke-dasharray="4 4" opacity=".7"/>';
+  s+='<circle cx="'+X(lp[0])+'" cy="'+Y(lp[1])+'" r="4" fill="var(--s1)" stroke="var(--card)" stroke-width="2"/><text x="'+(X(dim)-2)+'" y="'+(Y(proj)-6)+'" text-anchor="end" style="fill:var(--text);font-weight:700">Forecast '+usd(proj)+'</text>';
+  var c2=0;daily.forEach(function(d,i){if(i>=today)return;c2+=d.usd;var x=X(i+1),w=(W-L)/dim;s+='<rect x="'+(x-w/2)+'" y="0" width="'+w+'" height="'+(H-B)+'" fill="transparent" data-tip="'+esc('Day '+(i+1)+': '+usdF(d.usd)+'\nMonth so far: '+usdF(c2))+'"/>'})}
+ return'<svg viewBox="0 0 '+W+' '+H+'" role="img" aria-label="Revenue this month with forecast">'+s+'</svg>'}
+function hbars(items,fmt,color){var mx=Math.max.apply(null,items.map(function(x){return x[1]}).concat([1]));
+ return items.map(function(x){return'<div class="hb" data-tip="'+esc(x[0]+': '+fmt(x[1]))+'"><span class="fn">'+esc(x[0])+'</span><span class="tr"><i style="width:'+Math.max(1,x[1]/mx*100)+'%;background:'+(x[2]||color||'var(--s1)')+'"></i></span><span class="val">'+fmt(x[1])+'</span></div>'}).join('')}
+function cols(vals,labels){var W=340,H=110,B=16,n=vals.length,cw=W/n,mx=Math.max.apply(null,vals.concat([1])),s='';
+ vals.forEach(function(v,i){var h=v/mx*(H-B-10);s+='<rect x="'+(i*cw+cw*.15).toFixed(1)+'" y="'+(H-B-h).toFixed(1)+'" width="'+(cw*.7).toFixed(1)+'" height="'+Math.max(h,.5).toFixed(1)+'" rx="2" fill="var(--s1)" data-tip="'+esc(labels[i]+': '+v+' new users')+'"/>'});
+ s+='<text x="0" y="'+(H-3)+'">'+labels[0].slice(5)+'</text><text x="'+W+'" y="'+(H-3)+'" text-anchor="end">'+labels[n-1].slice(5)+'</text>';return'<svg viewBox="0 0 '+W+' '+H+'" role="img" aria-label="New users per day">'+s+'</svg>'}
+function card(id,title,sub,body,table){var tb=C.tables[id];return'<div class="chart"><button class="ctog" data-a="tbl" data-v="'+id+'">'+(tb?'Chart':'Table')+'</button><h3>'+esc(title)+'</h3>'+(sub?'<div class="sub">'+esc(sub)+'</div>':'')+(tb?table:body)+'</div>'}
+function legend(apps){return'<div class="legend">'+apps.map(function(a){return'<span><i style="background:'+slot(a)+'"></i>'+esc(nm(a))+'</span>'}).join('')+'</div>'}
+
+/* ---------------- executive PDF ---------------- */
+function pdfColor(app){var i=ORDER.indexOf(app);var P=['#2a78d6','#eb6834','#1baf7a','#eda100','#e87ba4','#008300','#6250d6','#e34948'];if(i<0){var ex=C.ov.apps.map(function(a){return a.app}).filter(function(a){return ORDER.indexOf(a)<0}).sort();i=ORDER.length+ex.indexOf(app)}return i>=0&&i<8?P[i]:'#98a2b3'}
+function execReport(){var o=C.ov,T=o.totals,apps=o.byApp.map(function(a){return a.app}),h=C.health;
+ var b=[{kpis:[['Revenue this month',usdF(T.mtd),'good'],['Forecast month-end',usdF(T.projection)],['Last month',usdF(T.lastMonth)],['Growth vs last month',T.growthPct==null?'—':(T.growthPct>0?'+':'')+T.growthPct+'%',T.growthPct<0?'bad':'good'],
+   ['Active subscribers',T.subs],['Users',T.users],['New users (30 days)',T.new30],['Open tickets',T.openTickets,T.openTickets?'bad':null]]},
+  {h:'Revenue by month (USD equivalent)'},{stack:{labels:o.months.map(function(m){return mlab(m.month)}),series:apps.map(function(a){return{name:nm(a),color:pdfColor(a),values:o.months.map(function(m){return m.byApp[a]||0})}}),fmt:usd}},
+  {h:'Income by app — this month'},{bars:{items:o.byApp.slice().sort(function(a,b){return b.mtd-a.mtd}).map(function(a){return[nm(a.app),a.mtd,pdfColor(a.app)]}),fmt:usdF}},
+  {h:'Apps overview'},{table:{cols:[{label:'App',w:2},{label:'This month',w:1.2,align:'right'},{label:'Last month',w:1.2,align:'right'},{label:'Subscribers',w:1.1,align:'right'},{label:'Users',w:.9,align:'right'},{label:'New 30d',w:.9,align:'right'},{label:'Tickets',w:.9,align:'right'}],
+   rows:o.byApp.map(function(a){return[nm(a.app),usdF(a.mtd),usdF(a.lastMonth),a.subs,a.users,a.new30,a.openTickets]}),total:['Total',usdF(T.mtd),usdF(T.lastMonth),T.subs,T.users,T.new30,T.openTickets]}},
+  {h:'Payment methods — this month'},{bars:{items:o.byMethod.map(function(m){return[(K.t(m.method)||m.method),m.usd,'#667085']}),fmt:usdF}}];
+ if(h)b.push({h:'System health'},{table:{cols:[{label:'App',w:1.6},{label:'Status',w:1},{label:'Errors',w:.9,align:'right'},{label:'p95',w:.9,align:'right'},{label:'Issues',w:3.4}],
+  rows:h.apps.map(function(a){return[nm(a.app),{v:a.status==='good'?'Healthy':a.status==='warn'?'Check':'Action',tone:a.status==='good'?'good':'bad'},a.errorRate+'%',a.p95?'<'+a.p95/1000+'s':'—',a.issues.join('; ')||'—']})}});
+ b.push({text:'USD equivalent = USDT + local mobile money + Telegram Stars converted at $'+o.starUsd+' per Star (set in Settings). Forecast = this month so far ÷ days passed × days in month.'});
+ return{brand:'Control Center',title:'Executive report',subtitle:(o.only?nm(o.only):'All apps')+' · '+new Date().toISOString().slice(0,10),blocks:b}}
+
+/* ---------------- screens ---------------- */
+K.app({
+ icon:'chart',freeLabel:null,showPlans:false,
+ defaults:{appName:'Control Center',testMode:false,freeAllowance:0,plans:[],x_refOn:false,x_starUsd:0.013,x_aiBase:'https://api.deepseek.com',x_aiChatModel:'deepseek-chat',x_aiDailyBudget:200},
+ adminFields:[{key:'x_starUsd',label:'USD value of 1 Telegram Star (for totals)',type:'number',ph:'0.013',hint:'Check the current payout rate in Telegram before relying on totals.'},{key:'x_aiBase',label:'AI provider URL (OpenAI-compatible)',ph:'https://api.deepseek.com'},{key:'x_aiChatModel',label:'AI model',ph:'deepseek-chat'},{key:'x_aiDailyBudget',label:'AI questions per day (cost cap)',type:'number',ph:'200'}],
+ extraSecrets:{DEEPSEEK_KEY:'DeepSeek API key (AI assistant)',GEMINI_KEY:'Gemini API key (AI fallback)'},
+ enter:{
+  home:function(){if(!isAdm())return;Promise.all([api('ccOverview',{only:C.only}),api('ccHealth'),api('ccTickets',{status:'open'})]).then(function(r){C.ov=r[0].ok?r[0]:null;C.health=r[1].ok?r[1]:null;C.badge=r[2].ok?r[2].items.length:0;K.render()})},
+  inbox:function(){if(!isAdm())return;C.tickets=null;api('ccTickets',{status:C.tf}).then(function(r){C.tickets=r.ok?r.items:[];if(C.tf==='open')C.badge=C.tickets.length;K.render()})},
+  ticket:function(){api('ccTicket',{id:C.tid}).then(function(r){C.ticket=r.ok?r.ticket:null;K.render()})},
+  apps:function(){if(!isAdm())return;api('ccHealth').then(function(r){C.health=r.ok?r:null;K.render()})},
+  admins:function(){api('ccAdmins').then(function(r){C.admins=r.ok?r:{items:[],bootstrap:[]};if(!C.ov)api('ccOverview',{}).then(function(o){C.ov=o.ok?o:C.ov;K.render()});K.render()})}
+ },
+ screens:{
+  home:function(){if(!isAdm())return denied();var h=K.header('Control Center','Live business overview')+K.banners(),o=C.ov;
+   var apps=o?o.apps.map(function(a){return a.app}):[];
+   h+='<div class="filters"><button data-a="only" data-v="" class="'+(!C.only?'on':'')+'">All apps</button>'+apps.map(function(a){return'<button data-a="only" data-v="'+esc(a)+'" class="'+(C.only===a?'on':'')+'"><i style="background:'+slot(a)+'"></i>'+esc(nm(a))+'</button>'}).join('')+'</div>';
+   if(!o)return h+K.spin()+nav();var T=o.totals,g=T.growthPct;
+   h+='<div class="kpis"><div class="kpi hero" data-tip="'+esc('Paid this month in USD terms (Stars converted at $'+o.starUsd+')')+'"><div class="l">Revenue this month</div><div class="v">'+usdF(T.mtd)+'</div><div class="d">Forecast '+usdF(T.projection)+(g==null?'':' · <b class="'+(g>=0?'up':'down')+'">'+(g>=0?'▲ ':'▼ ')+Math.abs(g)+'%</b> vs last month')+'</div></div>'+
+    [['Last month',usdF(T.lastMonth),''],['Active subscribers',T.subs,T.renewalsDue+' renew before month end'],['Paid orders',T.ordersMtd,'this month'],['New users',T.new30,'last 30 days · '+T.users+' total'],['Open tickets',T.openTickets,'support inbox'],['Revenue per subscriber',usdF(T.arpu),'this month']].map(function(k){return'<div class="kpi"><div class="l">'+k[0]+'</div><div class="v">'+k[1]+'</div><div class="d">'+esc(k[2])+'</div></div>'}).join('')+'</div>';
+   var shown=o.byApp.map(function(a){return a.app}).sort(function(a,b){var ia=ORDER.indexOf(a),ib=ORDER.indexOf(b);return(ia<0?99:ia)-(ib<0?99:ib)});
+   h+=card('stack','Revenue by month','USD equivalent · stacked by app · tap a bar',stackChart(o.months,shown)+legend(shown),
+    '<table class="dt"><tr><th>Month</th>'+shown.map(function(a){return'<th>'+esc(nm(a))+'</th>'}).join('')+'<th>Total</th></tr>'+o.months.map(function(m){return'<tr><td>'+m.month+'</td>'+shown.map(function(a){return'<td>'+usdF(m.byApp[a]||0)+'</td>'}).join('')+'<td><b>'+usdF(m.total)+'</b></td></tr>'}).join('')+'</table>');
+   h+=card('line','This month','Cumulative revenue · dashed line = forecast',lineChart(o.daily,o.today,T.projection,o.daysInMonth),
+    '<table class="dt"><tr><th>Day</th><th>Revenue</th></tr>'+o.daily.slice(0,o.today).map(function(d){return'<tr><td>'+d.day+'</td><td>'+usdF(d.usd)+'</td></tr>'}).join('')+'</table>');
+   var inc=o.byApp.slice().sort(function(a,b){return b.mtd-a.mtd});
+   h+=card('inc','Income by app','This month',hbars(inc.map(function(a){return[nm(a.app),a.mtd,slot(a.app)]}),usdF),'<table class="dt"><tr><th>App</th><th>This month</th><th>Last month</th><th>Orders</th></tr>'+inc.map(function(a){return'<tr><td>'+esc(nm(a.app))+'</td><td>'+usdF(a.mtd)+'</td><td>'+usdF(a.lastMonth)+'</td><td>'+a.orders+'</td></tr>'}).join('')+'</table>');
+   var sb=o.byApp.slice().sort(function(a,b){return b.subs-a.subs});
+   h+=card('subs','Subscribers by app','Active now (paid plans and channel members)',hbars(sb.map(function(a){return[nm(a.app),a.subs,slot(a.app)]}),function(v){return v}),'<table class="dt"><tr><th>App</th><th>Subscribers</th><th>Users</th><th>New 30d</th></tr>'+sb.map(function(a){return'<tr><td>'+esc(nm(a.app))+'</td><td>'+a.subs+'</td><td>'+a.users+'</td><td>'+a.new30+'</td></tr>'}).join('')+'</table>');
+   h+=card('meth','Payment methods','This month',hbars(o.byMethod.slice().sort(function(a,b){return b.usd-a.usd}).map(function(m){return[t(m.method),m.usd,'var(--hint)']}),usdF),'<table class="dt"><tr><th>Method</th><th>Revenue</th><th>Orders</th></tr>'+o.byMethod.map(function(m){return'<tr><td>'+esc(t(m.method))+'</td><td>'+usdF(m.usd)+'</td><td>'+m.orders+'</td></tr>'}).join('')+'</table>');
+   h+=card('users','New users','Last 30 days',cols(o.users30.map(function(x){return x.n}),o.users30.map(function(x){return x.day})),'<table class="dt"><tr><th>Day</th><th>New users</th></tr>'+o.users30.map(function(x){return'<tr><td>'+x.day+'</td><td>'+x.n+'</td></tr>'}).join('')+'</table>');
+   h+='<button class="btn" data-a="pdf">'+ic('file')+'Executive report (PDF)</button><button class="btn ghost" data-a="refresh">'+ic('refresh')+'Refresh</button>';
+   return h+nav()},
+  inbox:function(){if(!isAdm())return denied();var h=K.header('Support inbox','Questions, ideas and problems from all apps')+'<div class="tabs">'+[['open','Open'],['answered','Answered'],['closed','Closed'],['all','All']].map(function(x){return'<button data-a="tf" data-v="'+x[0]+'" class="'+(C.tf===x[0]?'on':'')+'">'+x[1]+'</button>'}).join('')+'</div>';
+   if(!C.tickets)return h+K.spin()+nav();if(!C.tickets.length)return h+K.empty('message','Nothing here. New messages from any app appear in this inbox and in the bot chat.')+nav();
+   C.tickets.forEach(function(x){h+='<button class="chrow" data-a="open" data-v="'+esc(x.id)+'"><div class="av" style="background:'+slot(x.app)+';color:#fff">'+esc((x.user_name||'?').charAt(0).toUpperCase())+'</div><div class="grow"><div class="fn">'+esc(x.user_name||('User '+x.user_id))+' · '+esc(nm(x.app))+'</div><div class="fs" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+esc(x.preview||'')+'</div><div>'+
+    (x.priority==='high'?'<span class="pill bad">Priority</span>':'')+'<span class="pill">'+esc(x.type)+'</span><span class="pill">'+esc(K.fmtDate(x.updated))+'</span></div></div></button>'});
+   return h+nav()},
+  ticket:function(){var x=C.ticket,h=K.header(x?(x.user_name||'Ticket'):'Ticket',x?nm(x.app)+' · '+x.type:'');if(!x)return h+K.spin();
+   h+='<div class="card chat">'+x.messages.map(function(m){return'<div class="bub '+(m.from==='admin'?'me':'them')+'"><div class="fs">'+(m.from==='admin'?'Support':esc(x.user_name||'Customer'))+' · '+esc(String(m.at).replace('T',' ').slice(0,16))+'</div>'+esc(m.text)+'</div>'}).join('')+'</div>';
+   h+='<div class="card"><textarea class="t" id="rtext" style="min-height:110px" maxlength="2000" placeholder="Write the reply — it is sent by the '+esc(nm(x.app))+' bot">'+esc(C.draft||'')+'</textarea><div class="g2" style="margin-top:8px"><button class="btn" data-a="send">'+ic('send')+'Send</button><button class="btn sec2" data-a="draft">'+ic('info')+'AI draft</button></div>'+
+    '<button class="btn ghost" data-a="sendclose">'+ic('check')+'Send and close</button><button class="btn ghost" data-a="close">'+(x.status==='closed'?'Reopen':'Close without reply')+'</button></div>'+K.errBox();
+   return h},
+  apps:function(){if(!isAdm())return denied();var h=K.header('Apps','Health of every app · new apps appear automatically'),H=C.health;if(!H)return h+K.spin()+nav();
+   var bad=H.apps.filter(function(a){return a.status==='bad'}).length,warn=H.apps.filter(function(a){return a.status==='warn'}).length;
+   h+=K.insight(bad?'alert':'check',bad?'<b>'+bad+' app(s) need action</b>'+(warn?' · '+warn+' to check':''):warn?'<b>'+warn+' app(s) to check soon</b>':'<b>All apps healthy</b>','Diagnose','diag',bad?'bad':'');
+   H.apps.forEach(function(a){h+='<div class="card"><div class="row"><i style="width:10px;height:10px;border-radius:3px;background:'+slot(a.app)+'"></i><b class="grow">'+esc(nm(a.app))+'</b><span class="st '+a.status+'">'+(a.status==='good'?'Healthy':a.status==='warn'?'Check':'Action needed')+'</span></div>'+
+    '<div class="stat" style="margin-top:8px;grid-template-columns:repeat(4,1fr)"><div><b>'+a.requests+'</b><span>Requests 24h</span></div><div><b>'+a.errorRate+'%</b><span>Errors</span></div><div><b>'+(a.p95?'<'+a.p95/1000+'s':'—')+'</b><span>Slowest</span></div><div><b>'+(a.hbMin==null?'—':a.hbMin+'m')+'</b><span>Jobs ran</span></div></div>'+
+    (a.issues.length?'<ul class="feat">'+a.issues.map(function(x){return'<li style="align-items:flex-start">'+ic('alert')+'<span>'+esc(x)+'</span></li>'}).join('')+'</ul>':'')+(a.url?'<button class="btn sm ghost" style="margin-top:8px" data-open="'+esc(a.url)+'">'+ic('ext','s')+'Open app</button>':'')+'</div>'});
+   return h+nav()},
+  ai:function(){if(!isAdm())return denied();var h=K.header('AI assistant','Ask about income, users or problems');
+   h+='<div class="ai-note">'+ic('shield','s')+' Read-only: the assistant explains and suggests fixes. It never changes anything.</div>';
+   if(!C.chat.length)h+='<div class="card"><p class="m">Try:</p>'+['How much did we earn this month and which app grows fastest?','Which app has problems right now and how do I fix them?','What should I do about tickets waiting for reply?'].map(function(q){return'<button class="btn sm ghost" style="width:100%;margin-top:8px;text-align:left;justify-content:flex-start" data-a="ask" data-v="'+esc(q)+'">'+esc(q)+'</button>'}).join('')+'</div>';
+   h+='<div class="chat">'+C.chat.map(function(m){return'<div class="bub '+(m.role==='user'?'me':'them')+'" style="'+(m.role==='user'?'':'background:var(--card);border:1px solid var(--sep)')+'">'+esc(m.content)+'</div>'}).join('')+(C.asking?'<div class="bub them"><div class="spin" style="color:var(--accent)"></div></div>':'')+'</div>';
+   h+='<div class="card" style="margin-top:10px"><textarea class="t" id="q" style="min-height:70px" placeholder="Ask a question…"></textarea><div class="g2" style="margin-top:8px"><button class="btn" data-a="askq">'+ic('send')+'Ask</button><button class="btn sec2" data-a="diag">'+ic('shield')+'Diagnose now</button></div></div>'+K.errBox();
+   return h+nav()},
+  admins:function(){var h=K.header('Admins','Who can manage which app'),A=C.admins;if(!A)return h+K.spin()+nav();
+   h+='<div class="card"><div class="fs">Owner (from ADMIN_IDS): '+esc(A.bootstrap.join(', ')||'—')+'</div></div>';
+   A.items.forEach(function(x){h+='<div class="card"><div class="row"><b class="grow">'+esc(x.name||x.user_id)+'</b><span class="pill '+(x.active?'ok':'')+'">'+(x.active?(x.role==='super'?'Super admin':'App admin'):'Removed')+'</span></div><div class="fs" style="margin-top:4px">ID '+esc(x.user_id)+' · Apps: '+esc(x.apps==='*'?'all':String(x.apps).split(',').map(nm).join(', '))+' · Rights: '+esc(x.perms)+'</div>'+
+    (x.active?'<button class="btn sm ghost" style="margin-top:8px" data-a="rmadmin" data-v="'+esc(x.user_id)+'">Remove access</button>':'')+'</div>'});
+   var apps=C.ov?C.ov.apps.map(function(a){return a.app}):ORDER;
+   h+='<div class="sec">Add admin</div><div class="card"><label class="f">Telegram user ID</label><input class="t" id="aid" inputmode="numeric" placeholder="e.g. 123456789"><div class="fs" style="margin-top:4px">They can get it from @userinfobot.</div><label class="f">Name</label><input class="t" id="aname">'+
+    '<label class="f">Role</label>'+K.seg('arole',C.arole||'app_admin',[['app_admin','App admin'],['super','Super admin']])+
+    ((C.arole||'app_admin')==='app_admin'?'<label class="f">Apps</label><div class="checks">'+apps.map(function(a){return'<label><input type="checkbox" class="ap" value="'+esc(a)+'">'+esc(nm(a))+'</label>'}).join('')+'</div><label class="f">Rights</label><div class="checks">'+[['support','Support inbox'],['payments','Approve payments'],['settings','App settings'],['reports','Reports & dashboard']].map(function(p){return'<label><input type="checkbox" class="pm" value="'+p[0]+'"'+(p[0]==='support'?' checked':'')+'>'+p[1]+'</label>'}).join('')+'</div>':'<p class="m" style="margin-top:8px">Super admins see and manage everything.</p>')+
+    '<button class="btn" style="margin-top:12px" data-a="addadmin">'+ic('plus')+'Add admin</button></div>'+K.errBox();
+   return h+nav()}
+ },
+ onSeg:function(n,v){if(n==='arole'){C.arole=v;K.render()}},
+ actions:{
+  tab:function(el,d){S.stack=[];K.go(d.v,{replace:true})},
+  only:function(el,d){C.only=d.v;C.ov=null;K.render();api('ccOverview',{only:d.v}).then(function(r){C.ov=r.ok?r:null;K.render()})},
+  tbl:function(el,d){C.tables[d.v]=!C.tables[d.v];K.render()},
+  refresh:function(){C.ov=null;K.go('home',{replace:true})},
+  pdf:function(){K.showReport(execReport(),'executive-report-'+new Date().toISOString().slice(0,10)+'.pdf')},
+  tf:function(el,d){C.tf=d.v;K.go('inbox',{replace:true})},
+  open:function(el,d){C.tid=d.v;C.ticket=null;C.draft='';K.go('ticket')},
+  send:function(){reply(false)},sendclose:function(){reply(true)},
+  close:function(){api('ccClose',{id:C.tid,reopen:C.ticket.status==='closed'}).then(function(){K.back()})},
+  draft:function(){S.err='';var ta=document.getElementById('rtext');ta.value='…';api('ccDraft',{id:C.tid}).then(function(r){if(r.ok){C.draft=r.draft;ta.value=r.draft}else{ta.value='';S.err=aiErr(r.error);K.render()}})},
+  ask:function(el,d){ask(d.v,false)},askq:function(){var q=document.getElementById('q').value.trim();if(q)ask(q,false)},
+  diag:function(){if(S.screen!=='ai'){S.stack=[];S.screen='ai';K.render()}ask('Diagnose the system now',true)},
+  addadmin:function(){var role=C.arole||'app_admin',apps=[].map.call(document.querySelectorAll('.ap:checked'),function(x){return x.value}),perms=[].map.call(document.querySelectorAll('.pm:checked'),function(x){return x.value});
+   api('ccAdminSave',{user_id:document.getElementById('aid').value.trim(),name:document.getElementById('aname').value.trim(),role:role,apps:apps.join(','),perms:perms.join(',')}).then(function(r){
+    if(r.ok){S.msg='Admin saved. They get a message from this bot.';S.err='';K.go('admins',{replace:true})}else{S.err=r.error==='scope'?'Choose at least one app and one right.':r.error==='user_id'?'Enter a valid Telegram user ID.':t('e_gen');K.render()}})},
+  rmadmin:function(el,d){if(confirm('Remove admin access for '+d.v+'?'))api('ccAdminRemove',{user_id:d.v}).then(function(){K.go('admins',{replace:true})})}
+ },
+ demoSeed:function(){var now=Date.now();return{tickets:[
+   {id:'T1',app:'debt',user_id:'7001',user_name:'Amina',type:'payment',status:'open',priority:'high',updated:new Date(now-36e5).toISOString(),messages:[{from:'user',text:'I paid $2 with EVC Plus (ref 88231) but I still see the free plan.',at:new Date(now-36e5).toISOString()}]},
+   {id:'T2',app:'coach',user_id:'7002',user_name:'Yusuf',type:'suggestion',status:'open',priority:'normal',updated:new Date(now-5*36e5).toISOString(),messages:[{from:'user',text:'Please add IELTS speaking questions.',at:new Date(now-5*36e5).toISOString()}]},
+   {id:'T3',app:'gatekeeper',user_id:'7003',user_name:'Hodan',type:'question',status:'open',priority:'normal',updated:new Date(now-9*36e5).toISOString(),messages:[{from:'user',text:'How do I give my VIP members a discount code?',at:new Date(now-9*36e5).toISOString()}]},
+   {id:'T4',app:'translator',user_id:'7004',user_name:'Abdi',type:'problem',status:'answered',priority:'high',updated:new Date(now-30*36e5).toISOString(),messages:[{from:'user',text:'The Arabic PDF shows my name wrong.',at:new Date(now-32*36e5).toISOString()},{from:'admin',text:'You can edit any field before downloading — tap the name and correct it.',at:new Date(now-30*36e5).toISOString()}]}],
+  admins:[{user_id:'5150',name:'Hodan (support)',role:'app_admin',apps:'debt,rsvp',perms:'support,payments',active:true}]}},
+ demo:{
+  ccOverview:function(d,s){return demoOverview(d.only||'',s)},
+  ccHealth:function(){return{ok:true,apps:ORDER.map(function(a,i){var st=a==='coach'?'bad':a==='debt'?'warn':'good';return{app:a,name:NAMES[a],url:'https://axm-0'+(i+1)+'.pages.dev',status:st,requests:120+i*37,errors:st==='bad'?9:0,errorRate:st==='bad'?6.1:0,p95:st==='bad'?8000:1000,queue:0,hbMin:st==='bad'?190:3,backupH:7,review:a==='debt'?1:0,openTickets:0,
+    issues:st==='bad'?['Background jobs stopped 190 min ago','Error rate 6.1%']:st==='warn'?['1 payment(s) waiting for approval']:[],recentErrors:[]}})}},
+  ccTickets:function(d,s){var st=d.status||'open';return{ok:true,items:s.app.tickets.filter(function(x){return st==='all'||x.status===st}).map(function(x){return Object.assign({},x,{preview:x.messages[x.messages.length-1].text})})}},
+  ccTicket:function(d,s){var x=s.app.tickets.filter(function(y){return y.id===d.id})[0];return x?{ok:true,ticket:x}:{ok:false}},
+  ccReply:function(d,s){var x=s.app.tickets.filter(function(y){return y.id===d.id})[0];x.messages.push({from:'admin',text:d.text,at:new Date().toISOString()});x.status=d.close?'closed':'answered';x.updated=new Date().toISOString();return{ok:true}},
+  ccClose:function(d,s){var x=s.app.tickets.filter(function(y){return y.id===d.id})[0];x.status=d.reopen?'open':'closed';return{ok:true}},
+  ccDraft:function(d,s){var x=s.app.tickets.filter(function(y){return y.id===d.id})[0];return{ok:true,draft:'Hi '+(x.user_name||'there')+', thank you for reaching out. '+(x.type==='payment'?'We found your payment and activated your plan — please reopen the app. Sorry for the wait!':x.type==='suggestion'?'Great idea — we have added it to our plan and will let you know when it is ready.':'Here is how: open your channel page and tap Discount codes, then create a code such as VIP20.')+' (Demo draft — the live app uses DeepSeek.)'}},
+  ccAdmins:function(d,s){return{ok:true,bootstrap:['(your ADMIN_IDS)'],items:s.app.admins}},
+  ccAdminSave:function(d,s){if(!/^\d{4,}$/.test(d.user_id))return{ok:false,error:'user_id'};if(d.role!=='super'&&(!d.apps||!d.perms))return{ok:false,error:'scope'};var x=s.app.admins.filter(function(a){return a.user_id===d.user_id})[0];
+   var v={user_id:d.user_id,name:d.name,role:d.role,apps:d.role==='super'?'*':d.apps,perms:d.role==='super'?'support,payments,settings,reports':d.perms,active:true};if(x)Object.assign(x,v);else s.app.admins.push(v);return{ok:true}},
+  ccAdminRemove:function(d,s){s.app.admins.forEach(function(a){if(a.user_id===d.user_id)a.active=false});return{ok:true}},
+  ccAsk:function(d){var o=demoOverview('',{}),T=o.totals,top=o.byApp.slice().sort(function(a,b){return b.mtd-a.mtd})[0];
+   return{ok:true,answer:d.diagnose?'Demo diagnosis (live version uses DeepSeek with your real data):\n\n1. Interview Coach — ACTION. Background jobs stopped 190 min ago and errors are 6.1%. Fix: open the Coach Apps Script project → run install() to recreate the timers, then check Executions for the failing function.\n2. Debt Book — CHECK. 1 EVC payment is waiting for approval (ticket T1 is about it). Fix: Debt Book → Settings → Payments to review → Approve.\n3. All other apps are healthy. Watch: open tickets ('+T.openTickets+').':
+    'Demo answer: this month so far '+usdF(T.mtd)+', forecast '+usdF(T.projection)+'. Top app: '+nm(top.app)+' with '+usdF(top.mtd)+'. (Connect DEEPSEEK_KEY for real answers.)'}}
+ }
+});
+/* demo data: deterministic 12-month history for all apps */
+function demoOverview(only,s){var now=new Date(),seed=7,rnd=function(){seed=(seed*16807)%2147483647;return seed/2147483647};
+ var base={gatekeeper:60,coach:22,translator:30,rsvp:40,scholar:9,debt:16,market:48,converter:12},grow={gatekeeper:1.09,coach:1.12,translator:1.05,rsvp:1.03,scholar:1.08,debt:1.1,market:1.14,converter:1.06};
+ var apps=ORDER.filter(function(a){return!only||a===only}),months=[];
+ for(var i=11;i>=0;i--){var k=new Date(Date.UTC(now.getUTCFullYear(),now.getUTCMonth()-i,1)).toISOString().slice(0,7),m={month:k,byApp:{},total:0};
+  apps.forEach(function(a){var v=Math.round(base[a]*Math.pow(grow[a],11-i)*(0.85+rnd()*0.3)*100)/100;if(i===0)v=Math.round(v*now.getUTCDate()/30*100)/100;m.byApp[a]=v;m.total=Math.round((m.total+v)*100)/100});months.push(m)}
+ var dim=new Date(Date.UTC(now.getUTCFullYear(),now.getUTCMonth()+1,0)).getUTCDate(),today=now.getUTCDate(),mtd=months[11].total,daily=[];for(var d=1;d<=dim;d++)daily.push({day:d,usd:d<=today?Math.round(mtd/today*(0.6+rnd()*0.8)*100)/100:0});
+ var byApp=apps.map(function(a,j){return{app:a,name:NAMES[a],mtd:months[11].byApp[a],lastMonth:months[10].byApp[a],orders:Math.round(months[11].byApp[a]/2),subs:Math.round(base[a]*1.6+j*3),users:Math.round(base[a]*9+j*20),new30:Math.round(base[a]*1.2),openTickets:a==='debt'||a==='coach'||a==='gatekeeper'?1:0,stars:0}});
+ var T={mtd:mtd,lastMonth:months[10].total,projection:Math.round(mtd/today*dim*100)/100,subs:0,users:0,new30:0,openTickets:0,ordersMtd:0,renewalsDue:14};byApp.forEach(function(a){T.subs+=a.subs;T.users+=a.users;T.new30+=a.new30;T.openTickets+=a.openTickets;T.ordersMtd+=a.orders});
+ T.growthPct=T.lastMonth?Math.round((T.projection-T.lastMonth)/T.lastMonth*100):null;T.arpu=T.subs?Math.round(mtd/T.subs*100)/100:0;
+ var users30=[];for(var u=29;u>=0;u--)users30.push({day:new Date(now.getTime()-u*864e5).toISOString().slice(0,10),n:Math.round(4+rnd()*9+(29-u)*0.2)});
+ return{ok:true,demo:true,only:only,apps:ORDER.map(function(a,i){return{app:a,name:NAMES[a],url:'https://axm-0'+(i+1)+'.pages.dev'}}),months:months,daily:daily,today:today,daysInMonth:dim,byApp:byApp,
+  byMethod:[{method:'stars',usd:Math.round(mtd*.46*100)/100,orders:60},{method:'usdt_trc20',usd:Math.round(mtd*.24*100)/100,orders:21},{method:'evc',usd:Math.round(mtd*.2*100)/100,orders:30},{method:'zaad',usd:Math.round(mtd*.1*100)/100,orders:12}],users30:users30,totals:T,starUsd:0.013}}
+function reply(close){var tx=document.getElementById('rtext').value.trim();if(!tx)return;api('ccReply',{id:C.tid,text:tx,close:close}).then(function(r){if(r.ok){C.draft='';K.toast('Sent');K.haptic('ok');K.back()}else{S.err=t('e_gen');K.render()}})}
+function aiErr(e){return e==='ai_not_configured'?'Add DEEPSEEK_KEY (or GEMINI_KEY) in Settings → Secrets to switch the assistant on.':e==='ai_budget'?'Daily AI limit reached (Settings).':e==='rate_limited'?t('e_rate'):'The AI assistant is not available right now.'}
+function ask(q,diag){if(C.asking)return;C.chat.push({role:'user',content:diag?'Diagnose the system now':q});C.asking=true;S.err='';K.render();window.scrollTo(0,document.body.scrollHeight);
+ api('ccAsk',{q:q,diagnose:diag,history:C.chat.slice(0,-1)}).then(function(r){C.asking=false;if(r.ok)C.chat.push({role:'assistant',content:r.answer});else{C.chat.pop();S.err=aiErr(r.error)}K.render();window.scrollTo(0,document.body.scrollHeight)})}
+/* hover / tap tooltip for every chart mark */
+var tip=document.getElementById('tip');
+function showTip(e){var el=e.target.closest&&e.target.closest('[data-tip]');if(!el){tip.style.display='none';return}tip.textContent=el.getAttribute('data-tip');tip.style.display='block';
+ var x=Math.min(e.clientX+12,window.innerWidth-tip.offsetWidth-8),y=e.clientY-tip.offsetHeight-12;tip.style.left=Math.max(8,x)+'px';tip.style.top=(y<8?e.clientY+16:y)+'px'}
+document.addEventListener('pointermove',showTip);document.addEventListener('pointerdown',showTip);document.addEventListener('scroll',function(){tip.style.display='none'},true);
+})();
+</script>
+</body>
+</html>

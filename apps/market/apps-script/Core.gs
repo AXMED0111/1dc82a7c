@@ -26,6 +26,10 @@ var SCHEMA = {
   Log:           ['time','user_id','app','event','detail'],
   Codes:         ['code','app','scope','owner_id','pct','max_uses','used','expires','plans','active','note','created_at'],
   Referrals:     ['referrer_id','referee_id','app','status','created_at','rewarded_at','reward'],
+  Admins:        ['user_id','name','role','apps','perms','active','added_by','created_at'],
+  Tickets:       ['ticket_id','app','user_id','user_name','type','status','priority','created_at','updated_at','last_from'],
+  TicketMsgs:    ['ticket_id','from','author_id','text','created_at'],
+  Apps:          ['app','name','url','bot','version','installed_at','hb_5min','hb_hourly','hb_daily','last_backup'],
   Metrics:       ['hour','app','requests','errors','p95_ms','ai_calls','ai_tokens'],
   Outbox:        ['msg_id','app','chat_id','text','markup','status','created_at','sent_at','error']
 };
@@ -80,6 +84,29 @@ function prop(k) { return PropertiesService.getScriptProperties().getProperty(k)
 function setProp(k, v) { PropertiesService.getScriptProperties().setProperty(k, v); }
 function appId(a) { return String(a || THIS_APP.id).replace(/[^a-z0-9_]/gi, '').slice(0, 30); }
 function botToken(app) { return prop('BOT_TOKEN_' + app); }
+/* ---- Roles: super admins (ADMIN_IDS property or role 'super' in the Admins sheet) and per-app admins with permissions ---- */
+var PERMS = ['support', 'payments', 'settings', 'reports'];
+var PERM_OF = { adminGet: 'settings', adminSave: 'settings', adminSetSecret: 'super', adminCodeSave: 'settings', adminCodeToggle: 'settings', adminSchSave: 'settings', adminSchDelete: 'settings', adminSchList: 'settings', adminGkFee: 'settings',
+  adminDecide: 'payments', adminPending: 'payments', adminMkWithdrawal: 'payments', adminMk: 'payments',
+  adminRevenue: 'reports', adminHealth: 'reports', adminStats: 'reports', adminAudit: 'reports', adminCodes: 'reports', adminGk: 'reports' };
+function roleFor(uid, app) {
+  uid = String(uid); if (adminIds().indexOf(uid) >= 0) return { super: true, perms: PERMS.slice(), apps: ['*'] };
+  var c = CacheService.getScriptCache(), k = 'role_' + uid, hit = c.get(k), rs;
+  if (hit) rs = JSON.parse(hit); else { rs = rows('Admins').filter(function (r) { return String(r.user_id) === uid && (r.active === true || r.active === 'TRUE'); }).map(function (r) { return { role: r.role, apps: String(r.apps || ''), perms: String(r.perms || '') }; }); c.put(k, JSON.stringify(rs), 300); }
+  // Merge every active role row. In the Control Center ('control') any admin gets in, scoped to their own apps.
+  var out = null;
+  rs.forEach(function (r) {
+    if (out && out.super) return;
+    if (r.role === 'super') { out = { super: true, perms: PERMS.slice(), apps: ['*'] }; return; }
+    var apps = r.apps.split(',').map(function (x) { return x.trim(); }).filter(String), perms = r.perms.split(',').map(function (x) { return x.trim(); }).filter(String);
+    if (app && app !== 'control' && apps.indexOf('*') < 0 && apps.indexOf(app) < 0) return;
+    out = out || { super: false, perms: [], apps: [] };
+    perms.forEach(function (p) { if (out.perms.indexOf(p) < 0) out.perms.push(p); });
+    apps.forEach(function (a) { if (out.apps.indexOf(a) < 0) out.apps.push(a); });
+  });
+  return out;
+}
+function can(role, perm) { return !!role && (role.super || (perm !== 'super' && role.perms.indexOf(perm) >= 0)); }
 function adminIds() { return prop('ADMIN_IDS').split(',').map(function (s) { return s.trim(); }).filter(String); }
 
 /* ======================= AUTH ======================= */
@@ -115,6 +142,7 @@ function rows(name) {
   return (_rc[name] = v.map(function (r, i) { var o = { _row: i + 2 }; h.forEach(function (k, j) { o[k] = r[j]; }); return o; }));
 }
 function delRow(name, row) { sh(name).deleteRow(row._row); delete _rc[name]; }
+function srows(name) { try { return sh(name) ? rows(name) : []; } catch (e) { return []; } }   // tolerate a tab another app has not created yet
 function find(name, fn) { var r = rows(name); for (var i = 0; i < r.length; i++) if (fn(r[i])) return r[i]; return null; }
 function schemaOf(name) { return SCHEMA[name] || EXTRA_SCHEMA[name]; }
 // Strings that Sheets would coerce (dates, times, +252… phones, leading zeros, formulas) are stored as plain text.
@@ -217,12 +245,12 @@ function route(req) {
     if (!(st.testMode && !token)) return { ok: false, error: 'unauthorized' };
     auth = { user: { id: 'preview', first_name: 'Preview' }, start_param: req.start || '' };
   }
-  var u = auth.user, uid = String(u.id), isAdmin = verified && adminIds().indexOf(uid) >= 0, simFree = !!req.simulateFree && st.testMode;
+  var u = auth.user, uid = String(u.id), role = verified ? roleFor(uid, app) : null, isAdmin = !!role, simFree = !!req.simulateFree && st.testMode;
   var urow = verified ? upsertUser(u, app, req.edition, auth.start_param || String(req.start || '').slice(0, 64)) : { region: /^local/i.test(auth.start_param) ? 'LOCAL' : 'GLOBAL' };
   var region = regionOf(urow);
-  var ctx = { app: app, st: st, u: u, uid: uid, urow: urow, region: region, isAdmin: isAdmin, verified: verified, simFree: simFree, token: token };
+  var ctx = { app: app, st: st, u: u, uid: uid, urow: urow, region: region, isAdmin: isAdmin, role: role, verified: verified, simFree: simFree, token: token };
   var a = String(req.action || ''), t0 = Date.now();
-  if (/^admin/.test(a) && !isAdmin) return { ok: false, error: 'forbidden' };
+  if (/^admin/.test(a) && (!isAdmin || (PERM_OF[a] && !can(role, PERM_OF[a])))) return { ok: false, error: 'forbidden' };
   if (!verified && a !== 'init') return { ok: false, error: 'unauthorized' };
   ctx.rid = String(req.rid || '').replace(/[^\w-]/g, '').slice(0, 40);
   // Idempotency: a retried request (same rid) gets the stored answer instead of running twice.
@@ -237,6 +265,9 @@ function route(req) {
   switch (a) {
     case 'init': return initPayload(ctx);
     case 'clientError': return clientError(ctx, req);
+    case 'ticketCreate': return ticketCreate(ctx, req);
+    case 'ticketMine': return ticketMine(ctx);
+    case 'ticketReply': return ticketUserReply(ctx, req);
     case 'adminHealth': return adminHealth(ctx);
     case 'adminAudit': return { ok: true, items: rows('Log').filter(function (l) { return l.app === app && /^audit:/.test(l.event); }).slice(-100).reverse().map(function (l) { return { time: iso(l.time), user: String(l.user_id), action: String(l.event).slice(6), detail: l.detail }; }) };
     case 'consume': return consume(ctx, req);
@@ -270,11 +301,55 @@ function route(req) {
   if (rkey && res && res.ok !== false) { var js = JSON.stringify(res); if (js.length < 90000) cache.put(rkey, js, 900); }
   return res;
 }
+/* ---- Support tickets (one inbox for all apps, answered from the Control Center) ---- */
+var TICKET_TYPES = ['question', 'suggestion', 'problem', 'payment', 'message'];
+function tkMsgs(id) { return rows('TicketMsgs').filter(function (m) { return m.ticket_id === id; }).map(function (m) { return { from: m.from, text: m.text, at: iso(m.created_at) }; }); }
+function tkOut(t, withMsgs) { var o = { id: t.ticket_id, app: t.app, user_id: String(t.user_id), user_name: t.user_name, type: t.type, status: t.status, priority: t.priority, created: iso(t.created_at), updated: iso(t.updated_at), last_from: t.last_from }; if (withMsgs) o.messages = tkMsgs(t.ticket_id); return o; }
+function tkAdd(app, uid, name, type, text, from) {
+  var id = 'T' + Date.now().toString(36).toUpperCase() + Math.floor(Math.random() * 1296).toString(36).toUpperCase(), now = new Date();
+  append('Tickets', { ticket_id: id, app: app, user_id: String(uid), user_name: String(name || '').slice(0, 60), type: TICKET_TYPES.indexOf(type) >= 0 ? type : 'question', status: 'open', priority: type === 'payment' || type === 'problem' ? 'high' : 'normal', created_at: now, updated_at: now, last_from: from || 'user' });
+  append('TicketMsgs', { ticket_id: id, from: from || 'user', author_id: String(uid), text: String(text).slice(0, 2000), created_at: now });
+  notifyControl(app, 'New ' + type + ' (' + app + ') from ' + (name || uid) + ': ' + String(text).slice(0, 160));
+  return id;
+}
+function notifyControl(app, text) {   // delivered by the Control Center bot (its project sends Outbox rows with app 'control')
+  var ids = {}; adminIds().forEach(function (i) { ids[i] = 1; });
+  rows('Admins').forEach(function (r) {
+    if (!(r.active === true || r.active === 'TRUE')) return;
+    var apps = String(r.apps || '').split(',').map(function (x) { return x.trim(); }), perms = String(r.perms || '').split(',').map(function (x) { return x.trim(); });
+    if (r.role === 'super' || (perms.indexOf('support') >= 0 && (apps.indexOf('*') >= 0 || apps.indexOf(app) >= 0))) ids[String(r.user_id)] = 1;
+  });
+  Object.keys(ids).forEach(function (id) { queueMsg('control', id, text, null); });
+}
+function ticketCreate(ctx, req) {
+  if (rateLimit(ctx.app, ctx.uid, 'tk', 6, 3600)) return { ok: false, error: 'rate_limited', retryAfter: 600 };
+  var text = String(req.text || '').trim(); if (text.length < 3) return { ok: false, error: 'empty' };
+  var id = tkAdd(ctx.app, ctx.uid, [ctx.u.first_name, ctx.u.last_name].filter(Boolean).join(' '), String(req.type || 'question'), text, 'user');
+  return { ok: true, id: id };
+}
+function ticketMine(ctx) { return { ok: true, items: rows('Tickets').filter(function (t) { return t.app === ctx.app && String(t.user_id) === ctx.uid; }).reverse().slice(0, 20).map(function (t) { return tkOut(t, true); }) }; }
+function ticketUserReply(ctx, req) {
+  var t = find('Tickets', function (x) { return x.ticket_id === req.id && x.app === ctx.app && String(x.user_id) === ctx.uid; }); if (!t) return { ok: false, error: 'not_found' };
+  var text = String(req.text || '').trim(); if (!text) return { ok: false, error: 'empty' };
+  append('TicketMsgs', { ticket_id: t.ticket_id, from: 'user', author_id: ctx.uid, text: text.slice(0, 2000), created_at: new Date() });
+  update('Tickets', t, { status: 'open', updated_at: new Date(), last_from: 'user' });
+  notifyControl(ctx.app, 'Reply on ' + t.ticket_id + ' (' + ctx.app + '): ' + text.slice(0, 160));
+  return { ok: true };
+}
+/* ---- App registry: every app writes itself here, so the Control Center finds new apps automatically ---- */
+function registerApp(field) {
+  try {
+    var r = find('Apps', function (x) { return x.app === THIS_APP.id; }), now = new Date(), data = { name: getSettings(THIS_APP.id).appName || THIS_APP.button, url: THIS_APP.url || '', version: CORE_VERSION };
+    if (field) data[field] = now;
+    if (r) update('Apps', r, data); else append('Apps', Object.assign({ app: THIS_APP.id, installed_at: now }, data));
+  } catch (e) {}
+}
+
 /* ---- reliability & governance helpers ---- */
 var CORE_VERSION = '2.0.0';
 // Write actions (blocked in maintenance mode). Listing writes explicitly is safer than guessing reads from names.
 var WRITES = /^(consume|createOrder|submitManual|sendFile|sendReport)$|(Save|Add|Del|Delete|Submit|Reply|Publish|Checkin|Decide|Withdraw|Score|Translate|Toggle|Action|Broadcast|TestJoin|RefreshLink)/;
-var AUDITED = /^(adminSave|adminSetSecret|adminDecide|adminCodeSave|adminCodeToggle|adminResetMe|adminMkWithdrawal|adminSchSave|adminSchDelete|adminGkFee|gkMemberAction|gkBroadcast|gkSave|gkCodeSave|gkCodeToggle|gkRefreshLink|mkDecide|mkWithdraw|dbDeleteCustomer)$/;
+var AUDITED = /^(ccReply|ccClose|ccAdminSave|ccAdminRemove|adminSave|adminSetSecret|adminDecide|adminCodeSave|adminCodeToggle|adminResetMe|adminMkWithdrawal|adminSchSave|adminSchDelete|adminGkFee|gkMemberAction|gkBroadcast|gkSave|gkCodeSave|gkCodeToggle|gkRefreshLink|mkDecide|mkWithdraw|dbDeleteCustomer)$/;
 function isMaint(st) { return st.x_maintenance === true || st.x_maintenance === 'TRUE'; }
 function rateLimit(app, uid, bucket, max, windowSec) {
   var c = CacheService.getScriptCache(), slot = Math.floor(Date.now() / 1000 / windowSec), k = 'rl_' + app + '_' + bucket + '_' + uid + '_' + slot, n = Number(c.get(k) || 0) + 1;
@@ -324,7 +399,7 @@ function initPayload(ctx) {
     access: accessFor(ctx), plans: plansFor(ctx.st, ctx.region), methods: availMethods(ctx.st, ctx.region, !!ctx.token),
     appName: ctx.st.appName, support: ctx.st.supportContact,
     ref: refOn(ctx.st) ? { on: true, arg: 'r' + ctx.uid, newPct: Number(ctx.st.x_refNewPct) || 0, days: Number(ctx.st.x_refDays) || 0, credits: Number(ctx.st.x_refCredits) || 0 } : { on: false },
-    firstPct: ctx.verified ? refFirstPct(ctx) : 0, maintenance: isMaint(ctx.st) ? (ctx.st.x_maintenanceMsg || true) : false, apiVersion: CORE_VERSION };
+    perms: ctx.role ? (ctx.role.super ? ['super'].concat(PERMS) : ctx.role.perms) : [], firstPct: ctx.verified ? refFirstPct(ctx) : 0, maintenance: isMaint(ctx.st) ? (ctx.st.x_maintenanceMsg || true) : false, apiVersion: CORE_VERSION };
 }
 function consume(ctx, req) {
   var lock = LockService.getScriptLock(); lock.waitLock(10000); _rc = {};
@@ -356,6 +431,7 @@ function processOutbox(max) {
   rows('Outbox').some(function (m) {
     if (m.status !== 'queued') return false;
     if (sent >= (max || 400) || Date.now() - t0 > 240000) return true;
+    if (m.app !== THIS_APP.id) return false;   // each project sends only its own bot's messages (shared ledger)
     var tok = tokens[m.app] || (tokens[m.app] = botToken(m.app)); if (!tok) return false;
     var r; try { r = tgCall(tok, 'sendMessage', { chat_id: m.chat_id, text: m.text, reply_markup: m.markup ? JSON.parse(m.markup) : undefined }); } catch (e) { r = { ok: false, description: String(e) }; }
     update('Outbox', m, { status: r.ok ? 'sent' : 'failed', sent_at: new Date(), error: r.ok ? '' : String(r.description || r.error_code || '').slice(0, 120) });
@@ -694,6 +770,14 @@ function serverRoute(req) {
       return { ok: true, local: local };
   }
   var H = APP_HOOKS[app];
+  if (req.action === 'botText' && H && H.botText) return H.botText(req);
+  if (req.action === 'botText') {   // a user wrote to the bot: becomes a support ticket (or continues their open one)
+    if (rateLimit(app, String(req.user_id), 'bt', 10, 3600)) return { ok: true, text: '' };
+    var open = rows('Tickets').filter(function (t) { return t.app === app && String(t.user_id) === String(req.user_id) && t.status !== 'closed' && Date.now() - new Date(t.updated_at).getTime() < 7 * 864e5; }).pop();
+    if (open) { append('TicketMsgs', { ticket_id: open.ticket_id, from: 'user', author_id: String(req.user_id), text: String(req.text || '').slice(0, 2000), created_at: new Date() }); update('Tickets', open, { status: 'open', updated_at: new Date(), last_from: 'user' }); notifyControl(app, 'Reply on ' + open.ticket_id + ' (' + app + '): ' + String(req.text).slice(0, 160)); }
+    else tkAdd(app, req.user_id, req.first_name, 'message', String(req.text || ''), 'user');
+    return { ok: true, text: 'Thank you — your message reached our support team. We will reply here.' };
+  }
   if (req.action === 'botStart') return H && H.botStart ? H.botStart(req) : { ok: true };
   if (H && H.server && H.server[req.action]) return H.server[req.action](req);
   return { ok: false, error: 'unknown_action' };
@@ -701,6 +785,7 @@ function serverRoute(req) {
 
 /* ======================= TRIGGERS ======================= */
 function cronUsdt() {
+  registerApp('hb_5min');
   setProp('LAST_CRON_5MIN', new Date().toISOString());
   try { processOutbox(400); } catch (e) { log('', 'cron', 'outbox_error', e); }
   var now = Date.now();
@@ -712,7 +797,7 @@ function cronUsdt() {
 }
 var DAILY_JOBS = DAILY_JOBS || [];
 function cronDaily() {
-  setProp('LAST_CRON_DAILY', new Date().toISOString());
+  setProp('LAST_CRON_DAILY', new Date().toISOString()); registerApp('hb_daily');
   try { backupLedger(); } catch (e) { log('', 'cron', 'backup_error', e); }
   DAILY_JOBS.forEach(function (fn) { try { fn(); } catch (e) { log('', 'cron', 'error', e); } });
   var now = new Date(), soon = new Date(now.getTime() + 3 * 864e5);
@@ -726,7 +811,7 @@ function cronDaily() {
 
 /* App modules add their own hourly jobs to HOURLY_JOBS. */
 var HOURLY_JOBS = HOURLY_JOBS || [];
-function cronHourly() { setProp('LAST_CRON_HOURLY', new Date().toISOString()); try { flushMetrics(); } catch (e) { log('', 'cron', 'metrics_error', e); } HOURLY_JOBS.forEach(function (fn) { try { fn(); } catch (e) { log('', 'cron', 'error', e); } }); }
+function cronHourly() { setProp('LAST_CRON_HOURLY', new Date().toISOString()); registerApp('hb_hourly'); try { flushMetrics(); } catch (e) { log('', 'cron', 'metrics_error', e); } HOURLY_JOBS.forEach(function (fn) { try { fn(); } catch (e) { log('', 'cron', 'error', e); } }); }
 
 /* Daily copy of the master sheet, newest 14 kept. Shared ledgers are backed up once per day (deduplicated by name).
    A backup only counts once it has been restored: open a copy from the folder and check it at least once a month. */
@@ -737,7 +822,7 @@ function backupLedger() {
   if (!folder.getFilesByName(today).hasNext()) DriveApp.getFileById(id).makeCopy(today, folder);
   var files = [], fi = folder.getFiles(); while (fi.hasNext()) files.push(fi.next());
   files.sort(function (a, b) { return b.getDateCreated() - a.getDateCreated(); }).slice(14).forEach(function (f) { f.setTrashed(true); });
-  setProp('LAST_BACKUP', new Date().toISOString());
+  setProp('LAST_BACKUP', new Date().toISOString()); registerApp('last_backup');
 }
 /* System health for the admin: evidence, not guesses. */
 function adminHealth(ctx) {
@@ -781,6 +866,7 @@ function install() {
   ScriptApp.newTrigger('cronUsdt').timeBased().everyMinutes(5).create();
   ScriptApp.newTrigger('cronDaily').timeBased().everyDays(1).atHour(6).create();
   ScriptApp.newTrigger('cronHourly').timeBased().everyHours(1).create();
+  registerApp(null);
   Logger.log('Master sheet: ' + book.getUrl());
   Logger.log('Copy SERVER_SECRET from Project Settings -> Script properties into Netlify env var SERVER_SECRET.');
 }

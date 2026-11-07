@@ -11,6 +11,7 @@ APPS = [  # (folder, app id, name, what it does, extra script properties)
   ('05 Scholarship Finder', 'scholar', 'Scholarship Finder', 'Profile-based scholarship matches with deadline alerts.', []),
   ('06 Debt Book', 'debt', 'Debt Book — reminders for traders', 'Shops record customer credit; polite reminders by WhatsApp, SMS or the bot.', []),
   ('07 Field Tasks', 'market', 'Field Tasks — field data marketplace', 'Businesses post small paid tasks; local workers submit photos/GPS/answers and earn USDT.', []),
+  ('00 Control Center (admins)', 'control', 'Control Center — admin bot for all apps', 'Income per app, subscribers, forecast, support inbox, app health, AI assistant (DeepSeek), admin roles, executive PDF.', ['DEEPSEEK_KEY (optional)', 'GEMINI_KEY (optional)']),
   ('08 PDF Tools', 'converter', 'PDF Tools — file converter', 'Images to PDF, merge, split, PDF to images. 2 free conversions, then subscription.', []),
 ]
 if out.exists(): shutil.rmtree(out)
@@ -43,6 +44,9 @@ for folder, app, name, what, gs, props, url in rows:
 page = f"""<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Telegram Mini Apps — Start here</title><style>{css}</style></head><body>
 <h1>Telegram Mini Apps — start here</h1><p class="sub">8 apps · each = front end (Netlify) + its own Google Apps Script backend (its own API URL) + a Telegram bot.</p>
 <div class="card warn"><b>Never put secrets</b> (bot tokens, API keys, wallet private keys) in <code>config.js</code>, in chat, or in GitHub. They go only in <b>Apps Script → Project Settings → Script properties</b> and in <b>Cloudflare Pages → Settings → Variables and Secrets</b>.</div>
+<h2>First: one shared master sheet (needed for the Control Center)</h2><div class="card">Install the <b>Control Center first</b> (folder 00). Its <code>install</code> creates the master sheet and saves <code>MASTER_SHEET_ID</code> in its Script properties.
+Copy that value into <b>every other app's</b> Script properties <b>before</b> running their <code>install</code>. Then all apps write to the same private sheet and the Control Center sees income, subscribers, tickets and health of every app — including any new mini app you add later.</div>
+<h2>Admins and roles</h2><div class="card"><code>ADMIN_IDS</code> (your Telegram ID) = owner / super admin in every app. In Control Center → <b>Admins</b> you can add people per app with rights: <b>support</b> (inbox), <b>payments</b> (approve payments), <b>settings</b> (prices, codes), <b>reports</b> (dashboard, health). They only see their apps.</div>
 <h2>Do this for each app (about 10 minutes per app)</h2><div class="card"><ol>
 <li><b>Backend.</b> Go to <a href="https://script.google.com">script.google.com</a> → <b>New project</b>. Rename it after the app. Delete the sample code, then create one file per <code>.gs</code> file in the app's <code>apps-script/</code> folder (names as shown) and paste each file's contents.</li>
 <li><b>Script properties.</b> Project Settings (gear) → Script properties → add <code>ADMIN_IDS</code> = your Telegram user ID (get it from @userinfobot) and the bot token as <code>BOT_TOKEN_&lt;app id&gt;</code>. AI apps also need <code>GEMINI_KEY</code> (from aistudio.google.com).<br><small>Optional: to use ONE ledger for all apps, copy <code>MASTER_SHEET_ID</code> from the first project into the others before step 3.</small></li>

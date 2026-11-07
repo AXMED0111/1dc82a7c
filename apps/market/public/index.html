@@ -182,6 +182,7 @@ table.tb{width:100%;border-collapse:collapse;font-size:13px}table.tb td{padding:
 .ht.warn:before{background:#f79009}.ht.bad:before{background:var(--danger)}
 .ht b{font-size:16px}.ht span{font-size:11.5px;color:var(--hint)}.ht small{font-size:10.5px;color:var(--hint)}.ht .dot{display:none}
 details summary{cursor:pointer}
+.bub{max-width:88%;padding:8px 12px;border-radius:12px;margin-top:8px;font-size:14px;white-space:pre-wrap;word-wrap:break-word}.bub.me{background:var(--soft);margin-left:auto}.bub.them{background:var(--bg)}.bub .fs{font-size:11px;margin-bottom:2px}
 .intro{border-color:color-mix(in srgb,var(--accent) 30%,var(--sep));background:linear-gradient(160deg,color-mix(in srgb,var(--accent) 10%,var(--card)),var(--card) 60%)}
 .intro .ii{width:36px;height:36px;border-radius:10px;display:grid;place-items:center;background:var(--accent);color:var(--accent-text);flex:none}
 .faq summary{list-style:none}.faq summary::-webkit-details-marker{display:none}.faq summary:after{content:'+';float:right;color:var(--hint);font-weight:700}.faq[open] summary:after{content:'–'}
@@ -292,6 +293,9 @@ en: {
   my_plan: 'My plan', acc_status: 'Status', acc_free: 'Free plan', acc_used: 'Free uses', acc_exp: 'Expires', acc_id: 'Telegram ID', support: 'Support', upgrade: 'Upgrade',
   have_code: 'Have a discount code?', apply: 'Apply', code_ok: '{p}% discount applied', welcome_disc: 'Welcome discount: {p}% off your first purchase', code_invalid: 'This code is not valid.', code_expired: 'This code has expired.', code_used_up: 'This code has been fully used.', code_not_for_plan: 'This code does not apply to this plan.', free_code: 'Activate free',
   invite: 'Invite friends', invite_sub: 'Share your link. Your friend gets {p}% off their first purchase, and you get {r} when they pay.', invite_days: '{n} free days', invite_credits: '{n} free credits', your_link: 'Your invite link', invited: 'Joined with your link', rewarded: 'Rewards earned', share_tg: 'Share on Telegram', share_wa: 'Share on WhatsApp', invite_msg: 'Try this app — use my link for a discount:',
+  language: 'Language', lang_auto: 'Automatic — same as your Telegram', admin_settings: 'Admin settings', admin_sub: 'Prices, payments, health, codes', help_l: 'How it works', contact: 'Contact support', contact_sub: 'Questions, problems or ideas — we read every message.',
+  t_question: 'Question', t_problem: 'Problem', t_payment: 'Payment', t_suggestion: 'Idea', write_here: 'Write your message…', send: 'Send', sent_ok: 'Sent. We will reply here and in the bot chat.', my_requests: 'My requests',
+  st_open: 'Waiting for reply', st_answered: 'Answered', st_closed: 'Closed', you: 'You', team: 'Support', reply: 'Reply', no_requests: 'No requests yet.',
   rep_ready: 'Your report is ready', rep_making: 'Preparing your PDF…', rep_dl: 'Download PDF', rep_send: 'Send to my Telegram chat', rep_sent: 'Sent to your Telegram chat', rep_hint: 'If the download does not start inside Telegram, use “Send to my Telegram chat”.', rep_pro: 'PDF reports are part of Pro.', generated: 'Generated', page: 'Page'
 },
 so: {
@@ -315,9 +319,15 @@ so: {
   my_plan: 'Qorshahayga', acc_status: 'Xaaladda', acc_free: 'Qorshe bilaash', acc_used: 'Isticmaalka bilaashka', acc_exp: 'Wuxuu dhacayaa', acc_id: 'Aqoonsiga Telegram', support: 'Taageero', upgrade: 'U gudub Pro',
   have_code: 'Ma haysaa kood qiimo dhimis?', apply: 'Isticmaal', code_ok: '{p}% qiimo dhimis ayaa la dabaqay', welcome_disc: 'Qiimo dhimis soo dhaweyn: {p}% iibkaaga ugu horreeya', code_invalid: 'Koodkan sax ma aha.', code_expired: 'Koodkan wuu dhacay.', code_used_up: 'Koodkan waa la isticmaalay oo dhan.', code_not_for_plan: 'Koodkan kuma shaqeeyo qorshahan.', free_code: 'Ku hawlgeli bilaash',
   invite: 'Casuun saaxiibbo', invite_sub: 'La wadaag link-gaaga. Saaxiibkaa wuxuu helayaa {p}% qiimo dhimis iibkiisa ugu horreeya, adiguna waxaad helaysaa {r} marka uu bixiyo.', invite_days: '{n} maalmood oo bilaash ah', invite_credits: '{n} dhibcood oo bilaash ah', your_link: 'Link-gaaga casuumaadda', invited: 'Ku soo biiray link-gaaga', rewarded: 'Abaalmarinnada la helay', share_tg: 'Ku wadaag Telegram', share_wa: 'Ku wadaag WhatsApp', invite_msg: 'Isku day app-kan — isticmaal link-gayga si aad qiimo dhimis u hesho:',
+  language: 'Luqadda', lang_auto: 'Toos — la mid ah Telegram-kaaga', admin_settings: 'Dejinta maamulka', admin_sub: 'Qiimaha, lacag-bixinta, caafimaadka, koodhadhka', help_l: 'Sida uu u shaqeeyo', contact: 'La xiriir taageerada', contact_sub: 'Su\'aalo, dhibaatooyin ama fikrado — fariin kasta waan akhrinnaa.',
+  t_question: 'Su\'aal', t_problem: 'Dhibaato', t_payment: 'Lacag-bixin', t_suggestion: 'Fikrad', write_here: 'Halkan ku qor fariintaada…', send: 'Dir', sent_ok: 'Waa la diray. Waxaan kaaga jawaabi doonnaa halkan iyo sheekada bot-ka.', my_requests: 'Codsiyadayda',
+  st_open: 'Sugaya jawaab', st_answered: 'La jawaabay', st_closed: 'Xiran', you: 'Adiga', team: 'Taageero', reply: 'Jawaab', no_requests: 'Weli codsi ma jiro.',
   rep_ready: 'Warbixintaadu waa diyaar', rep_making: 'PDF-ka ayaa la diyaarinayaa…', rep_dl: 'Soo deji PDF', rep_send: 'U dir sheekadayda Telegram', rep_sent: 'Waa loo diray sheekadaada Telegram', rep_hint: 'Haddii soo dejintu aysan ka bilaabmin Telegram, isticmaal “U dir sheekadayda Telegram”.', rep_pro: 'Warbixinnada PDF waxay ka mid yihiin Pro.', generated: 'La sameeyay', page: 'Bogga'
 }};
-var LANG;
+var LANG, LANGS = { en: 'English', so: 'Soomaali' };
+/* Language follows the user's Telegram (or browser) language automatically; anyone can override it in Settings.
+   A language without translations falls back to English (add an entry to L and to LANGS to support it). */
+function autoLang() { var c = ((TGU && TGU.language_code) || navigator.language || 'en').toLowerCase().slice(0, 2); if (EDITION === 'local' && !TGU) c = 'so'; return L[c] ? c : 'en'; }
 function t(k, v) {
   var s = (APP.strings[LANG] && APP.strings[LANG][k]) || (L[LANG] && L[LANG][k]) || APP.strings.en[k] || L.en[k] || k;
   if (v) for (var x in v) s = s.split('{' + x + '}').join(v[x]);
@@ -391,6 +401,22 @@ function report(R) {
         if (!T.rows || !T.rows.length) { need(40); txt(T.empty || '—', M + 10, y + 27, '400 20px ' + FONT, '#667085'); y += 40; }
         if (T.total) { x.fillStyle = '#101828'; x.fillRect(M, y, tw, 2); y += 4; row(T.total, true, 0); }
         y += 22;
+      }
+      if (b.bars) {   // horizontal bars: {bars:{items:[[label, value, color]], fmt}}
+        var it = b.bars.items || [], mx = it.reduce(function (a, x) { return Math.max(a, +x[1] || 0); }, 0) || 1, lw = 300, vw = 150, bw2 = W - 2 * M - lw - vw;
+        it.forEach(function (row) { need(44); var w = Math.max(2, (+row[1] || 0) / mx * bw2);
+          txt(fit(row[0], lw - 16, '400 21px ' + FONT), M, y + 27, '400 21px ' + FONT, '#344054'); var cx2 = c.getContext('2d'); cx2.fillStyle = row[2] || ACC; var bx = rtl ? W - M - lw - w : M + lw; cx2.fillRect(bx, y + 10, w, 22);
+          txt((b.bars.fmt ? b.bars.fmt(row[1]) : row[1]), M + lw + w + 12, y + 28, '600 20px ' + FONT, '#101828'); y += 40; });
+        y += 14;
+      }
+      if (b.stack) {   // vertical stacked columns: {stack:{labels:[...], series:[{name,color,values:[]}], fmt}}
+        var S2 = b.stack, n = S2.labels.length, chH = 340, tot = S2.labels.map(function (_, i) { return S2.series.reduce(function (a, se) { return a + (+se.values[i] || 0); }, 0); }), mx2 = Math.max.apply(null, tot.concat([1]));
+        need(chH + 120); var x0 = M + 70, cw = (W - 2 * M - 70) / n, base = y + chH, cx3 = c.getContext('2d');
+        cx3.fillStyle = '#eaecf0'; [0, .5, 1].forEach(function (g) { cx3.fillRect(x0, base - g * chH, W - M - x0, 1); txt(S2.fmt ? S2.fmt(mx2 * g) : Math.round(mx2 * g), x0 - 10, base - g * chH + 6, '400 17px ' + FONT, '#98a2b3', 'right'); });
+        S2.labels.forEach(function (lab, i) { var yy = base; S2.series.forEach(function (se) { var v = +se.values[i] || 0, hh = v / mx2 * chH; if (hh > 0) { cx3.fillStyle = se.color; cx3.fillRect(x0 + i * cw + cw * 0.18, yy - hh, cw * 0.64, Math.max(1, hh - 2)); } yy -= hh; });
+          txt(lab, x0 + i * cw + cw / 2, base + 26, '400 16px ' + FONT, '#667085', 'center'); });
+        y = base + 48; var lx = M; S2.series.forEach(function (se) { cx3.fillStyle = se.color; cx3.fillRect(lx, y, 16, 16); txt(se.name, lx + 24, y + 14, '400 18px ' + FONT, '#344054'); cx3.font = '400 18px ' + FONT; lx += 44 + cx3.measureText(se.name).width; if (lx > W - M - 160) { lx = M; y += 28; } });
+        y += 44;
       }
       if (b.images) {
         var per = 3, g = 16, iw = (W - 2 * M - g * (per - 1)) / per, ih = iw * 0.75;
@@ -475,7 +501,7 @@ function dMarkPaid(s, o) {
   var base = s.sub && new Date(s.sub.expiry) > new Date() ? new Date(s.sub.expiry) : new Date(); base.setDate(base.getDate() + (+p.days || 30)); s.sub = { plan: o.plan, expiry: base.toISOString() };
 }
 var DemoCore = {
-  init: function (d, s) { var r = dRegion(s); return { ok: true, demo: true, verified: false, isAdmin: true, user: { id: TGU ? TGU.id : 0, name: TGU ? TGU.first_name : 'Demo user' }, region: r, phoneVerified: !!s.phoneVerified,
+  init: function (d, s) { var r = dRegion(s); return { ok: true, demo: true, verified: false, isAdmin: true, perms: ['super', 'support', 'payments', 'settings', 'reports'], user: { id: TGU ? TGU.id : 0, name: TGU ? TGU.first_name : 'Demo user' }, region: r, phoneVerified: !!s.phoneVerified,
     access: dAccess(s, d), plans: (s.settings.plans || []).filter(function (p) { return p.region === 'ALL' || p.region === r; }), methods: availMethods(s.settings, r), appName: s.settings.appName, support: s.settings.supportContact,
     ref: s.settings.x_refOn ? { on: true, arg: 'r' + (TGU ? TGU.id : '1000'), newPct: +s.settings.x_refNewPct || 0, days: +s.settings.x_refDays || 0, credits: +s.settings.x_refCredits || 0 } : { on: false },
     maintenance: s.settings.x_maintenance ? (s.settings.x_maintenanceMsg || true) : false, firstPct: /^r\d+/.test(START) && !s.orders.some(function (o) { return o.status === 'paid'; }) && s.settings.x_refOn ? +s.settings.x_refNewPct || 0 : 0 }; },
@@ -520,6 +546,10 @@ var DemoCore = {
     return { ok: true, demo: true, totals: { requests: 40 + s.total * 3, errors: 0, errorRate: 0, p95: 1000, aiCalls: 0, aiTokens: 0 }, queue: { queued: 0, oldestMin: 0, failed24h: 0 },
       payments: { review: s.orders.filter(function (o) { return o.status === 'review'; }).length, usdtPending: 0 }, crons: { min5: new Date(Date.now() - 3e5).toISOString() }, lastBackup: new Date(Date.now() - 6 * 36e5).toISOString(),
       sheet: { cells: 1200 + paid * 14, pctOf10M: 0.01 }, webhook: { url: true, pending: 0, lastError: '' }, ai: { today: 0, budget: +s.settings.x_aiDailyBudget || 500 }, recentErrors: [], hours: [] }; },
+  ticketCreate: function (d, s) { s.tickets = s.tickets || []; var id = 'T' + uid(); s.tickets.unshift({ id: id, type: d.type, status: 'open', updated: new Date().toISOString(), messages: [{ from: 'user', text: d.text, at: new Date().toISOString() }] });
+    setTimeout(function () {}, 0); return { ok: true, id: id }; },
+  ticketMine: function (d, s) { (s.tickets || []).forEach(function (x) { if (x.status === 'open' && !x.demoReplied && Date.now() - new Date(x.updated).getTime() > 4000) { x.demoReplied = true; x.status = 'answered'; x.messages.push({ from: 'admin', text: 'Thanks for your message! (Demo: in the live app the team replies from the Control Center.)', at: new Date().toISOString() }); } }); return { ok: true, items: s.tickets || [] }; },
+  ticketReply: function (d, s) { var x = (s.tickets || []).filter(function (y) { return y.id === d.id; })[0]; if (x) { x.messages.push({ from: 'user', text: d.text, at: new Date().toISOString() }); x.status = 'open'; x.updated = new Date().toISOString(); } return { ok: true }; },
   adminAudit: function (d, s) { return { ok: true, items: (s.audit || []).slice().reverse() }; },
   adminResetMe: function (d, s) { s.freeUsed = 0; s.credits = 0; s.sub = null; s.phoneVerified = false; return { ok: true }; }
 };
@@ -581,9 +611,8 @@ function header(title, sub, right) {
   var showBack = S.stack.length && !IN_TG;
   return '<div class="top">' + (showBack ? '<button class="ibtn" data-act="back" aria-label="' + t('back') + '">' + ic('back') + '</button>' : '<div class="logo">' + ic(APP.icon || 'logo') + '</div>') +
     '<div class="grow"><h1>' + esc(title) + '</h1>' + (sub ? '<div class="sub">' + esc(sub) + '</div>' : '') + '</div>' + (right || '') +
-    '<div class="lang"><button data-lang="so" class="' + (LANG === 'so' ? 'on' : '') + '">SO</button><button data-lang="en" class="' + (LANG === 'en' ? 'on' : '') + '">EN</button></div>' +
     (window.APP_ABOUT && APP_ABOUT.title && !S.stack.length ? '<button class="ibtn" data-act="help" aria-label="Help">' + ic('info') + '</button>' : '') +
-    (S.me && S.me.isAdmin ? '<button class="ibtn" data-act="settings" aria-label="' + t('settings') + '">' + ic('settings') + '</button>' : '') + '</div>';
+    (!S.stack.length ? '<button class="ibtn" data-act="prefs" aria-label="' + t('settings') + '">' + ic('settings') + '</button>' : '') + '</div>';
 }
 function banners() { var h = '', A = window.APP_ABOUT;
   if (A && A.intro && S.screen === 'home' && !lsGet('intro_' + CFG.appId, false)) h += '<div class="card intro"><div class="row" style="align-items:flex-start;gap:12px"><div class="ii">' + ic('info') + '</div><div class="grow"><b>' + esc(A.title) + '</b><p class="m" style="margin-top:4px">' + esc(A.intro) + '</p>' +
@@ -656,13 +685,35 @@ var BUILTIN = {
     if (me.ref && me.ref.on) h += '<button class="btn sec2" data-act="invite">' + ic('users') + t('invite') + '</button>';
     return h;
   },
+  prefs: function () {
+    var me = S.me || {}, pref = lsGet('lang_' + CFG.appId, 'auto'), h = header(t('settings'), '');
+    h += '<div class="sec">' + t('language') + '</div><div class="opt">' + [['auto', t('lang_auto') + ' (' + LANGS[autoLang()] + ')'], ['en', 'English'], ['so', 'Soomaali']].map(function (o) {
+      return '<div class="radio ' + (pref === o[0] ? 'on' : '') + '" data-act="setlang" data-v="' + o[0] + '"><span class="dot"></span><b>' + esc(o[1]) + '</b></div>'; }).join('') + '</div>';
+    h += '<div class="sec">' + t('support') + '</div><button class="chrow" data-act="help"><div class="av">' + ic('info') + '</div><div class="grow"><div class="fn">' + t('help_l') + '</div></div></button>' +
+      '<button class="chrow" data-act="support"><div class="av">' + ic('message') + '</div><div class="grow"><div class="fn">' + t('contact') + '</div><div class="fs">' + t('contact_sub') + '</div></div></button>';
+    if (me.plans && me.plans.length) h += '<button class="chrow" data-act="account"><div class="av">' + ic('star') + '</div><div class="grow"><div class="fn">' + t('my_plan') + '</div></div></button>';
+    if (me.ref && me.ref.on) h += '<button class="chrow" data-act="invite"><div class="av">' + ic('users') + '</div><div class="grow"><div class="fn">' + t('invite') + '</div></div></button>';
+    if (me.isAdmin) h += '<div class="sec">Admin</div><button class="chrow" data-act="settings"><div class="av">' + ic('settings') + '</div><div class="grow"><div class="fn">' + t('admin_settings') + '</div><div class="fs">' + t('admin_sub') + '</div></div></button>';
+    return h + '<div class="foot">v' + esc(CFG.version) + '</div>';
+  },
+  support: function () {
+    var h = header(t('contact'), ''), tk = S.tickets;
+    h += '<div class="card"><p class="m" style="margin-bottom:10px">' + t('contact_sub') + '</p>' + seg('tktype', S.tkType || 'question', [['question', t('t_question')], ['problem', t('t_problem')], ['payment', t('t_payment')], ['suggestion', t('t_suggestion')]]) +
+      '<textarea class="t" id="tktext" style="margin-top:10px;min-height:110px" maxlength="2000" placeholder="' + esc(t('write_here')) + '"></textarea><button class="btn" style="margin-top:10px" data-act="tksend">' + ic('send') + t('send') + '</button></div>' + errBox();
+    h += '<div class="sec">' + t('my_requests') + '</div>';
+    if (!tk) return h + spin();
+    if (!tk.length) return h + '<div class="card"><p class="m">' + t('no_requests') + '</p></div>';
+    return h + tk.map(function (x) { return '<div class="card"><div class="row"><span class="pill ' + (x.status === 'answered' ? 'ok' : x.status === 'closed' ? '' : 'ac') + '">' + t('st_' + x.status) + '</span><span class="grow"></span><span class="fs">' + esc(fmtDate(x.updated)) + '</span></div>' +
+      (x.messages || []).map(function (m) { return '<div class="bub ' + (m.from === 'admin' ? 'them' : 'me') + '"><div class="fs">' + (m.from === 'admin' ? t('team') : t('you')) + '</div>' + esc(m.text) + '</div>'; }).join('') +
+      (x.status !== 'closed' ? '<div class="row" style="margin-top:8px"><input class="t" id="tkr_' + esc(x.id) + '" placeholder="' + esc(t('reply')) + '…"><button class="btn sm sec2" data-act="tkreply" data-id="' + esc(x.id) + '">' + t('send') + '</button></div>' : '') + '</div>'; }).join('');
+  },
   help: function () {
     var A = window.APP_ABOUT || {}, h = header('How it works', A.title || '');
     h += '<div class="card"><p class="m" style="color:var(--text)">' + esc(A.intro || '') + '</p><ol class="steps" style="margin-top:10px">' + (A.steps || []).map(function (x) { return '<li>' + esc(x) + '</li>'; }).join('') + '</ol></div>';
     if (A.faq && A.faq.length) h += '<div class="sec">Questions</div>' + A.faq.map(function (q) { return '<details class="card faq"><summary><b>' + esc(q[0]) + '</b></summary><p class="m" style="margin-top:8px">' + esc(q[1]) + '</p></details>'; }).join('');
     if (S.me && S.me.support) h += '<div class="card">' + kv(t('support'), S.me.support, true) + '</div>';
+    h += '<button class="btn" data-act="support">' + ic('message') + t('contact') + '</button>';
     if (S.me && S.me.ref && S.me.ref.on) h += '<button class="btn sec2" data-act="invite">' + ic('users') + t('invite') + '</button>';
-    if (S.me && S.me.plans && S.me.plans.length) h += '<button class="btn ghost" data-act="account">' + ic('star') + t('my_plan') + '</button>';
     return h;
   },
   invite: function () {
@@ -798,6 +849,7 @@ document.addEventListener('click', function (ev) {
   var el = ev.target.closest('[data-a],[data-act],[data-lang],[data-copy],[data-open],[data-plan],[data-method],[data-toggle],[data-plan-rm],[data-secret],[data-approve],[data-reject],[data-seg],[data-go]'); if (!el) return;
   var d = el.dataset;
   if (d.a) { var fa = APP.actions[d.a]; if (fa) fa(el, d); return; }
+  if (d.seg === 'tktype') { var keep = (document.getElementById('tktext') || {}).value; S.tkType = d.val; render(); var ta = document.getElementById('tktext'); if (ta) ta.value = keep || ''; return; }
   if (d.seg) { if (APP.onSeg) APP.onSeg(d.seg, d.val, el); return; }
   if (d.go) return go(d.go);
   if (d.lang) { LANG = d.lang; lsSet('lang_' + CFG.appId, LANG); document.documentElement.lang = LANG; return render(); }
@@ -834,6 +886,13 @@ document.addEventListener('click', function (ev) {
     case 'revpdf': var scope = el.dataset.scope;
       showReport(function () { return api('adminRevenue', { scope: scope }).then(revenueReport); }, 'revenue-' + (scope === 'all' ? 'all-apps' : CFG.appId) + '-' + new Date().toISOString().slice(0, 7) + '.pdf'); return;
     case 'help': return go('help');
+    case 'prefs': return go('prefs');
+    case 'setlang': lsSet('lang_' + CFG.appId, el.dataset.v); LANG = el.dataset.v === 'auto' ? autoLang() : el.dataset.v; document.documentElement.lang = LANG; return render();
+    case 'support': S.tickets = null; go('support'); api('ticketMine').then(function (r) { S.tickets = r.ok ? r.items : []; render(); }); return;
+    case 'tksend': var tx = (document.getElementById('tktext') || {}).value || ''; if (tx.trim().length < 3) return;
+      api('ticketCreate', { type: S.tkType || 'question', text: tx.trim() }).then(function (r) { if (r.ok) { S.msg = t('sent_ok'); S.err = ''; haptic('ok'); api('ticketMine').then(function (x) { S.tickets = x.items || []; render(); }); } else { S.err = r.error === 'rate_limited' ? t('e_rate') : t('e_gen'); render(); } }); return;
+    case 'tkreply': var inp2 = document.getElementById('tkr_' + el.dataset.id); if (!inp2 || !inp2.value.trim()) return;
+      api('ticketReply', { id: el.dataset.id, text: inp2.value.trim() }).then(function () { api('ticketMine').then(function (x) { S.tickets = x.items || []; render(); }); }); return;
     case 'introok': lsSet('intro_' + CFG.appId, true); return render();
     case 'retryinit': S.me = null; render(); refreshMe().then(enter); return;
     case 'repdl': if (S.rep && S.rep.blob) saveBlob(S.rep.blob, S.rep.name); return;
@@ -854,7 +913,7 @@ function app(def) {
   Object.keys(def).forEach(function (k) { APP[k] = def[k]; });
   APP.strings = def.strings || { en: {}, so: {} }; APP.screens = def.screens || {}; APP.actions = def.actions || {}; APP.enter = def.enter || {}; APP.demo = def.demo || {};
   APP.adminFields = def.adminFields || []; APP.extraSecrets = def.extraSecrets || {};
-  LANG = lsGet('lang_' + CFG.appId, null) || (EDITION === 'local' || (TGU && TGU.language_code === 'so') ? 'so' : CFG.defaultLang);
+  var pref = lsGet('lang_' + CFG.appId, 'auto'); LANG = pref === 'auto' || !L[pref] ? autoLang() : pref;
   document.documentElement.lang = LANG;
   $app = document.getElementById('app');
   if (IN_TG) { TG.BackButton.onClick(back); try { TG.ready(); TG.expand(); if (TG.isVersionAtLeast('7.7')) TG.disableVerticalSwipes(); } catch (e) {} }

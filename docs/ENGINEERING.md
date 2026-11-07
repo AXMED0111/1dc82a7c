@@ -36,6 +36,14 @@ Each app is a **modular monolith** (book 1.6): one deployable Apps Script projec
 | Fitness functions (2.27) | `node tools/test-backends.js` — 139 automated checks (forged signature rejected, idempotent retry, rate limit, maintenance write list, payments, isolation, AI failover…). Run before every release. |
 | Secrets lifecycle (5.5) | Secrets only in Script properties / Netlify env; write-only in Settings; rotate the Netlify token you pasted in chat. |
 
+## 2b. Control Center (control plane)
+
+- One admin bot + Mini App (`apps/control`) reading the **shared master sheet**: income per app (Stars converted at the configured rate), subscribers, forecast, trends, payment methods, new users, tickets, per-app health.
+- **Apps registry** (`Apps` sheet): every app registers itself on install and on each background run (heartbeats). New mini apps appear automatically.
+- **Roles** (`Admins` sheet): super admins see everything; app admins get `support`, `payments`, `settings`, `reports` for chosen apps only. Enforced on the server for every admin action.
+- **Support inbox**: users write from Settings → Contact support, or simply message any bot. Replies are queued and sent by that app's own bot (`Outbox`, each project sends only its own app's messages).
+- **AI assistant**: DeepSeek (OpenAI-compatible) with Gemini fallback, given a live snapshot + playbooks. **Read-only** by design (book 3.6/3.14: reads automatic, actions need humans). Daily cost cap.
+
 ## 3. Health targets (simple SLOs)
 
 | Signal | Healthy | Act when |

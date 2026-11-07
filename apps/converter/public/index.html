@@ -287,7 +287,9 @@ so:{
  pay_demo:'Demo: ma la jilaa lacag-bixin guulaysatay?',
  open_in_tg:'App-kan ka fur Telegram si aad Stars ugu bixiso.'
 }};
-var LANG = lsGet('pdft_lang', null) || (EDITION==='local' ? 'so' : ((TGU && TGU.language_code==='so') ? 'so' : CFG.defaultLang));
+/* language follows the user's Telegram language automatically; can be changed in My plan → Language */
+function autoLang(){var c=((TGU&&TGU.language_code)||navigator.language||'en').toLowerCase().slice(0,2);return L[c]?c:'en'}
+var LANG = (function(){var p=lsGet('pdft_lang','auto');return p==='auto'||!L[p]?autoLang():p})();
 function t(k,v){var s=(L[LANG]&&L[LANG][k])||L.en[k]||k; if(v)for(var x in v)s=s.split('{'+x+'}').join(v[x]); return s}
 function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]})}
 function ic(n,c){return '<svg class="i '+(c||'')+'"><use href="#i-'+n+'"/></svg>'}
@@ -507,7 +509,7 @@ function planChip(){var a=S.me&&S.me.access;if(!a)return'';
   return'<button class="chip'+(a.freeLeft?'':' warn')+'" data-act="account">'+ic(a.freeLeft?'clock':'lock','s')+t('p_free',{n:a.freeLeft})+'</button>'}
 function header(title,sub){var me=S.me;return'<div class="top">'+(S.screen==='home'||IN_TG?'<div class="logo">'+ic('logo')+'</div>':'<button class="ibtn" data-act="back" aria-label="'+t('back')+'">'+ic('back')+'</button>')+
   '<div class="grow"><h1>'+esc(title)+'</h1>'+(sub?'<div class="sub">'+esc(sub)+'</div>':'')+'</div>'+
-  '<div class="lang"><button data-lang="so" class="'+(LANG==='so'?'on':'')+'">SO</button><button data-lang="en" class="'+(LANG==='en'?'on':'')+'">EN</button></div>'+
+
   (me&&me.isAdmin?'<button class="ibtn" data-act="settings" aria-label="'+t('settings')+'">'+ic('settings')+'</button>':'')+'</div>'}
 function banners(){var h='';if(DEMO)h+='<div class="banner">'+ic('info','s')+'<span>'+t('demo_banner')+'</span></div>';
   if(S.me&&S.me.access&&S.me.access.reason==='test')h+='<div class="banner">'+ic('shield','s')+'<span>'+t('test_banner')+'</span></div>';
@@ -598,7 +600,8 @@ function renderPay(){var o=S.payment,h=header(t(o.method),'');
   if(S.err)h+='<div class="err">'+ic('alert','s')+'<span>'+esc(S.err)+'</span></div>';
   return h}
 
-function renderAccount(){var me=S.me,a=me.access,h=header(t('account'),'');
+function renderAccount(){var me=S.me,a=me.access,h=header(t('account'),''),pref=lsGet('pdft_lang','auto');
+  h+='<div class="sec">Language</div><div class="opt" style="margin-bottom:12px">'+[['auto','Automatic — same as your Telegram'],['en','English'],['so','Soomaali']].map(function(o){return'<div class="radio '+(pref===o[0]?'on':'')+'" data-lang="'+o[0]+'"><span class="dot"></span><b>'+o[1]+'</b></div>'}).join('')+'</div>';
   h+='<div class="card"><div class="kv"><div class="grow"><span class="k">'+t('acc_status')+'</span><code>'+(a.reason==='test'?t('p_test'):a.reason==='sub'?t('p_pro')+' — '+esc(a.plan||''):t('acc_free'))+'</code></div></div>'+
     (a.reason==='sub'?'<div class="kv"><div class="grow"><span class="k">'+t('acc_exp')+'</span><code>'+fmtDate(a.expiry)+'</code></div></div>':'<div class="kv"><div class="grow"><span class="k">'+t('acc_used')+'</span><code>'+a.freeUsed+' / '+a.freeAllowance+'</code></div></div>')+
     (me.user&&me.user.id?'<div class="kv"><div class="grow"><span class="k">'+t('acc_id')+'</span><code>'+esc(me.user.id)+'</code></div></div>':'')+
@@ -711,7 +714,7 @@ function onPaid(r){if(r.access)S.me.access=r.access;S.payment=Object.assign(S.pa
 document.addEventListener('click',function(ev){var el=ev.target.closest('[data-codetgl],[data-act],[data-tool],[data-lang],[data-rm],[data-up],[data-down],[data-opt],[data-dl],[data-send],[data-plan],[data-method],[data-copy],[data-toggle],[data-plan-rm],[data-secret],[data-approve],[data-reject]');if(!el)return;
   var d=el.dataset,i;
   if(d.codetgl){api('adminCodeToggle',{code:d.codetgl,active:d.on!=='1'}).then(function(){loadAdmin()});return}
-  if(d.lang){LANG=d.lang;lsSet('pdft_lang',LANG);document.documentElement.lang=LANG;return render()}
+  if(d.lang){lsSet('pdft_lang',d.lang);LANG=d.lang==='auto'?autoLang():d.lang;document.documentElement.lang=LANG;return render()}
   if(d.tool){S.tool=d.tool;S.opts=Object.assign({},DEF_OPTS[d.tool]);resetTool();haptic();return go('tool')}
   if(d.rm!=null){i=+d.rm;if(S.files[i].url)URL.revokeObjectURL(S.files[i].url);S.files.splice(i,1);return render()}
   if(d.up!=null){i=+d.up;S.files.splice(i-1,0,S.files.splice(i,1)[0]);return render()}

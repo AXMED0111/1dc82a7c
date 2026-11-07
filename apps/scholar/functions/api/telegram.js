@@ -80,6 +80,11 @@ async function handle(req) {
   const cmd = (m.text || '').split(/[\s@]/)[0];
   if (cmd === '/paysupport') await tg('sendMessage', { chat_id: chat, text: TEXT.paysupport });
   else if (cmd === '/terms') await tg('sendMessage', { chat_id: chat, text: TEXT.terms });
+  else if (m.text && cmd !== '/start' && !cmd.startsWith('/')) {
+    // A message to the bot = a support request: it reaches the admins' inbox in the Control Center.
+    const r = await gas('botText', { user_id: m.from.id, first_name: m.from.first_name || '', text: m.text.slice(0, 2000) });
+    if (r && r.text) await tg('sendMessage', { chat_id: chat, text: r.text, reply_markup: { inline_keyboard: [[{ text: TEXT.open, web_app: { url: env('APP_URL') } }]] } });
+  }
   else if (cmd === '/start' || m.text) {
     // /start ARG -> the app module may link the user and choose which screen to open (?query)
     const arg = cmd === '/start' ? (m.text.split(/\s+/)[1] || '') : '';

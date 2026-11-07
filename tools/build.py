@@ -40,7 +40,7 @@ print('webhook: Netlify + Cloudflare copies written')
 
 # English bot descriptions into each app's Apps Script module (block between markers is regenerated)
 import re as _re
-MOD = {'gatekeeper': 'Gatekeeper.gs', 'coach': 'Coach.gs', 'translator': 'Translator.gs', 'rsvp': 'Rsvp.gs', 'scholar': 'Scholar.gs', 'debt': 'Debt.gs', 'market': 'Market.gs', 'converter': 'Converter.gs'}
+MOD = {'control': 'Control.gs', 'gatekeeper': 'Gatekeeper.gs', 'coach': 'Coach.gs', 'translator': 'Translator.gs', 'rsvp': 'Rsvp.gs', 'scholar': 'Scholar.gs', 'debt': 'Debt.gs', 'market': 'Market.gs', 'converter': 'Converter.gs'}
 for app, f in MOD.items():
     p = root / 'apps' / app / 'apps-script' / f
     s = p.read_text()
