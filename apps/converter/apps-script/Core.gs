@@ -878,7 +878,7 @@ function install() {
   ScriptApp.newTrigger('cronHourly').timeBased().everyHours(1).create();
   registerApp(null);
   Logger.log('Master sheet: ' + book.getUrl());
-  Logger.log('Copy SERVER_SECRET from Project Settings -> Script properties into Netlify env var SERVER_SECRET.');
+  Logger.log('Done. Next: create the bot in @BotFather and add BOT_TOKEN_' + THIS_APP.id + ' in Script properties.');
 }
 
 /**
