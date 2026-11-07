@@ -944,5 +944,5 @@ function connectTelegram() {
   Logger.log(tgCall(token, 'setChatMenuButton', { menu_button: { type: 'web_app', text: THIS_APP.button, web_app: { url: THIS_APP.url } } }));
   Logger.log(tgCall(token, 'setMyCommands', { commands: [
     { command: 'start', description: 'Open the app' }, { command: 'paysupport', description: 'Payment support' }, { command: 'terms', description: 'Terms of service' } ] }));
-  Logger.log('Done. Copy WEBHOOK_SECRET_' + app + ' and SERVER_SECRET (Script properties) into the Netlify env vars WEBHOOK_SECRET and SERVER_SECRET.');
+  Logger.log('Done. The bot is connected: open it in Telegram and press Start.');
 }
