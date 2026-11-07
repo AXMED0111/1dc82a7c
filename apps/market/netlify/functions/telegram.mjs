@@ -83,7 +83,8 @@ export default async (req) => {
     // /start ARG -> the app module may link the user and choose which screen to open (?query)
     const arg = cmd === '/start' ? (m.text.split(/\s+/)[1] || '') : '';
     let text = TEXT.start, query = '';
-    if (/^[a-z]_[\w-]+$/i.test(arg)) {
+    if (/^r\d{3,15}$/.test(arg)) query = `startapp=${arg}`;   // referral link opened via the bot chat
+    else if (/^[a-z]_[\w-]+$/i.test(arg)) {
       const r = await gas('botStart', { arg, user_id: m.from.id, first_name: m.from.first_name || '' });
       if (r && r.text) text = r.text;
       query = (r && r.query) || `${arg[0]}=${encodeURIComponent(arg.slice(2))}`; // default: c_KEY -> ?c=KEY

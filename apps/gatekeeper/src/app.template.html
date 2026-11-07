@@ -31,16 +31,17 @@ function memPill(m){if(m.status==='stopped')return'<span class="pill bad">'+t('m
  return m.daysLeft<=3?'<span class="pill bad">'+t('days_left',{n:Math.max(0,m.daysLeft)})+'</span>':'<span class="pill ok">'+t('days_left',{n:m.daysLeft})+'</span>'}
 function filtered(){var q=G.q.toLowerCase();return(G.members||[]).filter(function(m){var f=G.mf==='active'?m.status==='active':G.mf==='expiring'?m.status==='active'&&m.daysLeft<=3:m.status!=='active';
  return f&&(!q||(m.name+' '+(m.username||'')).toLowerCase().indexOf(q)>=0)})}
-function offerPaywall(o){var c=o.channel;K.paywall({title:c.title,text:c.description||t('tagline'),icon:'channel',features:[t('f_instant'),t('f_auto'),t('f_remind')],
+function offerPaywall(o){var c=o.channel;K.paywall({noRef:true,title:c.title,text:c.description||t('tagline'),icon:'channel',features:[t('f_instant'),t('f_auto'),t('f_remind')],
  plans:c.plans.map(function(p){return{id:c.key+'|'+p.id,label:p.label,days:p.days,credits:0,usd:p.usd,stars:p.stars}}),paidText:t('paid_ok2'),
  after:function(){S.stack=[];S.screen='offer';G.offer=null;K.render();loadOffer()}})}
 function loadOffer(){api('gkChannel',{key:KEY}).then(function(r){G.offer=r;K.render()})}
 
 K.app({
  icon:'channel',freeLabel:null,showPlans:false,
- defaults:{appName:'Channel Pass',freeAllowance:0,x_feePercent:5,plans:[]},
+ defaults:{appName:'Channel Pass',freeAllowance:0,x_feePercent:5,plans:[],x_refOn:false},
  adminFields:[{key:'x_feePercent',label:'Platform fee (%)',type:'number',ph:'5',hint:'Your share of every channel sale. Creators are paid the rest.'}],
  adminLoad:function(){return api('adminGk')},
+ codeApi:{list:'gkCodes',save:'gkCodeSave',toggle:'gkCodeToggle',extra:function(){return{key:G.edit.key}},set:function(c){G.codes=c}},
  adminExtra:function(x){x=x||{channels:[]};return'<div class="sec">Creators &amp; payouts owed</div><div class="card">'+(x.channels&&x.channels.length?'<ul class="files">'+x.channels.map(function(c){return'<li><div class="grow"><div class="fn">'+esc(c.title)+'</div><div class="fs">Owner '+esc(c.owner)+' · '+c.members+' members · pay to: '+esc(c.payout||'—')+'</div></div><div class="price">'+money(c.owedUsd)+'<small>'+c.owedStars+' Stars</small></div></li>'}).join('')+'</ul>':'<p class="m">No channels yet.</p>')+'</div>'},
  startScreen:function(){return KEY?'offer':'home'},
  strings:{
@@ -60,7 +61,7 @@ K.app({
   aud:'Send to',aud_active:'All active members',aud_expiring:'Ending in 3 days',bc_ph:'Write your announcement…',bc_hint:'Messages are sent in batches within a few minutes.',bc_ok:'{n} messages queued.',
   active_until:'Your access is active until {d}.',join:'Open channel',renew:'Extend access',test_join:'Test mode: get access without paying',not_found:'This channel is not available.',
   f_instant:'Instant access after payment',f_auto:'Renew any time — days are added',f_remind:'Reminder before your access ends',paid_ok2:'Payment confirmed. The bot has sent you the join link.',
-  r_title:'Members report',r_active:'Active',r_expiring:'Ending in 3 days',r_ended:'Ended / stopped',r_revenue:'Gross revenue',name:'Name',status:'Status',until:'until {d}'},
+  codes:'Discount codes',codes_sub:'Codes for your buyers. They type the code at checkout. Example: VIP20 = 20% off.',r_title:'Members report',r_active:'Active',r_expiring:'Ending in 3 days',r_ended:'Ended / stopped',r_revenue:'Gross revenue',name:'Name',status:'Status',until:'until {d}'},
  so:{appName:'Channel Pass',tagline:'Iibi galitaanka kanaalkaaga gaarka ah',t_channels:'Kanaalladayda',t_subs:'Isdiiwaangelintayda',add:'Ku dar kanaal',refresh:'Cusboonaysii',
   none_ch:'Weli kanaal ma jiro. Ku dar kanaalkaaga gaarka ah si aad u bilowdo iibinta.',none_sub:'Ma lihid isdiiwaangelin firfircoon.',members_n:'{n} xubnood',active:'Shaqaynaya',paused:'Lama daabicin',notready:'Awoodaha bot-ka ayaa maqan',
   how_title:'Ku xir kanaal',s1:'Fur kanaalkaaga ama kooxdaada → Maamulayaasha → Ku dar maamule.',s2:'Raadi bot-ka @{bot} oo ku dar.',s3:'Oggolow “Ku casuun isticmaalayaal link” iyo “Mamnuuc isticmaalayaal”. Keydi.',s4:'Halkan ku soo noqo oo taabo Cusboonaysii. Kanaalkaagu si toos ah ayuu u soo muuqanayaa.',
@@ -77,7 +78,7 @@ K.app({
   aud:'U dir',aud_active:'Dhammaan xubnaha firfircoon',aud_expiring:'Kuwa 3 maalmood ku dhammaanaya',bc_ph:'Qor ogeysiiskaaga…',bc_hint:'Fariimaha waxaa loo diraa qaybo dhowr daqiiqo gudahood.',bc_ok:'{n} fariimood ayaa safka la geliyay.',
   active_until:'Galitaankaagu wuu shaqaynayaa ilaa {d}.',join:'Fur kanaalka',renew:'Kordhi muddada',test_join:'Habka tijaabada: hel galitaan lacag la\'aan',not_found:'Kanaalkan lama heli karo.',
   f_instant:'Galitaan degdeg ah kadib lacag-bixinta',f_auto:'Cusboonaysii waqti kasta — maalmaha waa lagu darayaa',f_remind:'Xusuusin ka hor dhammaadka',paid_ok2:'Lacag-bixinta waa la xaqiijiyay. Bot-ku wuxuu kuu soo diray link-ga.',
-  r_title:'Warbixinta xubnaha',r_active:'Firfircoon',r_expiring:'3 maalmood ku dhammaanaya',r_ended:'Dhammaaday / la joojiyay',r_revenue:'Dakhliga guud',name:'Magaca',status:'Xaalad',until:'ilaa {d}'}},
+  codes:'Koodhadhka',codes_sub:'Koodhad iibsadayaashaada. Waxay geliyaan koodhka marka ay bixinayaan. Tusaale: VIP20 = 20% qiimo dhimis.',r_title:'Warbixinta xubnaha',r_active:'Firfircoon',r_expiring:'3 maalmood ku dhammaanaya',r_ended:'Dhammaaday / la joojiyay',r_revenue:'Dakhliga guud',name:'Magaca',status:'Xaalad',until:'ilaa {d}'}},
  enter:{
   home:function(){if(G.tab==='channels')api('gkMine').then(function(r){G.mine=r.ok?r.channels:[];G.fee=r.feePercent||0;K.render()});else api('gkMySubs').then(function(r){G.subs=r.ok?r.subs:[];K.render()})},
   offer:function(){G.offer=null;loadOffer()},
@@ -94,7 +95,7 @@ K.app({
   how:function(){var bot=K.CFG.botUsername||'YourBot';return K.header(t('how_title'),'')+'<div class="card"><ol class="steps"><li>'+t('s1')+'</li><li>'+t('s2',{bot:esc(bot)})+'</li><li>'+t('s3')+'</li><li>'+t('s4')+'</li></ol></div>'+
    (K.CFG.botUsername?'<button class="btn sec2" data-open="https://t.me/'+esc(K.CFG.botUsername)+'?startchannel&admin=invite_users+restrict_members">'+ic('ext')+'@'+esc(K.CFG.botUsername)+'</button>':'')+'<button class="btn" data-act="back">'+ic('refresh')+t('refresh')+'</button>'},
   edit:function(){var c=G.edit,fee=G.fee,r=c.revenue||{usd:0,stars:0,orders:0},url=K.appLink('c_'+c.key),h=K.header(c.title,t('edit'))+K.errBox();
-   h+='<div class="g2"><button class="btn" data-a="members">'+ic('users')+t('members')+' ('+(c.members||0)+')</button><button class="btn sec2" data-a="bcopen">'+ic('send')+t('broadcast').split(' ')[0]+'</button></div><button class="btn ghost" data-a="mpdf">'+ic('file')+t('members_pdf')+'</button>';
+   h+='<div class="g2"><button class="btn" data-a="members">'+ic('users')+t('members')+' ('+(c.members||0)+')</button><button class="btn sec2" data-a="bcopen">'+ic('send')+t('broadcast').split(' ')[0]+'</button></div><div class="g2"><button class="btn ghost" data-a="mpdf">'+ic('file')+t('members_pdf').replace(' (PDF)','')+'</button><button class="btn ghost" data-a="codes">'+ic('star')+t('codes')+'</button></div>';
    h+='<div class="sec">'+t('share')+'</div><div class="card">'+K.kv(t('share'),url,true)+'<p class="m">'+t('share_sub')+'</p>'+(c.botOk?'':'<div class="err">'+ic('alert','s')+'<span>'+t('s3')+'</span></div>')+'</div>';
    h+='<div class="card"><div class="sw"><div><b style="font-size:14px">'+t('publish')+'</b><div class="fs">'+t('publish_sub')+'</div></div><button class="tgl '+(c.status==='active'?'on':'')+'" data-a="pub"></button></div>'+
     '<label class="f">'+t('desc')+'</label><textarea class="t" id="desc" maxlength="500">'+esc(c.description)+'</textarea></div>';
@@ -120,6 +121,8 @@ K.app({
     '<div class="row" style="margin-top:8px"><input class="t" id="mdays" type="number" min="1" max="365" placeholder="'+t('custom_days')+'"><button class="btn sm" data-a="mext" data-d="custom">'+t('send').replace(t('send'),'+')+'</button></div></div>';
    if(m.status==='active')h+='<div class="sec">'+t('stop')+'</div><div class="card"><p class="m" style="margin-bottom:10px">'+t('stop_sub')+'</p><label class="f">'+t('reason')+'</label><input class="t" id="mreason"><button class="btn" style="margin-top:10px;background:var(--danger)" data-a="mstop">'+ic('x')+t('stop')+'</button></div>';
    return h},
+  chcodes:function(){var h=K.header(t('codes'),G.edit.title)+'<p class="m" style="margin-bottom:10px">'+t('codes_sub')+'</p>';if(!G.codes)return h+K.spin();
+   return h+K.codesBlock(G.codes,G.edit.plans.map(function(p){return p.id}).join(', '))},
   broadcast:function(){var h=K.header(t('broadcast'),G.edit.title);
    h+='<div class="card"><label class="f">'+t('aud')+'</label>'+K.seg('aud',G.bc.aud,[['active',t('aud_active')],['expiring',t('aud_expiring')]])+'<label class="f">'+t('send_msg')+'</label><textarea class="t" id="bctext" maxlength="1500" style="min-height:120px" placeholder="'+t('bc_ph')+'"></textarea><div class="fs" style="margin-top:6px">'+t('bc_hint')+'</div></div>';
    return h+'<button class="btn" data-a="bcsend">'+ic('send')+t('send')+'</button>'+K.errBox()},
@@ -154,6 +157,7 @@ K.app({
     G.member.expiry=r.expiry;G.member.status='active';G.member.daysLeft=Math.ceil((new Date(r.expiry)-Date.now())/864e5);S.msg=t('extended_ok',{d:K.fmtDate(r.expiry)});S.err='';K.haptic('ok');K.render()})},
   mstop:function(){var m=G.member,why=(document.getElementById('mreason')||{}).value||'';confirmBox(t('stop_confirm',{n:m.name}),function(){
    api('gkMemberAction',{key:G.edit.key,user_id:m.user_id,op:'stop',reason:why}).then(function(r){if(!r.ok){S.err=t('e_gen');return K.render()}m.status='stopped';m.daysLeft=0;S.msg=t('stopped_ok');S.err='';K.haptic('ok');K.render()})})},
+  codes:function(){G.codes=null;K.go('chcodes');api('gkCodes',{key:G.edit.key}).then(function(r){G.codes=r.codes||[];K.render()})},
   bcopen:function(){G.bc.aud='active';K.go('broadcast')},
   bcexp:function(){G.bc.aud='expiring';K.go('broadcast')},
   bcsend:function(){var x=document.getElementById('bctext').value.trim();if(!x)return;confirmBox(t('broadcast')+'?',function(){
@@ -187,6 +191,9 @@ K.app({
    if(d.op==='notify'){s.app.outbox.push({to:m.user_id,text:d.text});return{ok:true}}
    if(d.op==='extend'){var base=m.status==='active'&&new Date(m.expiry)>new Date()?new Date(m.expiry):new Date();m.expiry=new Date(base.getTime()+d.days*864e5).toISOString();m.status='active';return{ok:true,expiry:m.expiry}}
    if(d.op==='stop'){m.status='stopped';m.expiry=new Date().toISOString();return{ok:true}}return{ok:false}},
+  gkCodes:function(d,s){return{ok:true,codes:(s.codes||[]).filter(function(c){return c.scope==='ch:'+d.key})}},
+  gkCodeSave:function(d,s){return K.dCodeSave(s,d,'ch:'+d.key)},
+  gkCodeToggle:function(d,s){var c=(s.codes||[]).filter(function(x){return x.code===d.code})[0];if(c)c.active=!!d.active;return{ok:true}},
   gkBroadcast:function(d,s){var now=Date.now(),n=0;s.app.members.forEach(function(m){var e=new Date(m.expiry).getTime();if(m.key!==d.key||m.status!=='active'||e<=now||(d.audience==='expiring'&&e>now+3*864e5))return;s.app.outbox.push({to:m.user_id,text:d.text});n++});return{ok:true,queued:n}},
   adminGk:function(d,s){var fee=+s.settings.x_feePercent||0;return{ok:true,feePercent:fee,channels:s.app.channels.map(function(c){var r=dRev(s,c.key);return{key:c.key,title:c.title,owner:'demo',payout:c.payout,members:0,revenue:r,owedUsd:Math.round(r.usd*(100-fee))/100,owedStars:Math.floor(r.stars*(100-fee)/100)}})}}
  }

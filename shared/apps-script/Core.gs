@@ -18,12 +18,14 @@
  */
 
 var SCHEMA = {
-  Users:         ['user_id','app','username','first_name','language','region','phone','phone_verified','start_param','edition','created_at','last_seen'],
+  Users:         ['user_id','app','username','first_name','language','region','phone','phone_verified','start_param','edition','created_at','last_seen','referred_by'],
   Usage:         ['user_id','app','free_used','total_used','last_tool','last_used','credits'],
   Subscriptions: ['user_id','app','plan','status','start_date','expiry_date','edition','order_id'],
-  Payments:      ['order_id','user_id','app','plan','amount','currency','method','status','tx_ref','created_at','paid_at','expiry_date','edition','note'],
+  Payments:      ['order_id','user_id','app','plan','amount','currency','method','status','tx_ref','created_at','paid_at','expiry_date','edition','note','code','discount'],
   Settings:      ['app','json','updated_at'],
   Log:           ['time','user_id','app','event','detail'],
+  Codes:         ['code','app','scope','owner_id','pct','max_uses','used','expires','plans','active','note','created_at'],
+  Referrals:     ['referrer_id','referee_id','app','status','created_at','rewarded_at','reward'],
   Outbox:        ['msg_id','app','chat_id','text','markup','status','created_at','sent_at','error']
 };
 var EXTRA_SCHEMA = EXTRA_SCHEMA || {}; // app modules add sheets here (safe for any file order)
@@ -50,7 +52,8 @@ function defaultSettings(app) {
       { id: 'pro_y', label: 'Pro · 1 year', days: 365, usd: 8, stars: 600, region: 'GLOBAL' },
       { id: 'pro_m_l', label: 'Pro · 1 bil', days: 30, usd: 1, stars: 75, region: 'LOCAL' }
     ],
-    methods: { stars: true, usdt_trc20: '', usdt_bep20: '', evc: '', zaad: '', sahal: '', mpesa: '' }
+    methods: { stars: true, usdt_trc20: '', usdt_bep20: '', evc: '', zaad: '', sahal: '', mpesa: '' },
+    x_refOn: true, x_refNewPct: 10, x_refDays: 7, x_refCredits: 0
   };
   return Object.assign(base, JSON.parse(JSON.stringify(APP_DEFAULTS[app] || {})));
 }
@@ -163,7 +166,12 @@ function upsertUser(u, app, edition, startParam) {
   if (r) { update('Users', r, { last_seen: now, username: u.username || '', first_name: u.first_name || '' }); return r; }
   var o = { user_id: String(u.id), app: app, username: u.username || '', first_name: u.first_name || '', language: u.language_code || '',
     region: /^local/i.test(startParam || '') ? 'LOCAL' : 'GLOBAL', phone: '', phone_verified: false, start_param: startParam || '',
-    edition: edition || 'global', created_at: now, last_seen: now };
+    edition: edition || 'global', created_at: now, last_seen: now, referred_by: '' };
+  var ref = /(?:^|_)r(\d{3,15})(?:_|$)/.exec(startParam || '');   // referral link: ?startapp=r<inviter id>
+  if (ref && ref[1] !== String(u.id) && find('Users', function (x) { return String(x.user_id) === ref[1] && x.app === app; })) {
+    o.referred_by = ref[1];
+    append('Referrals', { referrer_id: ref[1], referee_id: String(u.id), app: app, status: 'joined', created_at: now });
+  }
   append('Users', o);
   return find('Users', function (x) { return String(x.user_id) === String(u.id) && x.app === app; });
 }
@@ -207,7 +215,7 @@ function route(req) {
     auth = { user: { id: 'preview', first_name: 'Preview' }, start_param: req.start || '' };
   }
   var u = auth.user, uid = String(u.id), isAdmin = verified && adminIds().indexOf(uid) >= 0, simFree = !!req.simulateFree && st.testMode;
-  var urow = verified ? upsertUser(u, app, req.edition, auth.start_param) : { region: /^local/i.test(auth.start_param) ? 'LOCAL' : 'GLOBAL' };
+  var urow = verified ? upsertUser(u, app, req.edition, auth.start_param || String(req.start || '').slice(0, 64)) : { region: /^local/i.test(auth.start_param) ? 'LOCAL' : 'GLOBAL' };
   var region = regionOf(urow);
   var ctx = { app: app, st: st, u: u, uid: uid, urow: urow, region: region, isAdmin: isAdmin, verified: verified, simFree: simFree, token: token };
   var a = String(req.action || '');
@@ -232,6 +240,11 @@ function route(req) {
     case 'adminStats': return adminStats(ctx);
     case 'adminResetMe': return adminResetMe(ctx);
     case 'adminRevenue': return adminRevenue(ctx, req);
+    case 'checkCode': return checkCode(ctx, req);
+    case 'refStats': return refStats(ctx);
+    case 'adminCodes': return { ok: true, codes: rows('Codes').filter(function (c) { return c.app === app && c.scope === 'all'; }).map(codeOut) };
+    case 'adminCodeSave': return codeSave(ctx, req, 'all');
+    case 'adminCodeToggle': return codeToggle(ctx, req, 'all');
   }
   var H = APP_HOOKS[app];
   if (H && H.routes && H.routes[a]) return H.routes[a](ctx, req);
@@ -248,7 +261,9 @@ function initPayload(ctx) {
   return { ok: true, verified: ctx.verified, isAdmin: ctx.isAdmin, user: { id: ctx.u.id, name: ctx.u.first_name || '' },
     region: ctx.region, phoneVerified: ctx.urow.phone_verified === true || ctx.urow.phone_verified === 'TRUE',
     access: accessFor(ctx), plans: plansFor(ctx.st, ctx.region), methods: availMethods(ctx.st, ctx.region, !!ctx.token),
-    appName: ctx.st.appName, support: ctx.st.supportContact };
+    appName: ctx.st.appName, support: ctx.st.supportContact,
+    ref: refOn(ctx.st) ? { on: true, arg: 'r' + ctx.uid, newPct: Number(ctx.st.x_refNewPct) || 0, days: Number(ctx.st.x_refDays) || 0, credits: Number(ctx.st.x_refCredits) || 0 } : { on: false },
+    firstPct: ctx.verified ? refFirstPct(ctx) : 0 };
 }
 function consume(ctx, req) {
   var lock = LockService.getScriptLock(); lock.waitLock(10000); _rc = {};
@@ -327,9 +342,16 @@ function createOrder(ctx, req) {
   var plan = H && H.resolvePlan ? H.resolvePlan(ctx, req.plan) : plansFor(ctx.st, ctx.region).filter(function (p) { return p.id === req.plan; })[0];
   if (!plan) return { ok: false, error: 'plan' };
   if (plan.free) return { ok: false, error: 'plan' };
+  var pr = priceFor(ctx, plan, req.code); if (pr.error) return { ok: false, error: pr.error };
+  plan = Object.assign({}, plan, { usd: pr.usd, stars: pr.stars });
+  if (pr.free) {   // 100% code: no payment needed
+    var fo = { order_id: newOrderId(), user_id: ctx.uid, app: ctx.app, plan: plan.id, method: 'code', status: 'pending', created_at: new Date(), edition: ctx.urow.edition || '', amount: '$0.00', currency: 'USD', code: pr.code, discount: pr.pct };
+    append('Payments', fo); markPaid(fo, 'CODE-' + pr.code);
+    return { ok: true, free: true, order_id: fo.order_id, method: 'code', status: 'paid', access: accessFor(ctx) };
+  }
   var method = String(req.method || ''), methods = availMethods(ctx.st, ctx.region, !!ctx.token).map(function (m) { return m.id; });
   if (methods.indexOf(method) < 0) return { ok: false, error: 'method' };
-  var o = { order_id: newOrderId(), user_id: ctx.uid, app: ctx.app, plan: plan.id, method: method, status: 'pending', created_at: new Date(), edition: ctx.urow.edition || '' };
+  var o = { order_id: newOrderId(), user_id: ctx.uid, app: ctx.app, plan: plan.id, method: method, status: 'pending', created_at: new Date(), edition: ctx.urow.edition || '', code: pr.code || '', discount: pr.pct || '' };
   if (method === 'stars') {
     o.amount = plan.stars; o.currency = 'XTR';
     var r = tgCall(ctx.token, 'createInvoiceLink', { title: (ctx.st.appName + ' — ' + plan.label).slice(0, 32), description: plan.label + ' (' + plan.days + ' days)',
@@ -370,7 +392,8 @@ function submitManual(ctx, req) {
   notifyAdmins(ctx.app, 'Payment to review: ' + o.method + ' ' + o.amount + ' — user ' + ctx.uid + ' — tx ' + tx + ' — order ' + o.order_id);
   return { ok: true, status: 'review' };
 }
-function markPaid(o, txRef) {
+function markPaid(o, txRef) { var done = markPaidInner(o, txRef); if (done) try { afterPaid(o.order_id); } catch (e) { log('', o.app, 'afterpaid_error', e); } return done; }
+function markPaidInner(o, txRef) {
   var lock = LockService.getScriptLock(); lock.waitLock(10000); _rc = {};
   try {
     var fresh = find('Payments', function (p) { return p.order_id === o.order_id; });
@@ -398,6 +421,74 @@ function markPaid(o, txRef) {
     notify(fresh.app, fresh.user_id, 'Payment confirmed. Your plan is active until ' + exp.toISOString().slice(0, 10) + '.');
     return true;
   } finally { lock.releaseLock(); }
+}
+
+/* ======================= DISCOUNT CODES & REFERRALS ======================= */
+// Codes sheet: scope 'all' = platform code made by the admin (not valid on creators' channel plans);
+// scope 'ch:<key>' = a channel creator's code for their own buyers (Channel Pass).
+function refOn(st) { return st.x_refOn === true || st.x_refOn === 'TRUE'; }
+function codeOut(c) { return { code: c.code, scope: c.scope, pct: Number(c.pct) || 0, max_uses: Number(c.max_uses) || 0, used: Number(c.used) || 0,
+  expires: c.expires instanceof Date ? Utilities.formatDate(c.expires, 'UTC', 'yyyy-MM-dd') : String(c.expires || ''), plans: String(c.plans || ''), active: c.active === true || c.active === 'TRUE', note: c.note || '' }; }
+function findCode(app, code, planId) {
+  code = String(code || '').trim().toUpperCase(); if (!code) return { none: true };
+  var row = find('Codes', function (c) { return c.app === app && String(c.code).toUpperCase() === code; });
+  if (!row) return { error: 'code_invalid' };
+  var c = codeOut(row), chKey = String(planId || '').indexOf('|') > 0 ? String(planId).split('|')[0] : '';
+  if (!c.active) return { error: 'code_invalid' };
+  if (c.expires && c.expires < Utilities.formatDate(new Date(), 'UTC', 'yyyy-MM-dd')) return { error: 'code_expired' };
+  if (c.max_uses && c.used >= c.max_uses) return { error: 'code_used_up' };
+  if (c.scope === 'all' ? !!chKey : c.scope !== 'ch:' + chKey) return { error: 'code_not_for_plan' };
+  if (c.plans && planId && c.plans.split(',').map(function (x) { return x.trim(); }).indexOf(chKey ? String(planId).split('|')[1] : planId) < 0) return { error: 'code_not_for_plan' };
+  return { row: row, code: c.code, pct: Math.max(0, Math.min(100, c.pct)) };
+}
+function refFirstPct(ctx) {   // new users who came through a referral link get a discount on their first purchase
+  if (!refOn(ctx.st) || !ctx.urow || !ctx.urow.referred_by) return 0;
+  var paid = find('Payments', function (p) { return String(p.user_id) === ctx.uid && p.app === ctx.app && p.status === 'paid'; });
+  return paid ? 0 : Math.max(0, Math.min(90, Number(ctx.st.x_refNewPct) || 0));
+}
+function priceFor(ctx, plan, code) {
+  var f = findCode(ctx.app, code, plan.id); if (f.error) return { error: f.error };
+  var refPct = String(plan.id).indexOf('|') > 0 ? 0 : refFirstPct(ctx), pct = Math.max(f.pct || 0, refPct);
+  var usd = Math.round(Number(plan.usd || 0) * (100 - pct)) / 100, stars = Math.ceil(Number(plan.stars || 0) * (100 - pct) / 100);
+  return { usd: usd, stars: stars, pct: pct, code: f.pct >= refPct ? (f.code || '') : '', free: pct >= 100 };
+}
+function checkCode(ctx, req) {
+  var f = findCode(ctx.app, req.code, req.plan); if (f.error) return { ok: false, error: f.error }; if (f.none) return { ok: false, error: 'code_invalid' };
+  return { ok: true, code: f.code, pct: f.pct };
+}
+function codeSave(ctx, req, scope) {
+  var code = String(req.code || '').trim().toUpperCase().replace(/[^A-Z0-9_-]/g, '');
+  if (code.length < 3 || code.length > 20) return { ok: false, error: 'code_format' };
+  var pct = Math.round(Number(req.pct)); if (!(pct >= 1 && pct <= 100)) return { ok: false, error: 'code_pct' };
+  var row = find('Codes', function (c) { return c.app === ctx.app && String(c.code).toUpperCase() === code; });
+  var data = { pct: pct, max_uses: Math.max(0, Math.round(Number(req.max_uses) || 0)), expires: String(req.expires || '').slice(0, 10), plans: String(req.plans || '').replace(/[^\w,-]/g, '').slice(0, 200),
+    note: String(req.note || '').slice(0, 80), active: req.active !== false };
+  if (row) { if (row.scope !== scope) return { ok: false, error: 'code_taken' }; update('Codes', row, data); }
+  else append('Codes', Object.assign({ code: code, app: ctx.app, scope: scope, owner_id: ctx.uid, used: 0, created_at: new Date() }, data));
+  return { ok: true };
+}
+function codeToggle(ctx, req, scope) {
+  var row = find('Codes', function (c) { return c.app === ctx.app && c.scope === scope && String(c.code).toUpperCase() === String(req.code || '').toUpperCase(); });
+  if (!row) return { ok: false, error: 'code_invalid' };
+  update('Codes', row, { active: !!req.active }); return { ok: true };
+}
+function refStats(ctx) {
+  var r = rows('Referrals').filter(function (x) { return x.app === ctx.app && String(x.referrer_id) === ctx.uid; });
+  return { ok: true, on: refOn(ctx.st), arg: 'r' + ctx.uid, invited: r.length, rewarded: r.filter(function (x) { return x.status === 'rewarded'; }).length,
+    days: Number(ctx.st.x_refDays) || 0, credits: Number(ctx.st.x_refCredits) || 0, newPct: Number(ctx.st.x_refNewPct) || 0 };
+}
+// After a payment: count the code use; reward the inviter on the referee's first paid purchase.
+function afterPaid(orderId) {
+  var p = find('Payments', function (x) { return x.order_id === orderId; }); if (!p) return;
+  if (p.code) { var c = find('Codes', function (x) { return x.app === p.app && String(x.code).toUpperCase() === String(p.code).toUpperCase(); }); if (c) update('Codes', c, { used: (Number(c.used) || 0) + 1 }); }
+  var st = getSettings(p.app); if (!refOn(st)) return;
+  var ref = find('Referrals', function (x) { return x.app === p.app && String(x.referee_id) === String(p.user_id) && x.status === 'joined'; }); if (!ref) return;
+  var days = Number(st.x_refDays) || 0, credits = Number(st.x_refCredits) || 0, rid = String(ref.referrer_id), parts = [];
+  if (days > 0) { var cur = activeSub(rid, p.app), start = cur ? new Date(cur.expiry_date) : new Date(), exp = new Date(start.getTime() + days * 864e5);
+    append('Subscriptions', { user_id: rid, app: p.app, plan: 'referral', status: 'active', start_date: new Date(), expiry_date: exp, edition: '', order_id: 'REF-' + p.order_id }); parts.push(days + ' free days'); }
+  if (credits > 0) { var us = usageRow(rid, p.app); update('Usage', us, { credits: (Number(us.credits) || 0) + credits }); parts.push(credits + ' free credit(s)'); }
+  update('Referrals', ref, { status: 'rewarded', rewarded_at: new Date(), reward: parts.join(' + ') });
+  if (parts.length) notify(p.app, rid, 'A friend you invited just joined. You received ' + parts.join(' + ') + '. Thank you!');
 }
 
 /* ---- USDT on-chain checks ---- */

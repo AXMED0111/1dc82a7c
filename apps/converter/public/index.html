@@ -227,6 +227,8 @@ en:{
  back:'Back',account:'My plan',settings:'Settings',
  acc_status:'Status',acc_free:'Free plan',acc_used:'Free conversions used',acc_exp:'Expires',acc_upgrade:'Upgrade',
  acc_id:'Telegram ID',support:'Support',
+ have_code:'Have a discount code?',apply:'Apply',code_ok:'{p}% discount applied',welcome_disc:'Welcome discount: {p}% off your first purchase',code_invalid:'This code is not valid.',code_expired:'This code has expired.',code_used_up:'This code has been fully used.',code_not_for_plan:'This code does not apply to this plan.',free_code:'Activate free',
+ invite:'Invite friends',invite_sub:'Share your link. Your friend gets {p}% off their first purchase, and you get {r} when they pay.',invite_days:'{n} free days',your_link:'Your invite link',invited:'Joined with your link',rewarded:'Rewards earned',share_tg:'Share on Telegram',share_wa:'Share on WhatsApp',invite_msg:'Try this app — use my link for a discount:',
  demo_banner:'Demo mode — no server connected. Data is saved on this device only.',
  test_banner:'Test mode is ON — everyone has full access.',
  sim_banner:'Simulating a free user on this device.',
@@ -276,6 +278,8 @@ so:{
  back:'Dib',account:'Qorshahayga',settings:'Dejinta',
  acc_status:'Xaaladda',acc_free:'Qorshe bilaash',acc_used:'Beddelaadda bilaashka ee la isticmaalay',acc_exp:'Wuxuu dhacayaa',acc_upgrade:'U gudub Pro',
  acc_id:'Aqoonsiga Telegram',support:'Taageero',
+ have_code:'Ma haysaa kood qiimo dhimis?',apply:'Isticmaal',code_ok:'{p}% qiimo dhimis ayaa la dabaqay',welcome_disc:'Qiimo dhimis soo dhaweyn: {p}% iibkaaga ugu horreeya',code_invalid:'Koodkan sax ma aha.',code_expired:'Koodkan wuu dhacay.',code_used_up:'Koodkan waa la isticmaalay oo dhan.',code_not_for_plan:'Koodkan kuma shaqeeyo qorshahan.',free_code:'Ku hawlgeli bilaash',
+ invite:'Casuun saaxiibbo',invite_sub:'La wadaag link-gaaga. Saaxiibkaa wuxuu helayaa {p}% qiimo dhimis iibkiisa ugu horreeya, adiguna waxaad helaysaa {r} marka uu bixiyo.',invite_days:'{n} maalmood oo bilaash ah',your_link:'Link-gaaga casuumaadda',invited:'Ku soo biiray link-gaaga',rewarded:'Abaalmarinnada la helay',share_tg:'Ku wadaag Telegram',share_wa:'Ku wadaag WhatsApp',invite_msg:'Isku day app-kan — isticmaal link-gayga si aad qiimo dhimis u hesho:',
  demo_banner:'Habka demo — server lama xirin. Xogta waxaa lagu keydiyaa qalabkan oo keliya.',
  test_banner:'Habka tijaabada waa SHIDAN yahay — qof walba wuu isticmaali karaa.',
  sim_banner:'Qalabkan wuxuu u dhaqmayaa sidii isticmaale bilaash ah.',
@@ -292,7 +296,7 @@ function baseName(n){return String(n||'file').replace(/\.[^.]+$/,'').replace(/[^
 
 /* ---------- shared defaults (mirror of server) ---------- */
 function defaultSettings(){return{
-  appName:'PDF Tools',testMode:true,freeAllowance:2,freeMaxMB:10,paidMaxMB:100,supportContact:'',localPrefixes:'252',
+  x_refOn:true,x_refNewPct:10,x_refDays:7,x_refCredits:0,appName:'PDF Tools',testMode:true,freeAllowance:2,freeMaxMB:10,paidMaxMB:100,supportContact:'',localPrefixes:'252',
   plans:[
     {id:'pro_m',label:'Pro · 1 month',days:30,usd:1,stars:75,region:'GLOBAL'},
     {id:'pro_y',label:'Pro · 1 year',days:365,usd:8,stars:600,region:'GLOBAL'},
@@ -327,7 +331,7 @@ var Demo={
   payload:function(s,d){var r=this.region(s);return{ok:true,demo:true,verified:false,isAdmin:true,
     user:{id:TGU?TGU.id:0,name:TGU?(TGU.first_name||''):'Demo user'},region:r,phoneVerified:!!s.phoneVerified,
     access:computeAccess(s.settings,s.sub,s.freeUsed,d.simulateFree),plans:plansFor(s.settings,r),
-    methods:availMethods(s.settings,r,true),appName:s.settings.appName,support:s.settings.supportContact}},
+    methods:availMethods(s.settings,r,true),appName:s.settings.appName,support:s.settings.supportContact,ref:s.settings.x_refOn?{on:true,arg:'r'+(TGU?TGU.id:'1000'),newPct:+s.settings.x_refNewPct||0,days:+s.settings.x_refDays||0}:{on:false},firstPct:0}},
   markPaid:function(s,o){o.status='paid';o.paid_at=new Date().toISOString();var p=(s.settings.plans||[]).filter(function(x){return x.id===o.plan})[0]||{days:30};
     var base=s.sub&&new Date(s.sub.expiry)>new Date()?new Date(s.sub.expiry):new Date();base.setDate(base.getDate()+(+p.days||30));
     s.sub={plan:o.plan,expiry:base.toISOString()};o.expiry=s.sub.expiry},
@@ -336,12 +340,20 @@ var Demo={
   run:function(a,d,s){var o,i;
     switch(a){
     case 'init':return this.payload(s,d);
+    case 'checkCode':var dc=dCode(s,d.code);return dc.error?{ok:false,error:dc.error}:{ok:true,code:dc.code,pct:dc.pct};
+    case 'adminCodes':return{ok:true,codes:s.codes||[]};
+    case 'adminCodeSave':s.codes=s.codes||[];var cc=String(d.code||'').trim().toUpperCase().replace(/[^A-Z0-9_-]/g,'');if(cc.length<3||cc.length>20)return{ok:false,error:'code_format'};if(!(+d.pct>=1&&+d.pct<=100))return{ok:false,error:'code_pct'};
+      var ex=s.codes.filter(function(x){return x.code===cc})[0];if(!ex){ex={code:cc,used:0};s.codes.push(ex)}Object.assign(ex,{pct:Math.round(+d.pct),max_uses:+d.max_uses||0,expires:d.expires||'',plans:d.plans||'',note:d.note||'',active:true});return{ok:true};
+    case 'adminCodeToggle':var ct=(s.codes||[]).filter(function(x){return x.code===d.code})[0];if(ct)ct.active=!!d.active;return{ok:true};
+    case 'refStats':return{ok:true,invited:0,rewarded:0,days:+s.settings.x_refDays||0,credits:0,newPct:+s.settings.x_refNewPct||0};
     case 'consume':var ac=computeAccess(s.settings,s.sub,s.freeUsed,d.simulateFree);
       if(!ac.entitled)return{ok:true,allowed:false,access:ac};
       if(ac.reason==='free')s.freeUsed++;s.total++;
       return{ok:true,allowed:true,token:'demo',access:computeAccess(s.settings,s.sub,s.freeUsed,d.simulateFree)};
     case 'createOrder':var p=(s.settings.plans||[]).filter(function(x){return x.id===d.plan})[0];if(!p)return{ok:false,error:'plan'};
+      var dc2=dCode(s,d.code);if(dc2.error)return{ok:false,error:dc2.error};if(dc2.pct){p=Object.assign({},p,{usd:Math.round(p.usd*(100-dc2.pct))/100,stars:Math.ceil(p.stars*(100-dc2.pct)/100)});dc2.row.used++}
       o={order_id:'D'+Date.now().toString(36),plan:p.id,method:d.method,status:'pending',created_at:new Date().toISOString()};
+      if(dc2.pct>=100){o.method='code';o.amount='$0.00';o.currency='USD';s.orders.push(o);this.markPaid(s,o);return{ok:true,free:true,order_id:o.order_id,status:'paid'}}
       if(d.method==='stars'){o.amount=p.stars;o.currency='XTR'}
       else if(/^usdt/.test(d.method)){o.amount=(+p.usd+Math.floor(Math.random()*9000+1000)/1e6).toFixed(4);o.currency='USDT';o.address=s.settings.methods[d.method];o.network=d.method==='usdt_trc20'?'TRC20 (Tron)':'BEP20 (BNB Smart Chain)'}
       else{if(!s.phoneVerified)return{ok:false,error:'phone_required'};o.amount='$'+(+p.usd).toFixed(2);o.currency='USD';o.number=s.settings.methods[d.method]}
@@ -365,6 +377,9 @@ var Demo={
   }
 };
 
+function openLink(u){if(IN_TG&&/^https:\/\/t\.me\//.test(u))TG.openTelegramLink(u);else if(IN_TG)TG.openLink(u);else window.open(u,'_blank')}
+function dCode(s,code){code=String(code||'').trim().toUpperCase();if(!code)return{};var c=(s.codes||[]).filter(function(x){return x.code===code})[0];
+ if(!c||!c.active)return{error:'code_invalid'};if(c.expires&&c.expires<new Date().toISOString().slice(0,10))return{error:'code_expired'};if(c.max_uses&&c.used>=c.max_uses)return{error:'code_used_up'};return{code:c.code,pct:c.pct,row:c}}
 /* ---------- API ---------- */
 function api(action,data){
   data=Object.assign({},data||{});data.simulateFree=!!lsGet('pdft_simfree',false);
@@ -536,10 +551,17 @@ function renderTool(){var k=S.tool,T=TOOLS[k],o=S.opts,a=S.me.access,h=header(t(
   if(S.err)h+='<div class="err">'+ic('alert','s')+'<span>'+esc(S.err)+'</span></div>';
   return h}
 
+function discPct(){return Math.max(S.disc?S.disc.pct:0,S.me.firstPct||0)}
+function priceHtml(p){var d=discPct();if(!d)return'<div class="price">$'+(+p.usd).toFixed(2)+(p.stars?'<small>'+p.stars+' Stars</small>':'')+'</div>';
+ return'<div class="price"><s style="color:var(--hint);font-weight:400;font-size:12px">$'+(+p.usd).toFixed(2)+'</s> $'+(Math.round(p.usd*(100-d))/100).toFixed(2)+(p.stars?'<small>'+Math.ceil(p.stars*(100-d)/100)+' Stars</small>':'')+'</div>'}
 function renderPaywall(){var me=S.me,a=me.access,h=header(t('pw_title2'),'');var sel=S.payPlan||(me.plans[0]&&me.plans[0].id);S.payPlan=sel;
   h+='<div class="card"><div class="big">'+ic('lock','l')+'</div><h2 class="center">'+(a.reason==='blocked'?t('pw_title'):t('pw_title2'))+'</h2><p class="m center">'+(a.reason==='blocked'?t('pw_text',{n:a.freeAllowance}):t('pw_text2'))+'</p>'+
     '<ul class="feat"><li>'+ic('check')+t('f_unl')+'</li><li>'+ic('check')+t('f_size',{n:a.paidMaxMB})+'</li><li>'+ic('check')+t('f_all')+'</li></ul></div>';
-  h+='<div class="sec">'+t('choose_plan')+'</div><div class="opt">'+me.plans.map(function(p){return'<div class="radio '+(sel===p.id?'on':'')+'" data-plan="'+esc(p.id)+'"><span class="dot"></span><div><b>'+esc(p.label)+'</b><div class="fs">'+t('days',{n:p.days})+'</div></div><div class="price">$'+(+p.usd).toFixed(2)+(p.stars?'<small>'+p.stars+' Stars</small>':'')+'</div></div>'}).join('')+'</div>';
+  h+='<div class="sec">'+t('choose_plan')+'</div><div class="opt">'+me.plans.map(function(p){return'<div class="radio '+(sel===p.id?'on':'')+'" data-plan="'+esc(p.id)+'"><span class="dot"></span><div><b>'+esc(p.label)+'</b><div class="fs">'+t('days',{n:p.days})+'</div></div>'+priceHtml(p)+'</div>'}).join('')+'</div>';
+  h+='<div class="card" style="margin-top:10px">'+(me.firstPct&&(!S.disc||S.disc.pct<me.firstPct)?'<div class="okmsg" style="margin:0 0 8px">'+ic('star','s')+t('welcome_disc',{p:me.firstPct})+'</div>':'')+
+   '<label class="f" style="margin-top:0">'+t('have_code')+'</label><div class="row"><input class="t" id="dcode" autocomplete="off" style="text-transform:uppercase" value="'+esc(S.disc?S.disc.code:'')+'"><button class="btn sm sec2" data-act="applycode">'+t('apply')+'</button></div>'+
+   (S.disc?'<div class="okmsg">'+ic('check','s')+t('code_ok',{p:S.disc.pct})+'</div>':'')+(S.codeErr?'<div class="err">'+ic('alert','s')+'<span>'+esc(S.codeErr)+'</span></div>':'')+'</div>';
+  if(discPct()>=100)return h+'<button class="btn" data-act="freecode">'+ic('check')+t('free_code')+'</button>'+(S.err?'<div class="err">'+ic('alert','s')+'<span>'+esc(S.err)+'</span></div>':'');
   h+='<div class="sec">'+t('pay_with')+'</div>';
   if(!me.methods.length)h+='<div class="card"><p class="m">'+t('no_methods')+'</p></div>';
   else{h+='<div class="opt">'+me.methods.map(function(m){var icn=m.id==='stars'?'star':/^usdt/.test(m.id)?'wallet':'phone';
@@ -572,7 +594,13 @@ function renderAccount(){var me=S.me,a=me.access,h=header(t('account'),'');
     (me.support?'<div class="kv"><div class="grow"><span class="k">'+t('support')+'</span><code>'+esc(me.support)+'</code></div></div>':'')+'</div>';
   if(a.reason!=='sub')h+='<button class="btn" data-act="paywall">'+ic('star')+t('acc_upgrade')+'</button>';
   else h+='<button class="btn sec2" data-act="paywall">'+ic('refresh')+t('acc_upgrade')+'</button>';
+  if(me.ref&&me.ref.on){var rs=S.refStats,link=refLink();h+='<div class="sec">'+t('invite')+'</div><div class="card"><p class="m" style="margin-bottom:10px">'+t('invite_sub',{p:me.ref.newPct,r:t('invite_days',{n:me.ref.days})})+'</p>'+
+   '<div class="kv"><div class="grow"><span class="k">'+t('your_link')+'</span><code>'+esc(link)+'</code></div><button class="mini" data-copy="'+esc(link)+'">'+ic('copy')+'</button></div>'+
+   '<div class="row"><button class="btn sm grow" data-act="sharetg">'+ic('send','s')+t('share_tg')+'</button><button class="btn sm sec2 grow" data-act="sharewa">'+t('share_wa')+'</button></div>'+
+   (rs?'<div class="stat" style="margin-top:10px"><div><b>'+rs.invited+'</b><span>'+t('invited')+'</span></div><div><b>'+rs.rewarded+'</b><span>'+t('rewarded')+'</span></div></div>':'')+'</div>';
+   if(!rs)api('refStats').then(function(r){S.refStats=r.ok?r:{invited:0,rewarded:0};render()})}
   return h}
+function refLink(){var a=S.me.ref.arg;return CFG.botUsername&&CFG.appShortName?'https://t.me/'+CFG.botUsername+'/'+CFG.appShortName+'?startapp='+a:CFG.botUsername?'https://t.me/'+CFG.botUsername+'?start='+a:location.origin+location.pathname+'?startapp='+a}
 
 /* ---------- admin settings ---------- */
 var SECRET_LABELS={BOT_TOKEN:'Telegram bot token',TRONGRID_KEY:'TronGrid API key (TRC20 checks)',ETHERSCAN_KEY:'Etherscan API key (BEP20 checks)'};
@@ -605,14 +633,20 @@ function renderSettings(){var A=S.admin,h=header('Settings','Admin only');
   if(S.adminMsg)h+='<div class="okmsg">'+ic('check','s')+esc(S.adminMsg)+'</div>';
   h+='<div class="sec">Secrets (write-only)</div><div class="card"><div class="fs" style="margin-bottom:8px">Stored only on the server (Apps Script properties). Values are never shown again.</div>'+
     Object.keys(SECRET_LABELS).map(function(k){return'<label class="f">'+SECRET_LABELS[k]+' — <span style="color:'+(A.secrets[k]?'var(--ok)':'var(--danger)')+'">'+(A.secrets[k]?'set':'not set')+'</span></label><div class="row"><input class="t" type="password" autocomplete="off" id="sec_'+k+'" placeholder="Paste new value"><button class="btn sm sec2" data-secret="'+k+'">Save</button></div>'}).join('')+'</div>';
+  h+='<div class="sec">Referral program</div><div class="card"><div class="sw"><div><b style="font-size:14px">Referral links on</b><div class="fs">Every user gets an invite link (My plan screen).</div></div><button class="tgl '+(st.x_refOn?'on':'')+'" data-toggle="x_refOn"></button></div>'+
+   '<div class="grid" style="margin:0"><div><label class="f">Friend discount %</label>'+inp('x_refNewPct',st.x_refNewPct,'10','number')+'</div><div><label class="f">Reward days for inviter</label>'+inp('x_refDays',st.x_refDays,'7','number')+'</div></div><div class="fs" style="margin-top:6px">Save settings to apply.</div></div>';
+  var cds=A.codes||[];h+='<div class="sec">Discount codes (for your clients)</div><div class="card">'+(cds.length?'<ul class="files">'+cds.map(function(c){return'<li><div class="grow"><div class="fn">'+esc(c.code)+' · '+c.pct+'%</div><div class="fs">Used '+c.used+(c.max_uses?' / '+c.max_uses:'')+(c.expires?' · until '+esc(c.expires):'')+(c.note?' · '+esc(c.note):'')+'</div></div><button class="tgl '+(c.active?'on':'')+'" data-codetgl="'+esc(c.code)+'" data-on="'+(c.active?1:0)+'"></button></li>'}).join('')+'</ul>':'<p class="m">No codes yet.</p>')+'</div>'+
+   '<div class="card"><div class="grid" style="margin:0"><div><label class="f">Code</label><input class="t" id="nc_code" placeholder="SOMALI50" style="text-transform:uppercase"></div><div><label class="f">Discount %</label><input class="t" id="nc_pct" type="number" min="1" max="100" placeholder="20"></div>'+
+   '<div><label class="f">Max uses (0 = unlimited)</label><input class="t" id="nc_max" type="number" min="0"></div><div><label class="f">Expires (optional)</label><input class="t" id="nc_exp" type="date"></div></div><label class="f">Note (optional)</label><input class="t" id="nc_note">'+
+   '<div class="fs" style="margin-top:6px">100% = free access (partners, testers).</div><button class="btn sm" style="width:100%;margin-top:10px" data-act="codeadd">'+ic('plus','s')+'Save code</button></div>';
   h+='<div class="sec">Payments to review</div><div class="card">'+(A.pending&&A.pending.length?'<ul class="files">'+A.pending.map(function(p){return'<li><div class="grow"><div class="fn">'+esc(p.method)+' · '+esc(p.amount)+' · '+esc(p.plan)+'</div><div class="fs">User '+esc(p.user_id)+' · Tx '+esc(p.tx_ref)+'</div></div><button class="btn sm" data-approve="'+esc(p.order_id)+'">Approve</button><button class="btn sm ghost" data-reject="'+esc(p.order_id)+'">Reject</button></li>'}).join('')+'</ul>':'<p class="m">Nothing to review.</p>')+'</div>';
   var s=A.stats||{};h+='<div class="sec">Stats</div><div class="card stat"><div><b>'+(s.users||0)+'</b><span>Users</span></div><div><b>'+(s.activeSubs||0)+'</b><span>Active subscriptions</span></div><div><b>'+(s.conversions||0)+'</b><span>Conversions</span></div><div><b>'+(s.paidOrders||0)+'</b><span>Paid orders</span></div></div>';
   h+='<div class="sec">Testing</div><div class="card">'+sw('simfree',lsGet('pdft_simfree',false),'Simulate free user (this device)','Ignores test mode so you can try the 2 free conversions and the paywall.')+
     '<button class="btn sm ghost" style="width:100%;margin-top:8px" data-act="resetme">Reset my usage &amp; subscription</button><button class="btn sm ghost" style="width:100%;margin-top:8px" data-act="paywall">Preview paywall</button></div>';
   return h}
-function loadAdmin(){S.admin=null;render();Promise.all([api('adminGet'),api('adminPending'),api('adminStats')]).then(function(r){
+function loadAdmin(){S.admin=null;render();Promise.all([api('adminGet'),api('adminPending'),api('adminStats'),api('adminCodes')]).then(function(r){
   if(!r[0].ok){S.admin={settings:defaultSettings(),secrets:{},pending:[],stats:{}};S.adminMsg='';toast(r[0].error||'error');render();return}
-  S.admin={settings:r[0].settings,secrets:r[0].secrets||{},pending:(r[1].items||[]),stats:r[2].stats||{}};render()})}
+  S.admin={settings:r[0].settings,secrets:r[0].secrets||{},pending:(r[1].items||[]),stats:r[2].stats||{},codes:(r[3]&&r[3].codes)||[]};render()})}
 function collectSettings(){var st=JSON.parse(JSON.stringify(S.admin.settings));
   document.querySelectorAll('[data-set]').forEach(function(el){var k=el.getAttribute('data-set'),v=el.type==='number'?+el.value:el.value.trim();
     if(k.indexOf('m_')===0)st.methods[k.slice(2)]=v;else st[k]=v});
@@ -649,9 +683,11 @@ function sendResults(idx){var list=idx==null?S.results:[S.results[idx]],i=0;toas
       if(!res.ok){if(res.error==='write_access'&&IN_TG&&TG.requestWriteAccess){TG.requestWriteAccess(function(ok){if(ok){i--;next()}else toast(t('e_write'))});return}throw new Error(res.error)}
       return next()})}
   next().catch(function(e){toast(errMsg(e))})}
-function startPayment(method){var plan=S.payPlan;S.err='';
+function startPayment(method){var plan=S.payPlan;S.err='';S.codeErr='';
   if(method==='stars'&&!DEMO&&!IN_TG){S.err=t('open_in_tg');return render()}
-  api('createOrder',{plan:plan,method:method}).then(function(r){
+  api('createOrder',{plan:plan,method:method,code:S.disc?S.disc.code:''}).then(function(r){
+    if(r.ok&&r.free){S.payment=r;return onPaid(r)}
+    if(!r.ok&&/^code_/.test(r.error)){S.disc=null;S.codeErr=t(r.error);return render()}
     if(!r.ok){if(r.error==='phone_required'){S.payment={method:method,phoneNeeded:true};return go('pay')}S.err=errMsg(r.error);return render()}
     S.payment=r;
     if(method==='stars'){
@@ -661,8 +697,9 @@ function startPayment(method){var plan=S.payPlan;S.err='';
 function pollOrder(id,n){api('checkOrder',{order_id:id}).then(function(r){if(r.ok&&r.status==='paid')return onPaid(r);if(n>0)setTimeout(function(){pollOrder(id,n-1)},2000)})}
 function onPaid(r){if(r.access)S.me.access=r.access;S.payment=Object.assign(S.payment||{},{status:'paid'});haptic('ok');refreshMe().then(function(){S.stack=['home'];S.screen='pay';render()})}
 
-document.addEventListener('click',function(ev){var el=ev.target.closest('[data-act],[data-tool],[data-lang],[data-rm],[data-up],[data-down],[data-opt],[data-dl],[data-send],[data-plan],[data-method],[data-copy],[data-toggle],[data-plan-rm],[data-secret],[data-approve],[data-reject]');if(!el)return;
+document.addEventListener('click',function(ev){var el=ev.target.closest('[data-codetgl],[data-act],[data-tool],[data-lang],[data-rm],[data-up],[data-down],[data-opt],[data-dl],[data-send],[data-plan],[data-method],[data-copy],[data-toggle],[data-plan-rm],[data-secret],[data-approve],[data-reject]');if(!el)return;
   var d=el.dataset,i;
+  if(d.codetgl){api('adminCodeToggle',{code:d.codetgl,active:d.on!=='1'}).then(function(){loadAdmin()});return}
   if(d.lang){LANG=d.lang;lsSet('pdft_lang',LANG);document.documentElement.lang=LANG;return render()}
   if(d.tool){S.tool=d.tool;S.opts=Object.assign({},DEF_OPTS[d.tool]);resetTool();haptic();return go('tool')}
   if(d.rm!=null){i=+d.rm;if(S.files[i].url)URL.revokeObjectURL(S.files[i].url);S.files.splice(i,1);return render()}
@@ -675,7 +712,7 @@ document.addEventListener('click',function(ev){var el=ev.target.closest('[data-a
   if(d.method)return startPayment(d.method);
   if(d.copy)return copy(d.copy);
   if(d.toggle){if(d.toggle==='simfree'){lsSet('pdft_simfree',!lsGet('pdft_simfree',false));refreshMe().then(render);return}
-    S.admin.settings=collectSettings();if(d.toggle==='testMode')S.admin.settings.testMode=!S.admin.settings.testMode;else if(d.toggle==='m_stars')S.admin.settings.methods.stars=!S.admin.settings.methods.stars;return render()}
+    S.admin.settings=collectSettings();if(d.toggle==='testMode')S.admin.settings.testMode=!S.admin.settings.testMode;else if(d.toggle==='x_refOn')S.admin.settings.x_refOn=!S.admin.settings.x_refOn;else if(d.toggle==='m_stars')S.admin.settings.methods.stars=!S.admin.settings.methods.stars;return render()}
   if(d.planRm!=null){S.admin.settings=collectSettings();S.admin.settings.plans.splice(+d.planRm,1);return render()}
   if(d.secret){var inpS=document.getElementById('sec_'+d.secret);if(!inpS.value.trim())return;api('adminSetSecret',{key:d.secret,value:inpS.value.trim()}).then(function(r){inpS.value='';toast(r.ok?'Saved':(r.error||'Error'));if(r.ok){S.admin.secrets[d.secret]=true;render()}});return}
   if(d.approve||d.reject){api('adminDecide',{order_id:d.approve||d.reject,approve:!!d.approve}).then(function(r){toast(r.ok?'Done':(r.error||'Error'));loadAdmin()});return}
@@ -690,7 +727,7 @@ document.addEventListener('click',function(ev){var el=ev.target.closest('[data-a
   case 'dlzip':Promise.all(S.results.map(function(r){return readBuf(r.blob).then(function(b){return{name:r.name,data:new Uint8Array(b)}})})).then(function(fs){saveBlob(makeZip(fs),baseName(S.files[0]?S.files[0].file.name:'files')+'.zip')});return;
   case 'sendall':return sendResults(null);
   case 'account':return go('account');
-  case 'paywall':S.err='';return go('paywall');
+  case 'paywall':S.err='';S.disc=null;S.codeErr='';return go('paywall');
   case 'settings':S.adminMsg='';go('settings');return loadAdmin();
   case 'addplan':S.admin.settings=collectSettings();S.admin.settings.plans.push({id:'plan_'+(S.admin.settings.plans.length+1),label:'New plan',days:30,usd:1,stars:75,region:'GLOBAL'});return render();
   case 'savesettings':var st=collectSettings();api('adminSave',{settings:st}).then(function(r){if(r.ok){S.admin.settings=st;S.adminMsg='Saved';refreshMe().then(render)}else toast(r.error||'Error')});return;
@@ -699,6 +736,13 @@ document.addEventListener('click',function(ev){var el=ev.target.closest('[data-a
       if(DEMO&&confirm(t('pay_demo')))return api('demoPay',{order_id:S.payment.order_id}).then(onPaid);S.err=t('not_yet');render()});return;
   case 'submittx':var tx=document.getElementById('txid').value.trim();if(tx.length<4){S.err=t('txid');return render()}
     api('submitManual',{order_id:S.payment.order_id,txid:tx}).then(function(r){if(r.ok){S.payment.status='review';S.err=''}else S.err=errMsg(r.error);render()});return;
+  case 'applycode':var cv=((document.getElementById('dcode')||{}).value||'').trim().toUpperCase();S.codeErr='';if(!cv){S.disc=null;return render()}
+    api('checkCode',{code:cv,plan:S.payPlan}).then(function(r){if(r.ok){S.disc={code:r.code,pct:r.pct};haptic('ok')}else{S.disc=null;S.codeErr=t(r.error||'code_invalid')}render()});return;
+  case 'freecode':return startPayment('code');
+  case 'sharetg':return openLink('https://t.me/share/url?url='+encodeURIComponent(refLink())+'&text='+encodeURIComponent(t('invite_msg')));
+  case 'sharewa':return openLink('https://wa.me/?text='+encodeURIComponent(t('invite_msg')+' '+refLink()));
+  case 'codeadd':var f={code:document.getElementById('nc_code').value.trim().toUpperCase(),pct:+document.getElementById('nc_pct').value,max_uses:+document.getElementById('nc_max').value||0,expires:document.getElementById('nc_exp').value,note:document.getElementById('nc_note').value.trim()};
+    api('adminCodeSave',f).then(function(r){if(r.ok){toast('Saved');loadAdmin()}else toast(r.error==='code_format'?'Code: 3–20 letters/numbers':r.error==='code_pct'?'Discount: 1–100%':'Error')});return;
   case 'verifyphone':
     if(DEMO){api('demoVerifyPhone').then(function(){refreshMe().then(function(){S.stack=['home'];go('paywall',false)})});return}
     if(IN_TG&&TG.requestContact)TG.requestContact(function(ok){if(ok)setTimeout(function(){refreshMe().then(function(){S.stack=['home'];go('paywall',false)})},1500)});return;

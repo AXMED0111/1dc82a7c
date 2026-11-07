@@ -10,7 +10,7 @@ var EXTRA_SCHEMA = EXTRA_SCHEMA || {};
 var APP_HOOKS = APP_HOOKS || {};
 var HOURLY_JOBS = HOURLY_JOBS || [];
 var APP_DEFAULTS = APP_DEFAULTS || {};
-APP_DEFAULTS.gatekeeper = { appName: 'Channel Pass', freeAllowance: 0, x_feePercent: 5, plans: [] };
+APP_DEFAULTS.gatekeeper = { appName: 'Channel Pass', freeAllowance: 0, x_feePercent: 5, plans: [], x_refOn: false };
 
 EXTRA_SCHEMA.Channels = ['channel_key','channel_id','owner_id','title','username','description','invite_link','status','plans_json','payout','bot_ok','created_at'];
 EXTRA_SCHEMA.Members  = ['channel_key','channel_id','user_id','plan','status','start_date','expiry_date','order_id','reminded'];
@@ -163,6 +163,11 @@ APP_HOOKS.gatekeeper = {
       }
       return { ok: false, error: 'op' };
     },
+    // creator discount codes for their own buyers (scope ch:<key>)
+    gkCodes: function (ctx, req) { var ch = gkOwned(ctx, req.key); if (!ch) return { ok: false, error: 'forbidden' };
+      return { ok: true, codes: rows('Codes').filter(function (c) { return c.app === GK && c.scope === 'ch:' + ch.channel_key; }).map(codeOut) }; },
+    gkCodeSave: function (ctx, req) { var ch = gkOwned(ctx, req.key); if (!ch) return { ok: false, error: 'forbidden' }; return codeSave(ctx, req, 'ch:' + ch.channel_key); },
+    gkCodeToggle: function (ctx, req) { var ch = gkOwned(ctx, req.key); if (!ch) return { ok: false, error: 'forbidden' }; return codeToggle(ctx, req, 'ch:' + ch.channel_key); },
     gkBroadcast: function (ctx, req) {
       var ch = gkOwned(ctx, req.key); if (!ch) return { ok: false, error: 'forbidden' };
       var text = String(req.text || '').trim().slice(0, 1500); if (!text) return { ok: false, error: 'empty' };

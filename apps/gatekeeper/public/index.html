@@ -261,6 +261,8 @@ en: {
   paid_ok: 'Payment confirmed. Thank you.', no_methods: 'Payments are not set up yet. Please check back soon.',
   pay_demo: 'Demo: simulate a successful payment?', open_in_tg: 'Open this app inside Telegram to pay with Stars.', continue: 'Continue',
   my_plan: 'My plan', acc_status: 'Status', acc_free: 'Free plan', acc_used: 'Free uses', acc_exp: 'Expires', acc_id: 'Telegram ID', support: 'Support', upgrade: 'Upgrade',
+  have_code: 'Have a discount code?', apply: 'Apply', code_ok: '{p}% discount applied', welcome_disc: 'Welcome discount: {p}% off your first purchase', code_invalid: 'This code is not valid.', code_expired: 'This code has expired.', code_used_up: 'This code has been fully used.', code_not_for_plan: 'This code does not apply to this plan.', free_code: 'Activate free',
+  invite: 'Invite friends', invite_sub: 'Share your link. Your friend gets {p}% off their first purchase, and you get {r} when they pay.', invite_days: '{n} free days', invite_credits: '{n} free credits', your_link: 'Your invite link', invited: 'Joined with your link', rewarded: 'Rewards earned', share_tg: 'Share on Telegram', share_wa: 'Share on WhatsApp', invite_msg: 'Try this app — use my link for a discount:',
   rep_ready: 'Your report is ready', rep_making: 'Preparing your PDF…', rep_dl: 'Download PDF', rep_send: 'Send to my Telegram chat', rep_sent: 'Sent to your Telegram chat', rep_hint: 'If the download does not start inside Telegram, use “Send to my Telegram chat”.', rep_pro: 'PDF reports are part of Pro.', generated: 'Generated', page: 'Page'
 },
 so: {
@@ -281,6 +283,8 @@ so: {
   paid_ok: 'Lacag-bixinta waa la xaqiijiyay. Mahadsanid.', no_methods: 'Lacag-bixinta weli lama diyaarin. Fadlan dib u eeg.',
   pay_demo: 'Demo: ma la jilaa lacag-bixin guulaysatay?', open_in_tg: 'App-kan ka fur Telegram si aad Stars ugu bixiso.', continue: 'Sii wad',
   my_plan: 'Qorshahayga', acc_status: 'Xaaladda', acc_free: 'Qorshe bilaash', acc_used: 'Isticmaalka bilaashka', acc_exp: 'Wuxuu dhacayaa', acc_id: 'Aqoonsiga Telegram', support: 'Taageero', upgrade: 'U gudub Pro',
+  have_code: 'Ma haysaa kood qiimo dhimis?', apply: 'Isticmaal', code_ok: '{p}% qiimo dhimis ayaa la dabaqay', welcome_disc: 'Qiimo dhimis soo dhaweyn: {p}% iibkaaga ugu horreeya', code_invalid: 'Koodkan sax ma aha.', code_expired: 'Koodkan wuu dhacay.', code_used_up: 'Koodkan waa la isticmaalay oo dhan.', code_not_for_plan: 'Koodkan kuma shaqeeyo qorshahan.', free_code: 'Ku hawlgeli bilaash',
+  invite: 'Casuun saaxiibbo', invite_sub: 'La wadaag link-gaaga. Saaxiibkaa wuxuu helayaa {p}% qiimo dhimis iibkiisa ugu horreeya, adiguna waxaad helaysaa {r} marka uu bixiyo.', invite_days: '{n} maalmood oo bilaash ah', invite_credits: '{n} dhibcood oo bilaash ah', your_link: 'Link-gaaga casuumaadda', invited: 'Ku soo biiray link-gaaga', rewarded: 'Abaalmarinnada la helay', share_tg: 'Ku wadaag Telegram', share_wa: 'Ku wadaag WhatsApp', invite_msg: 'Isku day app-kan — isticmaal link-gayga si aad qiimo dhimis u hesho:',
   rep_ready: 'Warbixintaadu waa diyaar', rep_making: 'PDF-ka ayaa la diyaarinayaa…', rep_dl: 'Soo deji PDF', rep_send: 'U dir sheekadayda Telegram', rep_sent: 'Waa loo diray sheekadaada Telegram', rep_hint: 'Haddii soo dejintu aysan ka bilaabmin Telegram, isticmaal “U dir sheekadayda Telegram”.', rep_pro: 'Warbixinnada PDF waxay ka mid yihiin Pro.', generated: 'La sameeyay', page: 'Bogga'
 }};
 var LANG;
@@ -416,7 +420,7 @@ function fileB64(file, maxPx, q) { // images are downscaled to save data on low-
 
 /* ---------------- access (mirror of Core.gs) ---------------- */
 function defaultSettings() {
-  return Object.assign({ appName: 'App', testMode: true, freeAllowance: 2, freeMaxMB: 10, paidMaxMB: 100, supportContact: '', localPrefixes: '252', plans: [],
+  return Object.assign({ x_refOn: true, x_refNewPct: 10, x_refDays: 7, x_refCredits: 0, appName: 'App', testMode: true, freeAllowance: 2, freeMaxMB: 10, paidMaxMB: 100, supportContact: '', localPrefixes: '252', plans: [],
     methods: { stars: true, usdt_trc20: '', usdt_bep20: '', evc: '', zaad: '', sahal: '', mpesa: '' } }, JSON.parse(JSON.stringify(APP.defaults || {})));
 }
 function computeAccess(st, sub, freeUsed, simFree, credits) {
@@ -442,9 +446,21 @@ function dMarkPaid(s, o) {
 }
 var DemoCore = {
   init: function (d, s) { var r = dRegion(s); return { ok: true, demo: true, verified: false, isAdmin: true, user: { id: TGU ? TGU.id : 0, name: TGU ? TGU.first_name : 'Demo user' }, region: r, phoneVerified: !!s.phoneVerified,
-    access: dAccess(s, d), plans: (s.settings.plans || []).filter(function (p) { return p.region === 'ALL' || p.region === r; }), methods: availMethods(s.settings, r), appName: s.settings.appName, support: s.settings.supportContact }; },
+    access: dAccess(s, d), plans: (s.settings.plans || []).filter(function (p) { return p.region === 'ALL' || p.region === r; }), methods: availMethods(s.settings, r), appName: s.settings.appName, support: s.settings.supportContact,
+    ref: s.settings.x_refOn ? { on: true, arg: 'r' + (TGU ? TGU.id : '1000'), newPct: +s.settings.x_refNewPct || 0, days: +s.settings.x_refDays || 0, credits: +s.settings.x_refCredits || 0 } : { on: false },
+    firstPct: /^r\d+/.test(START) && !s.orders.some(function (o) { return o.status === 'paid'; }) && s.settings.x_refOn ? +s.settings.x_refNewPct || 0 : 0 }; },
+  checkCode: function (d, s) { var c = dCode(s, d.code, d.plan); return c.error ? { ok: false, error: c.error } : { ok: true, code: c.code, pct: c.pct }; },
+  adminCodes: function (d, s) { return { ok: true, codes: (s.codes || []).filter(function (c) { return c.scope === 'all'; }) }; },
+  adminCodeSave: function (d, s) { return dCodeSave(s, d, 'all'); },
+  adminCodeToggle: function (d, s) { var c = (s.codes || []).filter(function (x) { return x.code === d.code; })[0]; if (c) c.active = !!d.active; return { ok: true }; },
+  refStats: function (d, s) { return { ok: true, invited: 0, rewarded: 0, days: +s.settings.x_refDays || 0, credits: +s.settings.x_refCredits || 0, newPct: +s.settings.x_refNewPct || 0 }; },
   consume: function (d, s) { var a = dAccess(s, d); if (!a.entitled) return { ok: true, allowed: false, access: a }; if (a.reason === 'free') s.freeUsed++; else if (a.reason === 'credits') s.credits--; s.total++; return { ok: true, allowed: true, token: 'demo', access: dAccess(s, d) }; },
   createOrder: function (d, s) { var p = dPlan(s, d.plan); if (!p) return { ok: false, error: 'plan' };
+    var dc = dCode(s, d.code, d.plan); if (dc.error) return { ok: false, error: dc.error };
+    var fp = /^r\d+/.test(START) && !String(d.plan).match(/\|/) && !s.orders.some(function (o) { return o.status === 'paid'; }) && s.settings.x_refOn ? +s.settings.x_refNewPct || 0 : 0, pct = Math.max(dc.pct || 0, fp);
+    p = Object.assign({}, p, { usd: Math.round(p.usd * (100 - pct)) / 100, stars: Math.ceil(p.stars * (100 - pct) / 100) });
+    if (dc.pct) { var cr = (s.codes || []).filter(function (x) { return x.code === dc.code; })[0]; if (cr) cr.used++; }
+    if (pct >= 100) { var fo = { order_id: 'D' + uid(), plan: d.plan, method: 'code', status: 'pending', amount: '$0.00', currency: 'USD', created: new Date().toISOString(), app: CFG.appId }; s.orders.push(fo); dMarkPaid(s, fo); return { ok: true, free: true, order_id: fo.order_id, status: 'paid' }; }
     var o = { order_id: 'D' + uid(), plan: d.plan, method: d.method, status: 'pending', created: new Date().toISOString(), app: CFG.appId };
     if (d.method === 'stars') { o.amount = p.stars; o.currency = 'XTR'; }
     else if (/^usdt/.test(d.method)) { o.amount = (+p.usd + Math.floor(Math.random() * 9000 + 1000) / 1e6).toFixed(4); o.currency = 'USDT'; o.address = s.settings.methods[d.method]; o.network = d.method === 'usdt_trc20' ? 'TRC20 (Tron)' : 'BEP20 (BNB Smart Chain)'; }
@@ -472,6 +488,16 @@ var DemoCore = {
   },
   adminResetMe: function (d, s) { s.freeUsed = 0; s.credits = 0; s.sub = null; s.phoneVerified = false; return { ok: true }; }
 };
+function dCode(s, code, planId) { code = String(code || '').trim().toUpperCase(); if (!code) return {};
+  var c = (s.codes || []).filter(function (x) { return x.code === code; })[0], chKey = String(planId || '').indexOf('|') > 0 ? String(planId).split('|')[0] : '';
+  if (!c || !c.active) return { error: 'code_invalid' }; if (c.expires && c.expires < new Date().toISOString().slice(0, 10)) return { error: 'code_expired' };
+  if (c.max_uses && c.used >= c.max_uses) return { error: 'code_used_up' }; if (c.scope === 'all' ? !!chKey : c.scope !== 'ch:' + chKey) return { error: 'code_not_for_plan' };
+  if (c.plans && planId && c.plans.split(',').map(function (x) { return x.trim(); }).indexOf(chKey ? String(planId).split('|')[1] : planId) < 0) return { error: 'code_not_for_plan' };
+  return { code: c.code, pct: c.pct }; }
+function dCodeSave(s, d, scope) { s.codes = s.codes || []; var code = String(d.code || '').trim().toUpperCase().replace(/[^A-Z0-9_-]/g, ''); if (code.length < 3 || code.length > 20) return { ok: false, error: 'code_format' };
+  var pct = Math.round(+d.pct); if (!(pct >= 1 && pct <= 100)) return { ok: false, error: 'code_pct' }; var c = s.codes.filter(function (x) { return x.code === code; })[0];
+  if (c && c.scope !== scope) return { ok: false, error: 'code_taken' }; if (!c) { c = { code: code, scope: scope, used: 0 }; s.codes.push(c); }
+  Object.assign(c, { pct: pct, max_uses: +d.max_uses || 0, expires: d.expires || '', plans: d.plans || '', note: d.note || '', active: true }); return { ok: true }; }
 function demoCall(action, d) {
   return new Promise(function (res) { setTimeout(function () { var s = dState(), r;
     try { r = APP.demo[action] ? APP.demo[action](d, s) : DemoCore[action] ? DemoCore[action](d, s) : { ok: false, error: 'unknown_action' }; } catch (e) { console.error(e); r = { ok: false, error: e.message }; }
@@ -497,6 +523,7 @@ function header(title, sub, right) {
   return '<div class="top">' + (showBack ? '<button class="ibtn" data-act="back" aria-label="' + t('back') + '">' + ic('back') + '</button>' : '<div class="logo">' + ic(APP.icon || 'logo') + '</div>') +
     '<div class="grow"><h1>' + esc(title) + '</h1>' + (sub ? '<div class="sub">' + esc(sub) + '</div>' : '') + '</div>' + (right || '') +
     '<div class="lang"><button data-lang="so" class="' + (LANG === 'so' ? 'on' : '') + '">SO</button><button data-lang="en" class="' + (LANG === 'en' ? 'on' : '') + '">EN</button></div>' +
+    (S.me && S.me.ref && S.me.ref.on && !S.stack.length ? '<button class="ibtn" data-act="invite" aria-label="' + t('invite') + '">' + ic('users') + '</button>' : '') +
     (S.me && S.me.isAdmin ? '<button class="ibtn" data-act="settings" aria-label="' + t('settings') + '">' + ic('settings') + '</button>' : '') + '</div>';
 }
 function banners() { var h = ''; if (DEMO) h += '<div class="banner">' + ic('info', 's') + '<span>' + t('demo_banner') + '</span></div>';
@@ -521,8 +548,11 @@ function render() {
 }
 
 /* ---------------- payments UI ---------------- */
-function paywall(ctx) { S.pw = ctx || {}; S.payPlan = null; go('paywall'); }
-function planPrice(p) { return '<div class="price">' + (p.usd ? '$' + (+p.usd).toFixed(2) : '') + (p.stars ? '<small>' + p.stars + ' Stars</small>' : '') + '</div>'; }
+function paywall(ctx) { S.pw = ctx || {}; S.payPlan = null; S.disc = null; go('paywall'); }
+function discPct() { return Math.max(S.disc ? S.disc.pct : 0, S.pw && S.pw.noRef ? 0 : (S.me && S.me.firstPct) || 0); }
+function planPrice(p) { var d = discPct(), u = Math.round((+p.usd || 0) * (100 - d)) / 100, st = Math.ceil((+p.stars || 0) * (100 - d) / 100);
+  if (!d) return '<div class="price">' + (p.usd ? '$' + (+p.usd).toFixed(2) : '') + (p.stars ? '<small>' + p.stars + ' Stars</small>' : '') + '</div>';
+  return '<div class="price">' + (p.usd ? '<s style="color:var(--hint);font-weight:400;font-size:12px">$' + (+p.usd).toFixed(2) + '</s> $' + u.toFixed(2) : '') + (p.stars ? '<small>' + st + ' Stars</small>' : '') + '</div>'; }
 function planSub(p) { return +p.days > 0 ? t('days', { n: p.days }) : +p.credits === 1 ? t('credit1') : +p.credits > 1 ? t('credits', { n: p.credits }) : ''; }
 var BUILTIN = {
   paywall: function () {
@@ -531,6 +561,11 @@ var BUILTIN = {
     h += '<div class="card"><div class="big">' + ic(pw.icon || 'lock', 'l') + '</div><h2 class="center">' + esc(pw.title || t('pw_title')) + '</h2><p class="m center">' + esc(pw.text || t('pw_text')) + '</p>' +
       '<ul class="feat">' + (pw.features || [t('f_unl'), t('f_all')]).map(function (f) { return '<li>' + ic('check') + esc(f) + '</li>'; }).join('') + '</ul></div>';
     h += '<div class="sec">' + t('choose_plan') + '</div><div class="opt">' + plans.map(function (p) { return '<div class="radio ' + (S.payPlan === p.id ? 'on' : '') + '" data-plan="' + esc(p.id) + '"><span class="dot"></span><div><b>' + esc(p.label) + '</b><div class="fs">' + planSub(p) + '</div></div>' + planPrice(p) + '</div>'; }).join('') + '</div>';
+    var dp = discPct();
+    h += '<div class="card" style="margin-top:10px">' + (me.firstPct && !(S.pw && S.pw.noRef) && (!S.disc || S.disc.pct < me.firstPct) ? '<div class="okmsg" style="margin:0 0 8px">' + ic('star', 's') + t('welcome_disc', { p: me.firstPct }) + '</div>' : '') +
+      '<label class="f" style="margin-top:0">' + t('have_code') + '</label><div class="row"><input class="t" id="dcode" autocomplete="off" style="text-transform:uppercase" value="' + esc(S.disc ? S.disc.code : '') + '"><button class="btn sm sec2" data-act="applycode">' + t('apply') + '</button></div>' +
+      (S.disc ? '<div class="okmsg">' + ic('check', 's') + t('code_ok', { p: S.disc.pct }) + '</div>' : '') + (S.codeErr ? '<div class="err">' + ic('alert', 's') + '<span>' + esc(S.codeErr) + '</span></div>' : '') + '</div>';
+    if (dp >= 100) return h + '<button class="btn" data-act="freecode">' + ic('check') + t('free_code') + '</button>' + errBox();
     h += '<div class="sec">' + t('pay_with') + '</div>';
     if (!me.methods.length) h += '<div class="card"><p class="m">' + t('no_methods') + '</p></div>';
     else h += '<div class="opt">' + me.methods.map(function (m) { return '<button class="radio" style="width:100%;text-align:left" data-method="' + m.id + '"><span class="thumb" style="width:34px;height:34px">' + ic(m.id === 'stars' ? 'star' : /^usdt/.test(m.id) ? 'wallet' : 'phone') + '</span><b class="grow">' + t(m.id) + '</b></button>'; }).join('') + '</div>';
@@ -553,6 +588,15 @@ var BUILTIN = {
       (a.reason === 'sub' ? kv(t('acc_exp'), fmtDate(a.expiry)) : a.freeAllowance ? kv(t('acc_used'), a.freeUsed + ' / ' + a.freeAllowance) : '') +
       (me.user && me.user.id ? kv(t('acc_id'), me.user.id) : '') + (me.support ? kv(t('support'), me.support) : '') + '</div>';
     if (me.plans.length) h += '<button class="btn" data-act="paywall">' + ic('star') + t('upgrade') + '</button>';
+    if (me.ref && me.ref.on) h += '<button class="btn sec2" data-act="invite">' + ic('users') + t('invite') + '</button>';
+    return h;
+  },
+  invite: function () {
+    var me = S.me, r = S.refStats, h = header(t('invite'), ''); if (!r) return h + spin();
+    var link = appLink(me.ref.arg), rew = [r.days ? t('invite_days', { n: r.days }) : '', r.credits ? t('invite_credits', { n: r.credits }) : ''].filter(Boolean).join(' + ') || '—';
+    h += '<div class="card center"><div class="big">' + ic('users', 'l') + '</div><p class="m">' + t('invite_sub', { p: r.newPct, r: rew }) + '</p></div>';
+    h += '<div class="card">' + kv(t('your_link'), link, true) + '<div class="g2" style="margin-top:6px"><button class="btn sm" data-act="sharetg">' + ic('send', 's') + t('share_tg') + '</button><button class="btn sm sec2" data-act="sharewa">' + ic('message', 's') + t('share_wa') + '</button></div></div>';
+    h += '<div class="card stat"><div><b>' + r.invited + '</b><span>' + t('invited') + '</span></div><div><b>' + r.rewarded + '</b><span>' + t('rewarded') + '</span></div></div>';
     return h;
   },
   settings: function () { return renderSettings(); },
@@ -569,8 +613,10 @@ var BUILTIN = {
 function startPayment(method) {
   S.err = '';
   if (method === 'stars' && !DEMO && !IN_TG) { S.err = t('open_in_tg'); return render(); }
-  api('createOrder', { plan: S.payPlan, method: method }).then(function (r) {
-    if (!r.ok) { if (r.error === 'phone_required') { S.payment = { method: method, phoneNeeded: true }; return go('pay'); } S.err = r.error === 'network' ? t('e_net') : t('e_gen'); return render(); }
+  S.codeErr = '';
+  api('createOrder', { plan: S.payPlan, method: method, code: S.disc ? S.disc.code : '' }).then(function (r) {
+    if (r.ok && r.free) { S.payment = r; return onPaid(r); }
+    if (!r.ok) { if (/^code_/.test(r.error)) { S.disc = null; S.codeErr = t(r.error); return render(); } if (r.error === 'phone_required') { S.payment = { method: method, phoneNeeded: true }; return go('pay'); } S.err = r.error === 'network' ? t('e_net') : t('e_gen'); return render(); }
     S.payment = r;
     if (method === 'stars') {
       if (DEMO) { if (confirm(t('pay_demo'))) api('demoPay', { order_id: r.order_id }).then(onPaid); return; }
@@ -584,8 +630,20 @@ function onPaid() { haptic('ok'); S.payment = Object.assign(S.payment || {}, { s
 
 /* ---------------- admin settings ---------------- */
 var SECRETS = { BOT_TOKEN: 'Telegram bot token', TRONGRID_KEY: 'TronGrid API key (TRC20 checks)', ETHERSCAN_KEY: 'Etherscan API key (BEP20 checks)' };
-function loadAdmin() { S.admin = null; render(); Promise.all([api('adminGet'), api('adminPending'), api('adminStats'), APP.adminLoad ? APP.adminLoad() : Promise.resolve(null), api('adminRevenue')]).then(function (r) {
-  S.admin = { settings: r[0].settings || defaultSettings(), secrets: r[0].secrets || {}, pending: r[1].items || [], stats: (r[2] && r[2].stats) || {}, extra: r[3], rev: r[4] && r[4].ok ? r[4] : null }; if (!r[0].ok) toast(r[0].error || 'error'); render(); }); }
+function loadAdmin() { S.admin = null; render(); Promise.all([api('adminGet'), api('adminPending'), api('adminStats'), APP.adminLoad ? APP.adminLoad() : Promise.resolve(null), api('adminRevenue'), api('adminCodes')]).then(function (r) {
+  S.admin = { settings: r[0].settings || defaultSettings(), secrets: r[0].secrets || {}, pending: r[1].items || [], stats: (r[2] && r[2].stats) || {}, extra: r[3], rev: r[4] && r[4].ok ? r[4] : null, codes: (r[5] && r[5].codes) || [] }; if (!r[0].ok) toast(r[0].error || 'error'); render(); }); }
+function capi() { return APP.codeApi && S.screen !== 'settings' ? APP.codeApi : null; }
+function reloadCodes() { var a = capi(); api(a ? a.list : 'adminCodes', a ? a.extra() : {}).then(function (r) { if (a) a.set(r.codes || []); else if (S.admin) S.admin.codes = r.codes || []; render(); }); }
+/* Discount-code manager (used in admin Settings, and by Channel Pass creators for their own channel) */
+function codesBlock(codes, hintPlans) {
+  var h = '<div class="card">' + (codes.length ? '<ul class="files">' + codes.map(function (c) { return '<li><div class="grow"><div class="fn">' + esc(c.code) + ' · ' + c.pct + '%</div><div class="fs">Used ' + c.used + (c.max_uses ? ' / ' + c.max_uses : '') + (c.expires ? ' · until ' + esc(c.expires) : '') + (c.plans ? ' · ' + esc(c.plans) : '') + (c.note ? ' · ' + esc(c.note) : '') + '</div></div>' +
+    '<button class="tgl ' + (c.active ? 'on' : '') + '" data-act="codetgl" data-code="' + esc(c.code) + '" data-on="' + (c.active ? 1 : 0) + '"></button></li>'; }).join('') + '</ul>' : '<p class="m">No codes yet.</p>') + '</div>';
+  h += '<div class="card"><b style="font-size:14px">New code</b><div class="g2"><div><label class="f">Code</label><input class="t" id="nc_code" placeholder="SOMALI50" style="text-transform:uppercase"></div><div><label class="f">Discount %</label><input class="t" id="nc_pct" type="number" min="1" max="100" placeholder="20"></div>' +
+    '<div><label class="f">Max uses (0 = unlimited)</label><input class="t" id="nc_max" type="number" min="0" placeholder="100"></div><div><label class="f">Expires (optional)</label><input class="t" id="nc_exp" type="date"></div></div>' +
+    '<label class="f">Only for plan IDs (optional, comma separated)</label><input class="t" id="nc_plans" placeholder="' + esc(hintPlans || '') + '"><label class="f">Note (optional)</label><input class="t" id="nc_note" placeholder="e.g. influencer Hodan">' +
+    '<div class="fs" style="margin-top:6px">100% = free access (good for partners and testers).</div><button class="btn sm" style="width:100%;margin-top:10px" data-act="codeadd">' + ic('plus', 's') + 'Save code</button></div>';
+  return h;
+}
 function renderSettings() {
   var A = S.admin, h = header('Settings', 'Admin only'); if (!A) return h + spin();
   var st = A.settings, m = st.methods, showPlans = APP.showPlans !== false;
@@ -616,6 +674,10 @@ function renderSettings() {
     Object.keys(secs).map(function (k) { return '<label class="f">' + esc(secs[k]) + ' — <span style="color:' + (A.secrets[k] ? 'var(--ok)' : 'var(--danger)') + '">' + (A.secrets[k] ? 'set' : 'not set') + '</span></label><div class="row"><input class="t" type="password" autocomplete="off" id="sec_' + k + '" placeholder="Paste new value"><button class="btn sm sec2" data-secret="' + k + '">Save</button></div>'; }).join('') + '</div>';
   h += '<div class="sec">Payments to review</div><div class="card">' + (A.pending.length ? '<ul class="files">' + A.pending.map(function (p) { return '<li><div class="grow"><div class="fn">' + esc(p.method) + ' · ' + esc(p.amount) + ' · ' + esc(p.plan) + '</div><div class="fs">User ' + esc(p.user_id) + ' · Tx ' + esc(p.tx_ref) + '</div></div><button class="btn sm" data-approve="' + esc(p.order_id) + '">Approve</button><button class="btn sm ghost" data-reject="' + esc(p.order_id) + '">Reject</button></li>'; }).join('') + '</ul>' : '<p class="m">Nothing to review.</p>') + '</div>';
   var s = A.stats; h += '<div class="sec">Stats</div><div class="card stat"><div><b>' + (s.users || 0) + '</b><span>Users</span></div><div><b>' + (s.activeSubs || 0) + '</b><span>Active subscriptions</span></div><div><b>' + (s.conversions || 0) + '</b><span>Uses</span></div><div><b>' + (s.paidOrders || 0) + '</b><span>Paid orders</span></div></div>';
+  h += '<div class="sec">Referral program</div><div class="card">' + sw('x:x_refOn', st.x_refOn, 'Referral links on', 'Every user gets an invite link in the app.') +
+    '<div class="g3"><div><label class="f">Friend discount %</label>' + inp('x_refNewPct', st.x_refNewPct, '10', 'number') + '</div><div><label class="f">Reward days</label>' + inp('x_refDays', st.x_refDays, '7', 'number') + '</div><div><label class="f">Reward credits</label>' + inp('x_refCredits', st.x_refCredits, '0', 'number') + '</div></div>' +
+    '<div class="fs" style="margin-top:6px">The friend gets the discount on their first purchase. The inviter gets the reward when that friend pays. Save settings to apply.</div></div>';
+  h += '<div class="sec">Discount codes (for your clients)</div>' + codesBlock(A.codes || [], (st.plans || []).map(function (p) { return p.id; }).join(', '));
   if (A.rev) { var cm = A.rev.months[A.rev.months.length - 1], pm = A.rev.months[A.rev.months.length - 2];
     h += '<div class="sec">Revenue</div><div class="card"><div class="stat"><div><b>$' + cm.usd.toFixed(2) + '</b><span>This month · USD</span></div><div><b>' + cm.stars + '</b><span>This month · Stars</span></div>' +
       '<div><b>' + cm.orders + '</b><span>Paid orders this month</span></div><div><b>$' + pm.usd.toFixed(2) + ' · ' + pm.stars + '★</b><span>Last month</span></div></div>' +
@@ -662,6 +724,17 @@ document.addEventListener('click', function (ev) {
     case 'afterpay': if (S.pw && S.pw.after) return S.pw.after(); return home();
     case 'addplan': S.admin.settings = collectSettings(); S.admin.settings.plans.push({ id: 'plan_' + (S.admin.settings.plans.length + 1), label: 'New plan', days: 30, credits: 0, usd: 1, stars: 75, region: 'GLOBAL' }); return render();
     case 'savesettings': var st2 = collectSettings(); api('adminSave', { settings: st2 }).then(function (r) { if (r.ok) { S.admin.settings = st2; S.msg = 'Saved'; refreshMe().then(render); } else toast(r.error || 'Error'); }); return;
+    case 'applycode': var cv = (document.getElementById('dcode') || {}).value || ''; cv = cv.trim().toUpperCase(); S.codeErr = '';
+      if (!cv) { S.disc = null; return render(); }
+      api('checkCode', { code: cv, plan: S.payPlan }).then(function (r) { if (r.ok) { S.disc = { code: r.code, pct: r.pct }; haptic('ok'); } else { S.disc = null; S.codeErr = t(r.error || 'code_invalid'); } render(); }); return;
+    case 'freecode': startPayment('code'); return;
+    case 'invite': S.refStats = null; go('invite'); api('refStats').then(function (r) { S.refStats = r.ok ? r : { invited: 0, rewarded: 0, days: 0, credits: 0, newPct: 0 }; render(); }); return;
+    case 'sharetg': shareTg(appLink(S.me.ref.arg), t('invite_msg')); return;
+    case 'sharewa': openLink('https://wa.me/?text=' + encodeURIComponent(t('invite_msg') + ' ' + appLink(S.me.ref.arg))); return;
+    case 'codeadd': var f = { code: (document.getElementById('nc_code').value || '').trim().toUpperCase(), pct: +document.getElementById('nc_pct').value, max_uses: +document.getElementById('nc_max').value || 0,
+        expires: document.getElementById('nc_exp').value, plans: document.getElementById('nc_plans').value.trim(), note: document.getElementById('nc_note').value.trim() };
+      api(capi() ? capi().save : 'adminCodeSave', Object.assign(capi() ? capi().extra() : {}, f)).then(function (r) { if (r.ok) { toast('Saved'); reloadCodes(); } else toast(r.error === 'code_format' ? 'Code: 3–20 letters/numbers' : r.error === 'code_pct' ? 'Discount: 1–100%' : r.error === 'code_taken' ? 'Code already used elsewhere' : 'Error'); }); return;
+    case 'codetgl': api(capi() ? capi().toggle : 'adminCodeToggle', Object.assign(capi() ? capi().extra() : {}, { code: el.dataset.code, active: el.dataset.on !== '1' })).then(function () { reloadCodes(); }); return;
     case 'revpdf': var scope = el.dataset.scope;
       showReport(function () { return api('adminRevenue', { scope: scope }).then(revenueReport); }, 'revenue-' + (scope === 'all' ? 'all-apps' : CFG.appId) + '-' + new Date().toISOString().slice(0, 7) + '.pdf'); return;
     case 'repdl': if (S.rep && S.rep.blob) saveBlob(S.rep.blob, S.rep.name); return;
@@ -691,7 +764,7 @@ function app(def) {
   refreshMe().then(function () { enter(); });
 }
 
-return { app: app, report: report, showReport: showReport, saveBlob: saveBlob, loadScript: loadScript, isPro: function () { return S.me && /^(sub|test)$/.test(S.me.access.reason); }, CFG: CFG, TG: TG, IN_TG: IN_TG, TGU: TGU, QS: QS, START: START, EDITION: EDITION, DEMO: DEMO, MB: MB, S: S,
+return { app: app, codesBlock: codesBlock, dCode: dCode, dCodeSave: dCodeSave, reloadCodes: reloadCodes, report: report, showReport: showReport, saveBlob: saveBlob, loadScript: loadScript, isPro: function () { return S.me && /^(sub|test)$/.test(S.me.access.reason); }, CFG: CFG, TG: TG, IN_TG: IN_TG, TGU: TGU, QS: QS, START: START, EDITION: EDITION, DEMO: DEMO, MB: MB, S: S,
   t: t, esc: esc, ic: ic, fmtDate: fmtDate, money: money, uid: uid, toast: toast, copy: copy, openLink: openLink, shareTg: shareTg, haptic: haptic, appLink: appLink, param: param, fileB64: fileB64,
   lsGet: lsGet, lsSet: lsSet, api: api, refreshMe: refreshMe, go: go, back: back, home: home, render: render, header: header, banners: banners, planChip: planChip, spin: spin, errBox: errBox, empty: empty, kv: kv, seg: seg,
   paywall: paywall, needAccess: needAccess, consume: consume, lang: function () { return LANG; } };
@@ -711,16 +784,17 @@ function memPill(m){if(m.status==='stopped')return'<span class="pill bad">'+t('m
  return m.daysLeft<=3?'<span class="pill bad">'+t('days_left',{n:Math.max(0,m.daysLeft)})+'</span>':'<span class="pill ok">'+t('days_left',{n:m.daysLeft})+'</span>'}
 function filtered(){var q=G.q.toLowerCase();return(G.members||[]).filter(function(m){var f=G.mf==='active'?m.status==='active':G.mf==='expiring'?m.status==='active'&&m.daysLeft<=3:m.status!=='active';
  return f&&(!q||(m.name+' '+(m.username||'')).toLowerCase().indexOf(q)>=0)})}
-function offerPaywall(o){var c=o.channel;K.paywall({title:c.title,text:c.description||t('tagline'),icon:'channel',features:[t('f_instant'),t('f_auto'),t('f_remind')],
+function offerPaywall(o){var c=o.channel;K.paywall({noRef:true,title:c.title,text:c.description||t('tagline'),icon:'channel',features:[t('f_instant'),t('f_auto'),t('f_remind')],
  plans:c.plans.map(function(p){return{id:c.key+'|'+p.id,label:p.label,days:p.days,credits:0,usd:p.usd,stars:p.stars}}),paidText:t('paid_ok2'),
  after:function(){S.stack=[];S.screen='offer';G.offer=null;K.render();loadOffer()}})}
 function loadOffer(){api('gkChannel',{key:KEY}).then(function(r){G.offer=r;K.render()})}
 
 K.app({
  icon:'channel',freeLabel:null,showPlans:false,
- defaults:{appName:'Channel Pass',freeAllowance:0,x_feePercent:5,plans:[]},
+ defaults:{appName:'Channel Pass',freeAllowance:0,x_feePercent:5,plans:[],x_refOn:false},
  adminFields:[{key:'x_feePercent',label:'Platform fee (%)',type:'number',ph:'5',hint:'Your share of every channel sale. Creators are paid the rest.'}],
  adminLoad:function(){return api('adminGk')},
+ codeApi:{list:'gkCodes',save:'gkCodeSave',toggle:'gkCodeToggle',extra:function(){return{key:G.edit.key}},set:function(c){G.codes=c}},
  adminExtra:function(x){x=x||{channels:[]};return'<div class="sec">Creators &amp; payouts owed</div><div class="card">'+(x.channels&&x.channels.length?'<ul class="files">'+x.channels.map(function(c){return'<li><div class="grow"><div class="fn">'+esc(c.title)+'</div><div class="fs">Owner '+esc(c.owner)+' · '+c.members+' members · pay to: '+esc(c.payout||'—')+'</div></div><div class="price">'+money(c.owedUsd)+'<small>'+c.owedStars+' Stars</small></div></li>'}).join('')+'</ul>':'<p class="m">No channels yet.</p>')+'</div>'},
  startScreen:function(){return KEY?'offer':'home'},
  strings:{
@@ -740,7 +814,7 @@ K.app({
   aud:'Send to',aud_active:'All active members',aud_expiring:'Ending in 3 days',bc_ph:'Write your announcement…',bc_hint:'Messages are sent in batches within a few minutes.',bc_ok:'{n} messages queued.',
   active_until:'Your access is active until {d}.',join:'Open channel',renew:'Extend access',test_join:'Test mode: get access without paying',not_found:'This channel is not available.',
   f_instant:'Instant access after payment',f_auto:'Renew any time — days are added',f_remind:'Reminder before your access ends',paid_ok2:'Payment confirmed. The bot has sent you the join link.',
-  r_title:'Members report',r_active:'Active',r_expiring:'Ending in 3 days',r_ended:'Ended / stopped',r_revenue:'Gross revenue',name:'Name',status:'Status',until:'until {d}'},
+  codes:'Discount codes',codes_sub:'Codes for your buyers. They type the code at checkout. Example: VIP20 = 20% off.',r_title:'Members report',r_active:'Active',r_expiring:'Ending in 3 days',r_ended:'Ended / stopped',r_revenue:'Gross revenue',name:'Name',status:'Status',until:'until {d}'},
  so:{appName:'Channel Pass',tagline:'Iibi galitaanka kanaalkaaga gaarka ah',t_channels:'Kanaalladayda',t_subs:'Isdiiwaangelintayda',add:'Ku dar kanaal',refresh:'Cusboonaysii',
   none_ch:'Weli kanaal ma jiro. Ku dar kanaalkaaga gaarka ah si aad u bilowdo iibinta.',none_sub:'Ma lihid isdiiwaangelin firfircoon.',members_n:'{n} xubnood',active:'Shaqaynaya',paused:'Lama daabicin',notready:'Awoodaha bot-ka ayaa maqan',
   how_title:'Ku xir kanaal',s1:'Fur kanaalkaaga ama kooxdaada → Maamulayaasha → Ku dar maamule.',s2:'Raadi bot-ka @{bot} oo ku dar.',s3:'Oggolow “Ku casuun isticmaalayaal link” iyo “Mamnuuc isticmaalayaal”. Keydi.',s4:'Halkan ku soo noqo oo taabo Cusboonaysii. Kanaalkaagu si toos ah ayuu u soo muuqanayaa.',
@@ -757,7 +831,7 @@ K.app({
   aud:'U dir',aud_active:'Dhammaan xubnaha firfircoon',aud_expiring:'Kuwa 3 maalmood ku dhammaanaya',bc_ph:'Qor ogeysiiskaaga…',bc_hint:'Fariimaha waxaa loo diraa qaybo dhowr daqiiqo gudahood.',bc_ok:'{n} fariimood ayaa safka la geliyay.',
   active_until:'Galitaankaagu wuu shaqaynayaa ilaa {d}.',join:'Fur kanaalka',renew:'Kordhi muddada',test_join:'Habka tijaabada: hel galitaan lacag la\'aan',not_found:'Kanaalkan lama heli karo.',
   f_instant:'Galitaan degdeg ah kadib lacag-bixinta',f_auto:'Cusboonaysii waqti kasta — maalmaha waa lagu darayaa',f_remind:'Xusuusin ka hor dhammaadka',paid_ok2:'Lacag-bixinta waa la xaqiijiyay. Bot-ku wuxuu kuu soo diray link-ga.',
-  r_title:'Warbixinta xubnaha',r_active:'Firfircoon',r_expiring:'3 maalmood ku dhammaanaya',r_ended:'Dhammaaday / la joojiyay',r_revenue:'Dakhliga guud',name:'Magaca',status:'Xaalad',until:'ilaa {d}'}},
+  codes:'Koodhadhka',codes_sub:'Koodhad iibsadayaashaada. Waxay geliyaan koodhka marka ay bixinayaan. Tusaale: VIP20 = 20% qiimo dhimis.',r_title:'Warbixinta xubnaha',r_active:'Firfircoon',r_expiring:'3 maalmood ku dhammaanaya',r_ended:'Dhammaaday / la joojiyay',r_revenue:'Dakhliga guud',name:'Magaca',status:'Xaalad',until:'ilaa {d}'}},
  enter:{
   home:function(){if(G.tab==='channels')api('gkMine').then(function(r){G.mine=r.ok?r.channels:[];G.fee=r.feePercent||0;K.render()});else api('gkMySubs').then(function(r){G.subs=r.ok?r.subs:[];K.render()})},
   offer:function(){G.offer=null;loadOffer()},
@@ -774,7 +848,7 @@ K.app({
   how:function(){var bot=K.CFG.botUsername||'YourBot';return K.header(t('how_title'),'')+'<div class="card"><ol class="steps"><li>'+t('s1')+'</li><li>'+t('s2',{bot:esc(bot)})+'</li><li>'+t('s3')+'</li><li>'+t('s4')+'</li></ol></div>'+
    (K.CFG.botUsername?'<button class="btn sec2" data-open="https://t.me/'+esc(K.CFG.botUsername)+'?startchannel&admin=invite_users+restrict_members">'+ic('ext')+'@'+esc(K.CFG.botUsername)+'</button>':'')+'<button class="btn" data-act="back">'+ic('refresh')+t('refresh')+'</button>'},
   edit:function(){var c=G.edit,fee=G.fee,r=c.revenue||{usd:0,stars:0,orders:0},url=K.appLink('c_'+c.key),h=K.header(c.title,t('edit'))+K.errBox();
-   h+='<div class="g2"><button class="btn" data-a="members">'+ic('users')+t('members')+' ('+(c.members||0)+')</button><button class="btn sec2" data-a="bcopen">'+ic('send')+t('broadcast').split(' ')[0]+'</button></div><button class="btn ghost" data-a="mpdf">'+ic('file')+t('members_pdf')+'</button>';
+   h+='<div class="g2"><button class="btn" data-a="members">'+ic('users')+t('members')+' ('+(c.members||0)+')</button><button class="btn sec2" data-a="bcopen">'+ic('send')+t('broadcast').split(' ')[0]+'</button></div><div class="g2"><button class="btn ghost" data-a="mpdf">'+ic('file')+t('members_pdf').replace(' (PDF)','')+'</button><button class="btn ghost" data-a="codes">'+ic('star')+t('codes')+'</button></div>';
    h+='<div class="sec">'+t('share')+'</div><div class="card">'+K.kv(t('share'),url,true)+'<p class="m">'+t('share_sub')+'</p>'+(c.botOk?'':'<div class="err">'+ic('alert','s')+'<span>'+t('s3')+'</span></div>')+'</div>';
    h+='<div class="card"><div class="sw"><div><b style="font-size:14px">'+t('publish')+'</b><div class="fs">'+t('publish_sub')+'</div></div><button class="tgl '+(c.status==='active'?'on':'')+'" data-a="pub"></button></div>'+
     '<label class="f">'+t('desc')+'</label><textarea class="t" id="desc" maxlength="500">'+esc(c.description)+'</textarea></div>';
@@ -800,6 +874,8 @@ K.app({
     '<div class="row" style="margin-top:8px"><input class="t" id="mdays" type="number" min="1" max="365" placeholder="'+t('custom_days')+'"><button class="btn sm" data-a="mext" data-d="custom">'+t('send').replace(t('send'),'+')+'</button></div></div>';
    if(m.status==='active')h+='<div class="sec">'+t('stop')+'</div><div class="card"><p class="m" style="margin-bottom:10px">'+t('stop_sub')+'</p><label class="f">'+t('reason')+'</label><input class="t" id="mreason"><button class="btn" style="margin-top:10px;background:var(--danger)" data-a="mstop">'+ic('x')+t('stop')+'</button></div>';
    return h},
+  chcodes:function(){var h=K.header(t('codes'),G.edit.title)+'<p class="m" style="margin-bottom:10px">'+t('codes_sub')+'</p>';if(!G.codes)return h+K.spin();
+   return h+K.codesBlock(G.codes,G.edit.plans.map(function(p){return p.id}).join(', '))},
   broadcast:function(){var h=K.header(t('broadcast'),G.edit.title);
    h+='<div class="card"><label class="f">'+t('aud')+'</label>'+K.seg('aud',G.bc.aud,[['active',t('aud_active')],['expiring',t('aud_expiring')]])+'<label class="f">'+t('send_msg')+'</label><textarea class="t" id="bctext" maxlength="1500" style="min-height:120px" placeholder="'+t('bc_ph')+'"></textarea><div class="fs" style="margin-top:6px">'+t('bc_hint')+'</div></div>';
    return h+'<button class="btn" data-a="bcsend">'+ic('send')+t('send')+'</button>'+K.errBox()},
@@ -834,6 +910,7 @@ K.app({
     G.member.expiry=r.expiry;G.member.status='active';G.member.daysLeft=Math.ceil((new Date(r.expiry)-Date.now())/864e5);S.msg=t('extended_ok',{d:K.fmtDate(r.expiry)});S.err='';K.haptic('ok');K.render()})},
   mstop:function(){var m=G.member,why=(document.getElementById('mreason')||{}).value||'';confirmBox(t('stop_confirm',{n:m.name}),function(){
    api('gkMemberAction',{key:G.edit.key,user_id:m.user_id,op:'stop',reason:why}).then(function(r){if(!r.ok){S.err=t('e_gen');return K.render()}m.status='stopped';m.daysLeft=0;S.msg=t('stopped_ok');S.err='';K.haptic('ok');K.render()})})},
+  codes:function(){G.codes=null;K.go('chcodes');api('gkCodes',{key:G.edit.key}).then(function(r){G.codes=r.codes||[];K.render()})},
   bcopen:function(){G.bc.aud='active';K.go('broadcast')},
   bcexp:function(){G.bc.aud='expiring';K.go('broadcast')},
   bcsend:function(){var x=document.getElementById('bctext').value.trim();if(!x)return;confirmBox(t('broadcast')+'?',function(){
@@ -867,6 +944,9 @@ K.app({
    if(d.op==='notify'){s.app.outbox.push({to:m.user_id,text:d.text});return{ok:true}}
    if(d.op==='extend'){var base=m.status==='active'&&new Date(m.expiry)>new Date()?new Date(m.expiry):new Date();m.expiry=new Date(base.getTime()+d.days*864e5).toISOString();m.status='active';return{ok:true,expiry:m.expiry}}
    if(d.op==='stop'){m.status='stopped';m.expiry=new Date().toISOString();return{ok:true}}return{ok:false}},
+  gkCodes:function(d,s){return{ok:true,codes:(s.codes||[]).filter(function(c){return c.scope==='ch:'+d.key})}},
+  gkCodeSave:function(d,s){return K.dCodeSave(s,d,'ch:'+d.key)},
+  gkCodeToggle:function(d,s){var c=(s.codes||[]).filter(function(x){return x.code===d.code})[0];if(c)c.active=!!d.active;return{ok:true}},
   gkBroadcast:function(d,s){var now=Date.now(),n=0;s.app.members.forEach(function(m){var e=new Date(m.expiry).getTime();if(m.key!==d.key||m.status!=='active'||e<=now||(d.audience==='expiring'&&e>now+3*864e5))return;s.app.outbox.push({to:m.user_id,text:d.text});n++});return{ok:true,queued:n}},
   adminGk:function(d,s){var fee=+s.settings.x_feePercent||0;return{ok:true,feePercent:fee,channels:s.app.channels.map(function(c){var r=dRev(s,c.key);return{key:c.key,title:c.title,owner:'demo',payout:c.payout,members:0,revenue:r,owedUsd:Math.round(r.usd*(100-fee))/100,owedStars:Math.floor(r.stars*(100-fee)/100)}})}}
  }

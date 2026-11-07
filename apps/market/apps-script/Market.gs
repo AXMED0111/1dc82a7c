@@ -8,7 +8,7 @@
 var THIS_APP = { id: 'market', url: 'https://mark-4be4295c.netlify.app', button: 'Field Tasks' };
 var EXTRA_SCHEMA = EXTRA_SCHEMA || {}, APP_HOOKS = APP_HOOKS || {}, APP_DEFAULTS = APP_DEFAULTS || {};
 
-APP_DEFAULTS.market = { appName: 'Field Tasks', freeAllowance: 0, x_feePercent: 20, x_minWithdraw: 5, plans: [] };
+APP_DEFAULTS.market = { appName: 'Field Tasks', freeAllowance: 0, x_feePercent: 20, x_minWithdraw: 5, plans: [], x_refOn: false };
 EXTRA_SCHEMA.Tasks = ['task_id','owner_id','title','instructions','city','reward','slots','filled','needs_photo','needs_gps','questions_json','deadline','status','fee_pct','total','created_at'];
 EXTRA_SCHEMA.Submissions = ['sub_id','task_id','worker_id','photo_file','lat','lng','answers_json','status','reason','created_at','reviewed_at'];
 EXTRA_SCHEMA.Workers = ['user_id','city','payout','balance','earned','updated_at'];

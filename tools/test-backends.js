@@ -57,6 +57,28 @@ r = E.call(ADMIN, 'adminRevenue', {}); const cm = r.months[11];
 ok('revenue: stars + usd this month', r.ok && cm.stars === 75 + 150 && cm.usd >= 2 && cm.usd < 2.02 && r.totals.orders === 4 && r.byMethod.length === 3, { cm, t: r.totals, m: r.byMethod });
 ok('revenue: admin only', E.call(U, 'adminRevenue', {}).error === 'forbidden');
 ok('revenue: all-apps scope', E.call(ADMIN, 'adminRevenue', { scope: 'all' }).byApp[0].app === 'converter');
+// --- discount codes + referrals
+E.setSettings({ plans: [{ id: 'pro_m', label: 'Pro', days: 30, credits: 0, usd: 2, stars: 150, region: 'ALL' }], x_refOn: true, x_refNewPct: 10, x_refDays: 7, x_refCredits: 0 });
+ok('code save (admin)', E.call(ADMIN, 'adminCodeSave', { code: 'somali50', pct: 50, max_uses: 2 }).ok);
+ok('code save forbidden for users', E.call(U, 'adminCodeSave', { code: 'X1X', pct: 50 }).error === 'forbidden');
+ok('check code', E.call(V, 'checkCode', { code: 'SOMALI50', plan: 'pro_m' }).pct === 50);
+ok('bad code', E.call(V, 'checkCode', { code: 'NOPE' }).error === 'code_invalid');
+r = E.call(V, 'createOrder', { plan: 'pro_m', method: 'stars', code: 'somali50' }); ok('stars order discounted 75', r.ok && E.sheets.Payments.data.some((x) => x[0] === r.order_id && x[4] === 75), r);
+E.server('starsPaid', { order_id: r.order_id, user_id: 3003, charge_id: 'd1' });
+ok('code use counted', E.call(ADMIN, 'adminCodes').codes[0].used === 1);
+E.call(ADMIN, 'adminCodeSave', { code: 'FREE100', pct: 100, max_uses: 1 });
+const F = { id: 6006, first_name: 'F' }; r = E.call(F, 'createOrder', { plan: 'pro_m', method: 'stars', code: 'FREE100' }); ok('100% code = free activation', r.ok && r.free && r.access.reason === 'sub', r);
+ok('max uses enforced', E.call({ id: 6007, first_name: 'G' }, 'checkCode', { code: 'FREE100' }).error === 'code_used_up');
+// referral: 2002 invites 7007
+const NEW = { id: 7007, first_name: 'New' };
+r = E.call(NEW, 'init', { start: 'r2002' }); ok('referee gets first-purchase discount', r.firstPct === 10 && r.ref.on && r.ref.arg === 'r7007', r);
+ok('referrer stats', E.call(U, 'refStats').invited === 1);
+ok('self-referral ignored', E.call({ id: 8008, first_name: 'S' }, 'init', { start: 'r8008' }).firstPct === 0);
+r = E.call(NEW, 'createOrder', { plan: 'pro_m', method: 'stars' }); ok('auto 10% off (135 stars)', E.sheets.Payments.data.some((x) => x[0] === r.order_id && x[4] === 135), r);
+const subsBefore = E.sheets.Subscriptions.data.length;
+E.server('starsPaid', { order_id: r.order_id, user_id: 7007, charge_id: 'd2' });
+ok('referrer rewarded 7 days', E.call(U, 'refStats').rewarded === 1 && E.sheets.Subscriptions.data.length === subsBefore + 2 && E.sent.some((s) => /friend you invited/.test(s.payload)));
+ok('discount only first purchase', E.call(NEW, 'init').firstPct === 0);
 E.run('cronDaily(); cronHourly(); cronUsdt();'); ok('crons run', true);
 
 section('gatekeeper');
@@ -86,6 +108,12 @@ ok('stop member', E.call(U, 'gkMemberAction', { key, user_id: 3003, op: 'stop', 
 r = E.call(U, 'gkMembers', { key }); ok('member shows stopped', r.members[0].status === 'stopped', r.members);
 ok('stopped member not approved', E.server('gkJoinRequest', { chat_id: -100555, user_id: 3003 }).approve === false);
 E.call(U, 'gkMemberAction', { key, user_id: 3003, op: 'extend', days: 30 });
+ok('creator code', E.call(U, 'gkCodeSave', { key, code: 'VIP20', pct: 20 }).ok);
+ok('stranger cannot make channel code', E.call(V, 'gkCodeSave', { key, code: 'HACK', pct: 90 }).error === 'forbidden');
+ok('creator code valid on channel plan', E.call(V, 'checkCode', { code: 'VIP20', plan: key + '|p1' }).pct === 20);
+E.call(ADMIN, 'adminCodeSave', { code: 'PLAT50', pct: 50 });
+ok('platform code NOT valid on creator channel', E.call(V, 'checkCode', { code: 'PLAT50', plan: key + '|p1' }).error === 'code_not_for_plan');
+r = E.call(V, 'createOrder', { plan: key + '|p1', method: 'stars', code: 'VIP20' }); ok('channel order 280 stars', E.sheets.Payments.data.some((x) => x[0] === r.order_id && x[4] === 280), r);
 r = E.call(ADMIN, 'adminGk'); ok('payout owed 95% of 350 stars', r.channels[0].owedStars === 332, r);
 E.run("rows('Members').forEach(function(m){update('Members',m,{expiry_date:new Date(Date.now()-1000)})}); cronHourly();");
 ok('expired member removed', E.sent.some((s) => s.method === 'banChatMember') && E.call(V, 'gkChannel', { key }).member === null);

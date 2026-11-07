@@ -29,7 +29,7 @@ function statusPill(s){var m={draft:['',t('st_draft')],awaiting_payment:['bad',t
 
 K.app({
  icon:'task',freeLabel:null,showPlans:false,
- defaults:{appName:'Field Tasks',freeAllowance:0,x_feePercent:20,x_minWithdraw:5,plans:[]},
+ defaults:{appName:'Field Tasks',freeAllowance:0,x_feePercent:20,x_minWithdraw:5,plans:[],x_refOn:false},
  adminFields:[{key:'x_feePercent',label:'Platform fee (%)',type:'number',ph:'20'},{key:'x_minWithdraw',label:'Minimum withdrawal (USD)',type:'number',ph:'5'}],
  adminLoad:function(){return api('adminMk')},
  adminExtra:function(x){x=x||{withdrawals:[],tasks:[]};return'<div class="sec">Withdrawals to pay</div><div class="card">'+(x.withdrawals.length?'<ul class="files">'+x.withdrawals.map(function(w){return'<li><div class="grow"><div class="fn">'+usd(w.amount)+' → '+esc(w.address)+'</div><div class="fs">User '+esc(w.user_id)+' · '+K.fmtDate(w.created)+'</div></div><button class="btn sm" data-a="wdpaid" data-id="'+esc(w.id)+'">Mark paid</button><button class="btn sm ghost" data-a="wdreject" data-id="'+esc(w.id)+'">Reject</button></li>'}).join('')+'</ul>':'<p class="m">No withdrawal requests.</p>')+'</div>'+
