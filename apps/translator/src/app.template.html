@@ -66,7 +66,7 @@ K.app({
    h+='<div class="card"><label class="f">'+t('doc_type')+'</label><select class="t" id="doc">'+DOCS.map(function(d){return'<option value="'+d+'" '+(T.doc===d?'selected':'')+'>'+t('d_'+d)+'</option>'}).join('')+'</select>'+
     '<label class="f">'+t('to')+'</label>'+K.seg('to',T.to,LANGS)+'<label class="f">'+t('photos')+'</label>';
    if(T.pages.length)h+='<div class="pages" style="margin-bottom:10px">'+T.pages.map(function(p,i){return'<div class="pg"><img src="'+p.dataUrl+'" alt=""><button class="mini" data-a="rmpage" data-i="'+i+'">'+ic('x','s')+'</button></div>'}).join('')+'</div>';
-   if(T.pages.length<3)h+='<div class="g2"><button class="btn sm sec2" data-a="cam">'+ic('camera','s')+t('camera')+'</button><button class="btn sm ghost" data-a="gallery">'+ic('images','s')+t('gallery')+'</button></div>';
+   if(T.pages.length<3)h+='<div class="g2"><label for="cam" role="button" class="btn sm sec2" data-a="cam">'+ic('camera','s')+t('camera')+'</label><label for="pick" role="button" class="btn sm ghost" data-a="gallery">'+ic('images','s')+t('gallery')+'</label></div>';
    h+='<div class="note" style="margin-top:10px;padding:0">'+ic('info','s')+'<span>'+t('tips')+'</span></div></div>';
    if(T.busy)h+='<div class="card center"><div class="spin" style="margin:6px auto 10px;color:var(--accent)"></div><p class="m">'+t('working')+'</p></div>';
    else h+='<button class="btn" data-a="translate" '+(T.pages.length?'':'disabled')+'>'+ic('translate')+t('translate')+'</button>';
@@ -83,8 +83,8 @@ K.app({
  },
  onSeg:function(n,v){if(n==='to'){T.doc=document.getElementById('doc').value;T.to=v;K.render()}},
  actions:{
-  cam:function(){T.doc=document.getElementById('doc').value;document.getElementById('cam').click()},
-  gallery:function(){T.doc=document.getElementById('doc').value;document.getElementById('pick').click()},
+  cam:function(){T.doc=document.getElementById('doc').value},     // <label for=cam/pick> opens the chooser itself (works in Telegram for PC)
+  gallery:function(){T.doc=document.getElementById('doc').value},
   rmpage:function(el,d){T.pages.splice(+d.i,1);K.render()},
   translate:function(){T.doc=document.getElementById('doc').value;if(!T.pages.length){S.err=t('e_pages');return K.render()}
    if(!S.me.access.entitled)return K.paywall({title:t('appName'),text:t('tagline'),icon:'translate',features:['PDF','English · العربية · Soomaali',t('send')],after:function(){K.home()}});

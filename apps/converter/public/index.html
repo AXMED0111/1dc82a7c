@@ -69,7 +69,7 @@ svg.i.s{width:16px;height:16px}svg.i.l{width:26px;height:26px}
 .btn.sm{padding:9px 12px;font-size:13.5px;width:auto}
 .btn+.btn{margin-top:8px}
 .row{display:flex;gap:8px;align-items:center}
-.drop{border:1.5px dashed var(--sep);border-radius:var(--r);padding:26px 16px;text-align:center;cursor:pointer;background:var(--card);display:flex;flex-direction:column;align-items:center;gap:8px;width:100%}
+.drop{position:relative;overflow:hidden;border:1.5px dashed var(--sep);border-radius:var(--r);padding:26px 16px;text-align:center;cursor:pointer;background:var(--card);display:flex;flex-direction:column;align-items:center;gap:8px;width:100%}
 .drop .ic{width:48px;height:48px;border-radius:14px;background:var(--soft);color:var(--accent);display:grid;place-items:center}
 .drop small{color:var(--hint)}
 .files{list-style:none;margin:0;padding:0}
@@ -129,6 +129,9 @@ table.pl{width:100%;border-collapse:collapse;font-size:13px}
 .spin{width:18px;height:18px;border:2px solid currentColor;border-right-color:transparent;border-radius:50%;animation:sp .7s linear infinite}
 @keyframes sp{to{transform:rotate(360deg)}}
 .hide{display:none!important}
+/* real file input laid over the button: Telegram for PC blocks opening a hidden one from code */
+.pickwrap{position:relative;overflow:hidden}.pickin{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer;font-size:0}
+.drop.over{border-color:var(--accent);background:var(--soft)}
 .foot{text-align:center;color:var(--hint);font-size:11.5px;margin-top:18px}
 </style>
 </head>
@@ -197,7 +200,7 @@ en:{
  privacy:'Files are processed on this device. They are not uploaded unless you send them to your chat.',
  p_test:'Test mode',p_pro:'Pro',p_free:'{n} free left',p_until:'until {d}',
  pick_images:'Choose images',pick_pdfs:'Choose PDF files',pick_pdf:'Choose a PDF file',
- pick_hint_img:'JPG, PNG or WEBP',pick_hint_pdf:'PDF files',
+ pick_hint_img:'JPG, PNG or WEBP',pick_hint_pdf:'PDF files',drag_hint:'or drag files here',sent_pc:'Sent to your Telegram chat with the bot (downloads are blocked inside Telegram for PC).',
  add_more:'Add more',clear:'Clear',files:'Files',options:'Options',
  a_img2pdf:'Create PDF',a_merge:'Merge PDFs',a_split:'Split PDF',a_pdf2img:'Convert to images',
  processing:'Processing…',page_x:'Page {a} of {b}',file_x:'File {a} of {b}',
@@ -248,7 +251,7 @@ so:{
  privacy:'Faylasha waxaa lagu farsameeyaa qalabkan. Lama soo diro ilaa aad adigu u dirto sheekadaada.',
  p_test:'Tijaabo',p_pro:'Pro',p_free:'{n} bilaash ah ayaa haray',p_until:'ilaa {d}',
  pick_images:'Dooro sawirro',pick_pdfs:'Dooro faylal PDF',pick_pdf:'Dooro fayl PDF',
- pick_hint_img:'JPG, PNG ama WEBP',pick_hint_pdf:'Faylal PDF',
+ pick_hint_img:'JPG, PNG ama WEBP',pick_hint_pdf:'Faylal PDF',drag_hint:'ama faylasha halkan soo jiid',sent_pc:'Waxaa loo diray sheekadaada bot-ka (soo dejintu way xiran tahay Telegram-ka kombiyuutarka).',
  add_more:'Ku dar',clear:'Tirtir',files:'Faylasha',options:'Doorashooyin',
  a_img2pdf:'Samee PDF',a_merge:'Isku dar',a_split:'Kala qaad',a_pdf2img:'U beddel sawirro',
  processing:'Waa la farsamaynayaa…',page_x:'Bogga {a} / {b}',file_x:'Faylka {a} / {b}',
@@ -422,6 +425,10 @@ function libPdfjs(){return loadScript('vendor/pdf.min.js').then(function(){windo
 function readBuf(f){return f.arrayBuffer?f.arrayBuffer():new Promise(function(r,j){var fr=new FileReader();fr.onload=function(){r(fr.result)};fr.onerror=j;fr.readAsArrayBuffer(f)})}
 function canvasBlob(c,type,q){return new Promise(function(r){c.toBlob(function(b){r(b)},type,q)})}
 function tick(){return new Promise(function(r){setTimeout(r,0)})}
+var IS_PC=!(/Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent)),TG_PC=IN_TG&&(/^(tdesktop|macos)$/.test(TG.platform||'')||IS_PC);
+function pickInput(T){return'<input type="file" class="pickin" data-pickin accept="'+T.accept+'"'+(T.multi?' multiple':'')+' aria-label="'+t(T.kind==='img'?'pick_images':'pick_pdf')+'">'}
+/* Inside Telegram for PC a download link does nothing, so "Download" sends the file to the chat with the bot instead. */
+function pcSend(idx){if(!(TG_PC&&!DEMO))return false;sendResults(idx);setTimeout(function(){toast(t('sent_pc'))},2600);return true}
 function saveBlob(blob,name){var u=URL.createObjectURL(blob),a=document.createElement('a');a.href=u;a.download=name;a.rel='noopener';document.body.appendChild(a);a.click();a.remove();setTimeout(function(){URL.revokeObjectURL(u)},60000)}
 function blobB64(b){return new Promise(function(r,j){var fr=new FileReader();fr.onload=function(){r(String(fr.result).split(',')[1])};fr.onerror=j;fr.readAsDataURL(b)})}
 function copy(txt){(navigator.clipboard?navigator.clipboard.writeText(txt):Promise.reject()).then(function(){toast(t('copied'))},function(){var ta=document.createElement('textarea');ta.value=txt;document.body.appendChild(ta);ta.select();try{document.execCommand('copy');toast(t('copied'))}catch(e){}ta.remove()})}
@@ -546,8 +553,8 @@ function renderTool(){var k=S.tool,T=TOOLS[k],o=S.opts,a=S.me.access,h=header(t(
     h+='<button class="btn ghost" data-act="again">'+ic('refresh')+t('start_over')+'</button>';
     if(IN_TG)h+='<div class="note" style="margin-top:12px">'+ic('info','s')+'<span>'+t('dl_hint')+'</span></div>';
     return h}
-  if(!S.files.length){h+='<button class="drop" data-act="pick"><div class="ic">'+ic('upload','l')+'</div><b>'+t(T.kind==='img'?'pick_images':T.multi?'pick_pdfs':'pick_pdf')+'</b><small>'+t(T.kind==='img'?'pick_hint_img':'pick_hint_pdf')+' · max '+a.maxMB+' MB</small></button>'}
-  else{h+='<div class="card"><div class="row" style="margin-bottom:4px"><b class="grow">'+t('files')+' ('+S.files.length+')</b>'+(T.multi?'<button class="btn sm sec2" data-act="pick">'+ic('plus','s')+t('add_more')+'</button>':'')+'<button class="btn sm ghost" data-act="clear">'+t('clear')+'</button></div><ul class="files">'+
+  if(!S.files.length){h+='<label class="drop" data-dropzone><div class="ic">'+ic('upload','l')+'</div><b>'+t(T.kind==='img'?'pick_images':T.multi?'pick_pdfs':'pick_pdf')+'</b><small>'+t(T.kind==='img'?'pick_hint_img':'pick_hint_pdf')+' · max '+a.maxMB+' MB'+(IS_PC?' · '+t('drag_hint'):'')+'</small>'+pickInput(T)+'</label>'}
+  else{h+='<div class="card"><div class="row" style="margin-bottom:4px"><b class="grow">'+t('files')+' ('+S.files.length+')</b>'+(T.multi?'<label class="btn sm sec2 pickwrap">'+ic('plus','s')+t('add_more')+pickInput(T)+'</label>':'')+'<button class="btn sm ghost" data-act="clear">'+t('clear')+'</button></div><ul class="files">'+
     S.files.map(function(f,i){return'<li><div class="thumb">'+(f.url?'<img src="'+f.url+'" alt="">':ic('file'))+'</div><div class="grow"><div class="fn">'+esc(f.file.name)+'</div><div class="fs">'+fmtSize(f.file.size)+(f.pages?' · '+t('n_pages',{n:f.pages}):'')+'</div></div>'+
       (T.multi?'<button class="mini" data-up="'+i+'" '+(i?'':'disabled')+'>'+ic('up')+'</button><button class="mini" data-down="'+i+'" '+(i<S.files.length-1?'':'disabled')+'>'+ic('down')+'</button>':'')+
       '<button class="mini" data-rm="'+i+'">'+ic('x')+'</button></li>'}).join('')+'</ul></div>'}
@@ -726,7 +733,7 @@ document.addEventListener('click',function(ev){var el=ev.target.closest('[data-c
   if(d.up!=null){i=+d.up;S.files.splice(i-1,0,S.files.splice(i,1)[0]);return render()}
   if(d.down!=null){i=+d.down;S.files.splice(i+1,0,S.files.splice(i,1)[0]);return render()}
   if(d.opt){var pg=document.getElementById('pages');if(pg)S.opts.pages=pg.value;S.opts[d.opt]=d.val;return render()}
-  if(d.dl!=null){var r=S.results[+d.dl];return saveBlob(r.blob,r.name)}
+  if(d.dl!=null){if(pcSend(+d.dl))return;var r=S.results[+d.dl];return saveBlob(r.blob,r.name)}
   if(d.send!=null)return sendResults(+d.send);
   if(d.plan){S.payPlan=d.plan;return render()}
   if(d.method)return startPayment(d.method);
@@ -743,8 +750,8 @@ document.addEventListener('click',function(ev){var el=ev.target.closest('[data-c
   case 'clear':resetTool();return render();
   case 'run':return runTool();
   case 'again':resetTool();return render();
-  case 'dl0':return saveBlob(S.results[0].blob,S.results[0].name);
-  case 'dlzip':Promise.all(S.results.map(function(r){return readBuf(r.blob).then(function(b){return{name:r.name,data:new Uint8Array(b)}})})).then(function(fs){saveBlob(makeZip(fs),baseName(S.files[0]?S.files[0].file.name:'files')+'.zip')});return;
+  case 'dl0':if(pcSend(0))return;return saveBlob(S.results[0].blob,S.results[0].name);
+  case 'dlzip':if(pcSend(null))return;Promise.all(S.results.map(function(r){return readBuf(r.blob).then(function(b){return{name:r.name,data:new Uint8Array(b)}})})).then(function(fs){saveBlob(makeZip(fs),baseName(S.files[0]?S.files[0].file.name:'files')+'.zip')});return;
   case 'sendall':return sendResults(null);
   case 'account':return go('account');
   case 'help':return go('help');
@@ -771,6 +778,13 @@ document.addEventListener('click',function(ev){var el=ev.target.closest('[data-c
   }
 });
 $picker.addEventListener('change',function(){addFiles($picker.files)});
+document.addEventListener('change',function(e){if(e.target&&e.target.hasAttribute&&e.target.hasAttribute('data-pickin')){addFiles(e.target.files);e.target.value=''}});
+// drag files from a folder onto the app (PC), or paste images with Ctrl+V
+function onTool(){return S.screen==='tool'&&S.tool&&!S.results&&!S.busy}
+['dragenter','dragover'].forEach(function(n){document.addEventListener(n,function(e){if(!onTool())return;e.preventDefault();var z=document.querySelector('[data-dropzone]');if(z)z.classList.add('over')})});
+document.addEventListener('dragleave',function(e){var z=document.querySelector('[data-dropzone]');if(z&&!e.relatedTarget)z.classList.remove('over')});
+document.addEventListener('drop',function(e){if(!onTool())return;e.preventDefault();if(e.dataTransfer&&e.dataTransfer.files&&e.dataTransfer.files.length)addFiles(e.dataTransfer.files)});
+document.addEventListener('paste',function(e){if(!onTool()||!e.clipboardData)return;var f=[].slice.call(e.clipboardData.files||[]);if(f.length){e.preventDefault();addFiles(f)}});
 
 /* ---------- boot ---------- */
 if(IN_TG){try{TG.ready();TG.expand();if(TG.isVersionAtLeast&&TG.isVersionAtLeast('7.7'))TG.disableVerticalSwipes()}catch(e){}}

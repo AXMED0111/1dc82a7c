@@ -81,7 +81,7 @@ K.app({
     (k.deadline?'<div class="fs" style="margin-top:8px">'+t('deadline')+': '+esc(k.deadline)+'</div>':'')+'</div>';
    return h+'<button class="btn" data-a="start">'+ic('play')+t('start')+'</button>'+K.errBox()},
   submit:function(){var k=M.task,h=K.header(k.title,t('submit'));
-   if(k.needs_photo)h+='<div class="card"><label class="f">'+t('photo')+'</label>'+(M.photo?'<img class="photo" src="'+M.photo.dataUrl+'" alt="">':'')+'<button class="btn sm '+(M.photo?'ghost':'sec2')+'" style="width:100%;margin-top:8px" data-a="photo">'+ic('camera','s')+(M.photo?t('retake'):t('take_photo'))+'</button></div>';
+   if(k.needs_photo)h+='<div class="card"><label class="f">'+t('photo')+'</label>'+(M.photo?'<img class="photo" src="'+M.photo.dataUrl+'" alt="">':'')+'<label for="cam" role="button" class="btn sm '+(M.photo?'ghost':'sec2')+'" style="width:100%;margin-top:8px" data-a="photo">'+ic('camera','s')+(M.photo?t('retake'):t('take_photo'))+'</label></div>';
    if(k.needs_gps)h+='<div class="card"><label class="f">'+t('gps')+'</label>'+(M.loc?'<div class="okmsg" style="margin:0">'+ic('pin','s')+t('loc_ok')+' · '+M.loc.lat+', '+M.loc.lng+'</div>':'<button class="btn sm sec2" style="width:100%" data-a="loc">'+ic('pin','s')+t('get_loc')+'</button>')+'</div>';
    if(k.questions.length)h+='<div class="card">'+k.questions.map(function(q,i){return'<label class="f">'+esc(q)+'</label><input class="t" data-q="'+i+'" value="'+esc((M.answers||[])[i]||'')+'">'}).join('')+'</div>';
    return h+'<button class="btn" data-a="send">'+ic('send')+t('submit')+'</button>'+K.errBox()},
@@ -110,7 +110,7 @@ K.app({
   setcity:function(){M.city=document.getElementById('city').value.trim();K.lsSet('mk_city',M.city);M.feed=null;K.home()},
   task:function(el,d){M.task=M.feed.filter(function(k){return k.id===d.id})[0];K.go('task')},
   start:function(){M.photo=null;M.loc=null;M.answers=[];K.go('submit')},
-  photo:function(){keepAnswers();document.getElementById('cam').click()},
+  photo:function(){keepAnswers()},   // the <label for=cam> opens the camera/file chooser itself (Telegram for PC blocks opening it from code)
   loc:function(){keepAnswers();getLoc(function(){S.err='';K.render()})},
   send:function(){keepAnswers();var k=M.task;if(k.needs_photo&&!M.photo){S.err=t('e_photo');return K.render()}if(k.needs_gps&&!M.loc){S.err=t('e_gps');return K.render()}
    if(k.questions.some(function(q,i){return!(M.answers[i]||'').trim()})){S.err=t('e_answers');return K.render()}
