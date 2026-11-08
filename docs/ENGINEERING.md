@@ -14,7 +14,8 @@ microservices. We add the *principles* that make a small system safe, observable
 | Apps Script `Core.gs` | Identity (Telegram signature), access, payments, rate limits, audit, metrics | Trusted |
 | App module (`Debt.gs`, …) | One business capability; owns its sheets | Trusted, isolated per app |
 | Netlify function `telegram.mjs` | Webhook: verifies Telegram's secret header, forwards to Apps Script | Trusted |
-| Google Sheet | Durable state (ledger) | Private; only Apps Script reads it |
+| App's own Google Sheet | All of one app's records (users, payments, its own data) | Private; only that app's Apps Script reads it |
+| Central Google Sheet | Numbers only per app per day (`Stats`), app directory with sheet links (`Apps`), admins, support inbox | Private; written by every app, read by the Control Center |
 
 Each app is a **modular monolith** (book 1.6): one deployable Apps Script project, clear modules inside.
 
@@ -31,14 +32,14 @@ Each app is a **modular monolith** (book 1.6): one deployable Apps Script projec
 | Evidence over intuition (1.8, 2.10, 7.7) | Request counts, error rate, p95 latency per hour (`Metrics` sheet), queue age, webhook errors, crons heartbeat, backups, sheet capacity → **Settings → System health**. Front-end errors are reported too. |
 | Audit / non-repudiation (5.2 STRIDE) | Every admin and creator action is written to `Log` as `audit:<action>` with user and request id. Secret values are never logged. |
 | Reversible change (2.21, 7.10) | **Maintenance mode**: read-only with a message, admins unaffected, payments in flight still complete. One tap to undo. Test mode and feature settings are flags, not code. |
-| Backups you can restore (2.11, 4.14) | Daily copy of the master sheet, 14 kept, in Drive folder `ledger-backups-…`. |
+| Backups you can restore (2.11, 4.14) | Daily copy of each app's sheet and of the central sheet, 14 kept, in Drive folder `ledger-backups-…`. |
 | Least privilege / tenant isolation (2.12, 5.8) | Owner checks on every channel, event, shop and task; platform discount codes cannot touch creators' prices; admin actions need `ADMIN_IDS`. |
 | Fitness functions (2.27) | `node tools/test-backends.js` — 139 automated checks (forged signature rejected, idempotent retry, rate limit, maintenance write list, payments, isolation, AI failover…). Run before every release. |
 | Secrets lifecycle (5.5) | Secrets only in Script properties / Netlify env; write-only in Settings; rotate the Netlify token you pasted in chat. |
 
 ## 2b. Control Center (control plane)
 
-- One admin bot + Mini App (`apps/control`) reading the **shared master sheet**: income per app (Stars converted at the configured rate), subscribers, forecast, trends, payment methods, new users, tickets, per-app health.
+- One admin bot + Mini App (`apps/control`) reading the **central sheet** only (numbers per app per day, refreshed hourly; rebuilt nightly): income per app (Stars converted at the configured rate), subscribers, forecast, trends, payment methods, new users, tickets, per-app health.
 - **Apps registry** (`Apps` sheet): every app registers itself on install and on each background run (heartbeats). New mini apps appear automatically.
 - **Roles** (`Admins` sheet): super admins see everything; app admins get `support`, `payments`, `settings`, `reports` for chosen apps only. Enforced on the server for every admin action.
 - **Support inbox**: users write from Settings → Contact support, or simply message any bot. Replies are queued and sent by that app's own bot (`Outbox`, each project sends only its own app's messages).
@@ -96,7 +97,7 @@ Tests: `node tools/test-edge.mjs` (edge copy against the simulator and an in-mem
 
 ## 7. Growth path (scale only under proven pressure — book 7.16)
 
-1. **Now:** one Apps Script project + one sheet per app. Comfortable for thousands of users per app.
+1. **Now:** one Apps Script project + its own spreadsheet per app; one central spreadsheet with numbers only. Comfortable for thousands of users per app.
 2. **When an app's sheet passes ~50 % or p95 > 3 s:** archive old rows monthly; split heavy tabs into their own spreadsheet.
 3. **When Apps Script quotas bind** (Gmail ~20k outside calls/day → Google Workspace 100k/day): upgrade the Google account first — cheapest step.
 4. **Only then:** move the busiest app's data to a managed database (e.g. Supabase/Postgres). All data access goes through

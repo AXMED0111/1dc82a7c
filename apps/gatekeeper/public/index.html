@@ -457,7 +457,7 @@ function revenueReport(r) {
     rows: r.byMethod.map(function (m) { return [L.en[m.method] || m.method, m.orders, usd(m.usd), m.stars]; }) } },
     { h: 'By plan' }, { table: { cols: [{ label: 'Plan', w: 2.4 }, { label: 'Orders', w: 1, align: 'right' }, { label: 'USD', w: 1.3, align: 'right' }, { label: 'Stars', w: 1.1, align: 'right' }], empty: 'No paid orders yet.',
     rows: r.byPlan.map(function (m) { return [m.plan, m.orders, usd(m.usd), m.stars]; }) } },
-    { text: 'USD = USDT and local mobile-money payments. Stars are shown separately; their value in USD depends on Telegram\'s payout rate at withdrawal time. ' + (all ? 'All-apps totals include every app that uses the same master sheet (MASTER_SHEET_ID).' : '') });
+    { text: 'USD = USDT and local mobile-money payments. Stars are shown separately; their value in USD depends on Telegram\'s payout rate at withdrawal time. ' + (all ? 'All-apps totals come from the central sheet (numbers from every app, refreshed hourly).' : '') });
   return { brand: 'Admin report', title: 'Revenue report', subtitle: (all ? 'All apps' : r.appName) + ' · last 12 months', blocks: blocks };
 }
 function saveBlob(blob, name) { var u = URL.createObjectURL(blob), a = document.createElement('a'); a.href = u; a.download = name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(function () { URL.revokeObjectURL(u); }, 60000); }

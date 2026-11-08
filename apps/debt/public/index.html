@@ -454,7 +454,7 @@ function revenueReport(r) {
     rows: r.byMethod.map(function (m) { return [L.en[m.method] || m.method, m.orders, usd(m.usd), m.stars]; }) } },
     { h: 'By plan' }, { table: { cols: [{ label: 'Plan', w: 2.4 }, { label: 'Orders', w: 1, align: 'right' }, { label: 'USD', w: 1.3, align: 'right' }, { label: 'Stars', w: 1.1, align: 'right' }], empty: 'No paid orders yet.',
     rows: r.byPlan.map(function (m) { return [m.plan, m.orders, usd(m.usd), m.stars]; }) } },
-    { text: 'USD = USDT and local mobile-money payments. Stars are shown separately; their value in USD depends on Telegram\'s payout rate at withdrawal time. ' + (all ? 'All-apps totals include every app that uses the same master sheet (MASTER_SHEET_ID).' : '') });
+    { text: 'USD = USDT and local mobile-money payments. Stars are shown separately; their value in USD depends on Telegram\'s payout rate at withdrawal time. ' + (all ? 'All-apps totals come from the central sheet (numbers from every app, refreshed hourly).' : '') });
   return { brand: 'Admin report', title: 'Revenue report', subtitle: (all ? 'All apps' : r.appName) + ' · last 12 months', blocks: blocks };
 }
 function saveBlob(blob, name) { var u = URL.createObjectURL(blob), a = document.createElement('a'); a.href = u; a.download = name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(function () { URL.revokeObjectURL(u); }, 60000); }
@@ -1130,7 +1130,7 @@ K.app({
    if(!acc)return{ok:true,allowed:false};if(acc==='free')s.freeUsed++;var n={id:'c'+K.uid(),name:d.name,phone:d.phone,token:'t'+K.uid(),linked:false,entries:[]};s.app.customers.push(n);
    return{ok:true,allowed:true,customer:sum(n),access:computeA(s,d)}},
   dbDeleteCustomer:function(d,s){s.app.customers=s.app.customers.filter(function(c){return c.id!==d.id});return{ok:true}},
-  dbAddEntry:function(d,s){var c=fc(s,d.id);c.entries.push({id:'e'+K.uid(),type:d.type,amount:+d.amount,date:d.date,due:d.due,note:d.note});return{ok:true,customer:sum(c)}},
+  dbAddEntry:function(d,s){var c=fc(s,d.id);if(d.entry&&c.entries.some(function(e){return e.id===d.entry}))return{ok:true,customer:sum(c)};c.entries.push({id:d.entry||'e'+K.uid(),type:d.type,amount:+d.amount,date:d.date,due:d.due,note:d.note});return{ok:true,customer:sum(c)}},
   dbDeleteEntry:function(d,s){var c=fc(s,d.id);c.entries=c.entries.filter(function(e){return e.id!==d.entry});return{ok:true,customer:sum(c)}},
   dbSaveShop:function(d,s){s.app.shop=d.shop;return{ok:true}},
   dbReport:function(d,s){if(!K.isPro())return{ok:true,allowed:false};var n=new Date(),y=n.getUTCFullYear(),mo=n.getUTCMonth(),f=function(x){return x.toISOString().slice(0,10)},P;

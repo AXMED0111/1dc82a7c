@@ -220,7 +220,7 @@
    ],
    [
     "Will new mini apps show up here?",
-    "Yes. Every app registers itself when installed; as long as it uses the same master sheet it appears automatically."
+    "Yes. Every app registers itself in the central sheet when installed and sends its numbers every hour, so it appears automatically."
    ],
    [
     "How are Stars counted in dollars?",

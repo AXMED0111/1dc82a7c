@@ -1,9 +1,40 @@
 /* Backend tests for all 8 apps using the Apps Script simulator: node tools/test-backends.js */
-const { makeEnv } = require('./gas-sim');
+const { makeEnv, makeDrive } = require('./gas-sim');
 const ADMIN = { id: 1001, first_name: 'Ahmed' }, U = { id: 2002, first_name: 'Hodan' }, V = { id: 3003, first_name: 'Abdi' };
 let pass = 0, fail = 0;
 function ok(name, cond, info) { if (cond) pass++; else { fail++; console.log('  FAIL', name, info !== undefined ? JSON.stringify(info).slice(0, 300) : ''); } }
 function section(n) { console.log('•', n); }
+
+section('data split: old shared ledger -> own sheet per app + central numbers');
+{
+  const D2 = makeDrive(), P = makeEnv('converter', D2, { noInstall: true });
+  const oldId = P.run(`(function(){ var b = SpreadsheetApp.create('ledger-abc123'); Object.keys(CENTRAL_SCHEMA).forEach(function(n){SCHEMA[n]=CENTRAL_SCHEMA[n]}); makeTabs(b, SCHEMA); return b.getId(); })()`);
+  P.props.MASTER_SHEET_ID = oldId;
+  P.run(`var now=new Date(); _rc={};
+   append('Users',{user_id:'11',app:'converter',first_name:'Pdf',phone:'+252611234567',created_at:now}); append('Users',{user_id:'11',app:'control',first_name:'Boss',created_at:now});
+   append('Payments',{order_id:'OLD1',user_id:'11',app:'converter',plan:'pro_m',amount:150,currency:'XTR',method:'stars',status:'paid',created_at:now,paid_at:now});
+   append('Subscriptions',{user_id:'11',app:'converter',plan:'pro_m',status:'active',start_date:now,expiry_date:new Date(now.getTime()+9*864e5)});
+   append('Subscriptions',{user_id:'11',app:'converter',plan:'pro_m',status:'expired',start_date:now,expiry_date:now});
+   append('Admins',{user_id:'5150',role:'app_admin',apps:'converter',perms:'support',active:true});
+   append('Tickets',{ticket_id:'TOLD',app:'converter',user_id:'11',type:'question',status:'open',created_at:now,updated_at:now}); append('TicketMsgs',{ticket_id:'TOLD',from:'user',author_id:'11',text:'old question',created_at:now});`);
+  ok('before the split nothing breaks (old shared sheet still used)', P.call(U, 'init').ok);
+  P.run('_rc={}; _ss=null; _cs=null; install()');
+  const own = P.book(P.props.APP_SHEET_ID), cen = P.book(P.props.CENTRAL_SHEET_ID), old = P.book(oldId);
+  ok('own sheet created and named after the app', P.props.APP_SHEET_ID && P.props.APP_SHEET_ID !== oldId && /— data$/.test(own.name));
+  ok('only this app\'s users moved', own.tabs.Users.data.filter((r) => r[1] === 'converter').length === 2 && !own.tabs.Users.data.some((r) => r[1] === 'control'));
+  ok('phone kept as text', own.tabs.Users.data.some((r) => r.includes('+252611234567')));
+  ok('both subscription rows moved', own.tabs.Subscriptions.data.length === 3);
+  ok('payments moved', own.tabs.Payments.data.some((r) => r[0] === 'OLD1'));
+  ok('admins and support inbox moved to central', cen.tabs.Admins.data.some((r) => r[0] === '5150') && cen.tabs.Tickets.data.some((r) => r[0] === 'TOLD') && cen.tabs.TicketMsgs.data.length === 2);
+  ok('numbers in central: 150 stars today', cen.tabs.Stats.data.some((r) => r[1] === 'converter' && r[9] === 150 && r[5] === 1));
+  ok('old sheet left untouched as archive', old.tabs.Users.data.length === 4 && old.tabs.Users.data.some((r) => r[1] === 'control'));
+  ok('user still signed in and subscribed after the split', P.call({ id: 11, first_name: 'Pdf' }, 'init').ok && !!P.run("_rc={}; activeSub('11','converter')"));
+  const C = makeEnv('control', D2, { noInstall: true, props: { MASTER_SHEET_ID: oldId } }); C.run('install()');
+  ok('second app finds the same central sheet', C.props.CENTRAL_SHEET_ID === P.props.CENTRAL_SHEET_ID && Object.values(D2.books).filter((b) => b.name === 'Mini Apps — Central').length === 1);
+  ok('central rows not copied twice', cen.tabs.Tickets.data.length === 2 && cen.tabs.Admins.data.length === 2);
+  ok('install again is safe (no new sheet, no duplicates)', (P.run('install()'), Object.keys(D2.books).length === 4 && own.tabs.Payments.data.length === 2));
+  ok('setup check says Ready path', /^(Ready\.|Add|Run connect)/.test(JSON.parse(P.run('doGet({parameter:{check:1}}).text')).setup.next));
+}
 
 section('core / converter');
 let E = makeEnv('converter');
@@ -133,20 +164,36 @@ tgu({ message: { chat: { id: 4343 }, from: { id: 4343 }, successful_payment: { i
 ok('successful payment activates plan', E.call({ id: 4343, first_name: 'Q' }, 'init').access.reason === 'sub');
 
 section('control center');
-E = makeEnv('control');
-E.run(`var now=new Date(), last=new Date(Date.UTC(now.getUTCFullYear(),now.getUTCMonth()-1,10));
- [['debt','pro_m','2.00','USD','evc',now],['debt','pro_m',150,'XTR','stars',now],['coach','s10','7.0012','USDT','usdt_trc20',now],['coach','s1',75,'XTR','stars',last],['rsvp','event1','5.00','USD','zaad',now]].forEach(function(p,i){append('Payments',{order_id:'P'+i,user_id:'9'+i,app:p[0],plan:p[1],amount:p[2],currency:p[3],method:p[4],status:'paid',created_at:p[5],paid_at:p[5]})});
+// Several apps, each with its own sheet, writing numbers to ONE central sheet (same Google account = shared drive)
+const DRIVE = makeDrive();
+const seed = (app, code) => { const A = makeEnv(app, DRIVE); A.run(code); A.run('syncCentral(true)'); return A; };
+const SEED_DEBT = seed('debt', `var now=new Date();
+ append('Payments',{order_id:'P0',user_id:'90',app:'debt',plan:'pro_m',amount:'2.00',currency:'USD',method:'evc',status:'paid',created_at:now,paid_at:now});
+ append('Payments',{order_id:'P1',user_id:'91',app:'debt',plan:'pro_m',amount:150,currency:'XTR',method:'stars',status:'paid',created_at:now,paid_at:now});
  append('Payments',{order_id:'PR',user_id:'98',app:'debt',plan:'pro_m',amount:'$2.00',currency:'USD',method:'evc',status:'review',created_at:now});
  append('Subscriptions',{user_id:'90',app:'debt',plan:'pro_m',status:'active',start_date:now,expiry_date:new Date(now.getTime()+20*864e5)});
- ['debt','debt','coach','rsvp'].forEach(function(a,i){append('Users',{user_id:'7'+i,app:a,first_name:'U',created_at:now})});
- append('Apps',{app:'debt',name:'Debt Book',url:'https://axm-06.pages.dev',hb_5min:now});append('Apps',{app:'coach',name:'Interview Coach',url:'https://axm-02.pages.dev',hb_5min:new Date(now.getTime()-3*36e5)});
+ ['70','71'].forEach(function(u){append('Users',{user_id:u,app:'debt',first_name:'U',created_at:now,last_seen:now})});
+ append('Customers',{cust_id:'c1',owner_id:'70',name:'Secret Customer',phone:'+252610000009',status:'active',created_at:now});`);
+seed('coach', `var now=new Date(), last=new Date(Date.UTC(now.getUTCFullYear(),now.getUTCMonth()-1,10));
+ append('Payments',{order_id:'P2',user_id:'92',app:'coach',plan:'s10',amount:'7.0012',currency:'USDT',method:'usdt_trc20',status:'paid',created_at:now,paid_at:now});
+ append('Payments',{order_id:'P3',user_id:'93',app:'coach',plan:'s1',amount:75,currency:'XTR',method:'stars',status:'paid',created_at:last,paid_at:last});
+ append('Users',{user_id:'72',app:'coach',first_name:'U',created_at:now});`);
+const RSVP = makeEnv('rsvp', DRIVE); RSVP.run(`var now=new Date(); append('Payments',{order_id:'P4',user_id:'94',app:'rsvp',plan:'event1',amount:'5.00',currency:'USD',method:'zaad',status:'paid',created_at:now,paid_at:now}); append('Users',{user_id:'73',app:'rsvp',first_name:'U',created_at:now});`);
+RSVP.run('syncCentral(false)');
+E = makeEnv('control', DRIVE);
+E.run(`var now=new Date(); update('Apps',find('Apps',function(a){return a.app==='coach'}),{hb_5min:new Date(now.getTime()-3*36e5)});
  append('Tickets',{ticket_id:'T1',app:'debt',user_id:'70',user_name:'Amina',type:'payment',status:'open',priority:'high',created_at:now,updated_at:now});append('TicketMsgs',{ticket_id:'T1',from:'user',author_id:'70',text:'I paid by EVC but no access',created_at:now});
  append('Tickets',{ticket_id:'T2',app:'coach',user_id:'72',type:'suggestion',status:'open',priority:'normal',created_at:now,updated_at:now});`);
+const CENTRAL = E.book(E.props.CENTRAL_SHEET_ID), OWN = (env) => env.book(env.props.APP_SHEET_ID);
+ok('one central sheet for all apps', ['debt', 'coach', 'rsvp', 'control'].every((a) => CENTRAL.tabs.Apps.data.some((x) => x[0] === a)) && Object.values(DRIVE.books).filter((b) => b.name === 'Mini Apps — Central').length === 1);
+ok('every app has its own sheet with all its tabs', /Debt Book — data/.test(OWN(SEED_DEBT).name) && OWN(SEED_DEBT).tabs.Customers && OWN(SEED_DEBT).tabs.Users && !OWN(SEED_DEBT).tabs.Stats && !CENTRAL.tabs.Users);
+ok('directory links each app sheet', CENTRAL.tabs.Apps.data.some((x) => x[0] === 'debt' && /https:\/\/sheet\//.test(x[10])));
+ok('central holds numbers only (no names or phones)', !JSON.stringify(CENTRAL.tabs.Stats.data).match(/Secret|2526100|Amina/) && CENTRAL.tabs.Stats.data.length > 3);
 r = E.call(ADMIN, 'ccOverview', {}); const db = r.byApp.find((a) => a.app === 'debt');
 ok('overview: per-app income this month (stars converted)', r.ok && Math.abs(db.mtd - (2 + 150 * 0.013)) < 0.01 && r.totals.ordersMtd === 4, { db, t: r.totals });
 ok('overview: last month and subscribers', r.byApp.find((a) => a.app === 'coach').lastMonth > 0 && db.subs === 1 && r.totals.openTickets === 2);
 ok('overview: projection >= month to date', r.totals.projection >= r.totals.mtd && r.months.length === 12 && r.daily.length >= 28);
-ok('overview: new app appears automatically (rsvp has data, not registered)', r.apps.some((a) => a.app === 'rsvp'));
+ok('overview: new app appears automatically', r.apps.some((a) => a.app === 'rsvp'));
 r = E.call(ADMIN, 'ccOverview', { only: 'coach' }); ok('overview filter by app', r.byApp.length === 1 && r.byApp[0].app === 'coach', r.byApp);
 r = E.call(ADMIN, 'ccHealth'); const ch = r.apps.find((a) => a.app === 'coach'), dh = r.apps.find((a) => a.app === 'debt');
 ok('health: stopped jobs flagged bad', ch.status === 'bad' && /stopped/.test(ch.issues.join()), ch);
@@ -158,9 +205,12 @@ ok('app admin inbox scoped', E.call(CA, 'ccTickets', {}).items.every((x) => x.ap
 ok('app admin cannot open other app ticket', E.call(CA, 'ccTicket', { id: 'T1' }).error === 'forbidden');
 ok('app admin cannot manage admins', E.call(CA, 'ccAdmins').error === 'forbidden');
 r = E.call(ADMIN, 'ccTickets', {}); ok('inbox: high priority first', r.items[0].id === 'T1' && r.items[0].preview, r.items);
-ok('reply queued for the app\'s own bot', E.call(ADMIN, 'ccReply', { id: 'T1', text: 'Approved — you have access now.' }).ok && E.sheets.Outbox.data.some((x) => x[1] === 'debt' && x[2] === '70' && /Approved/.test(x[3])));
+ok('reply goes into the Debt Book sheet\'s own queue', E.call(ADMIN, 'ccReply', { id: 'T1', text: 'Approved — you have access now.' }).ok && OWN(SEED_DEBT).tabs.Outbox.data.some((x) => x[1] === 'debt' && x[2] === '70' && /Approved/.test(x[3])));
+ok('Debt Book project sends it with its own bot', SEED_DEBT.run('_rc = {}; processOutbox(50)') === 1);
+SEED_DEBT.call({ id: 4545, first_name: 'Ali' }, 'ticketCreate', { type: 'problem', text: 'App does not open' });
+ok('new ticket alert goes into the Control Center queue', OWN(E).tabs.Outbox.data.some((x) => x[1] === 'control' && /App does not open/.test(x[3])) && CENTRAL.tabs.Tickets.data.some((x) => x[2] === '4545'));
 ok('ticket marked answered', E.call(ADMIN, 'ccTicket', { id: 'T1' }).ticket.status === 'answered');
-ok('control project does not send other apps\' messages', E.run('processOutbox(50)') === 0);
+ok('control project sends only its own alerts', E.run('_rc = {}; processOutbox(50)') === 1 && OWN(E).tabs.Outbox.data.slice(1).every((x) => x[1] === 'control'));
 ok('super adds app admin', E.call(ADMIN, 'ccAdminSave', { user_id: '7777', name: 'Hodan', role: 'app_admin', apps: 'debt', perms: 'support,payments' }).ok && E.call(ADMIN, 'ccAdmins').items.some((x) => x.user_id === '7777' && x.perms === 'support,payments'));
 ok('admin without scope refused', E.call(ADMIN, 'ccAdminSave', { user_id: '7778', role: 'app_admin', apps: '', perms: '' }).error === 'scope');
 ok('AI not configured -> clear error', E.call(ADMIN, 'ccAsk', { q: 'How is income?' }).error === 'ai_not_configured');
