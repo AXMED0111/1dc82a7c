@@ -129,8 +129,8 @@
   ]
  },
  "debt": {
-  "short": "Record customer credit in your shop and send polite payment reminders.",
-  "long": "Debt Book replaces the paper notebook for shops that sell on credit.\n\n• Add customers and record credit sales and payments\n• See who owes what and who is overdue\n• Send polite reminders by WhatsApp, SMS or Telegram in one tap\n• Customers can see their own statement; the bot can remind them automatically\n• Financial reports as PDF (Pro)\n\nTap Start, then open the app.",
+  "short": "Shop ledger: credit, payments, income, expenses, profit and one-tap WhatsApp reminders.",
+  "long": "Debt Book is the ledger for shops and small businesses.\n\n• Record credit sales, payments, income and expenses in seconds\n• See profit, cash in and who owes you, every day\n• Customers from any country with their WhatsApp number\n• Business plan: remind customers on WhatsApp, SMS or Telegram in one tap, or let the bot remind them\n• Reports and PDF statements (Pro)\n\nTap Start, then open the app.",
   "title": "Customer credit, simply recorded",
   "intro": "Record what customers buy on credit and what they pay. See who is overdue and send a polite reminder in one tap.",
   "steps": [

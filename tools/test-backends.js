@@ -294,7 +294,25 @@ r = E.call(U, 'dbReport', { period: 'all', customer: cid }); ok('single-customer
 ok('sendReport rejects non-PDF', E.call(U, 'sendReport', { name: 'x.pdf', data: 'aGVsbG8=' }).error === 'not_pdf');
 ok('sendReport PDF ok', E.call(U, 'sendReport', { name: 'r.pdf', data: Buffer.from('%PDF-1.4 test').toString('base64') }).ok);
 E.setSettings({ testMode: false });
-E.run('cronDaily()'); ok('weekly reminder sent in Somali', E.sent.some((s) => s.method === 'sendMessage' && /Asc Abdi/.test(s.payload)));
+let nSent = E.sent.length; E.run('cronDaily()'); ok('free shop: no automatic reminders (Business feature)', !E.sent.slice(nSent).some((s) => /Asc Abdi/.test(s.payload)));
+ok('free shop: reminder button asks for Business', E.call(U, 'dbRemindAction', { id: cid, via: 'mark' }).allowed === false);
+E.run("append('Subscriptions',{user_id:'2002',app:'debt',plan:'biz_m',status:'active',start_date:new Date(),expiry_date:new Date(Date.now()+30*864e5)})");
+ok('tier = business with a Business plan', E.call(U, 'dbBook').tier === 'business');
+nSent = E.sent.length; E.run('_rc={}; cronDaily()'); ok('weekly reminder sent in Somali (Business)', E.sent.slice(nSent).some((s) => s.method === 'sendMessage' && /Asc Abdi/.test(s.payload)));
+r = E.call(U, 'dbRemindAction', { id: cid, via: 'mark' }); ok('WhatsApp reminder recorded', r.ok && r.allowed && E.call(U, 'dbCustomer', { id: cid }).customer.reminded);
+nSent = E.sent.length; r = E.call(U, 'dbRemindAction', { id: cid, via: 'bot' }); ok('one-tap reminder through the bot to a linked customer', r.ok && E.sent.slice(nSent).some((s) => /Asc Abdi/.test(s.payload)), r);
+// cashbook: income and expenses without a customer; ledger report
+ok('expense without a customer', E.call(U, 'dbAddEntry', { type: 'expense', amount: 12.5, category: 'Rent', method: 'cash', entry: 'exp00001' }).ok);
+E.call(U, 'dbAddEntry', { type: 'expense', amount: 12.5, category: 'Rent', method: 'cash', entry: 'exp00001' });
+E.call(U, 'dbAddEntry', { type: 'income', amount: 40, category: 'Sales', method: 'mobile', entry: 'inc00001' });
+ok('credit sale still needs a customer', E.call(U, 'dbAddEntry', { type: 'debt', amount: 5 }).error === 'not_found');
+r = E.call(U, 'dbBook'); ok('cashbook listed (retry stored once)', r.cash.length === 2 && r.cash.some((e) => e.category === 'Rent' && e.method === 'cash'), r.cash);
+r = E.call(U, 'dbReport', { period: 'all' }).report.totals;
+ok('ledger totals: sales, expenses, profit, cash in, net', r.income === 40 && r.expense === 12.5 && r.sales === 85 && r.profit === 72.5 && r.cashIn === 55 && r.net === 42.5, r);
+ok('expenses by category', E.call(U, 'dbReport', { period: 'all' }).report.byCategory[0].category === 'Rent');
+ok('delete a cashbook entry', E.call(U, 'dbDeleteEntry', { entry: 'exp00001' }).ok && E.call(U, 'dbBook').cash.length === 1);
+ok('another shop cannot delete it', (E.call(V, 'dbDeleteEntry', { entry: 'inc00001' }), E.call(U, 'dbBook').cash.length === 1));
+ok('phone saved in international format', E.call(U, 'dbSaveCustomer', { id: cid, name: 'Abdi', phone: '+44 7700 900123' }).customer.phone === '+447700900123');
 
 section('scholar');
 E = makeEnv('scholar'); E.setSettings({ testMode: false });
