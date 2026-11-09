@@ -99,7 +99,7 @@ function aiChat(ctx, messages) {
   }
   if (!text && gm) {
     var parts = [{ text: messages.map(function (m) { return m.role.toUpperCase() + ': ' + m.content; }).join('\n\n') }];
-    var g = UrlFetchApp.fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent', { method: 'post', contentType: 'application/json', muteHttpExceptions: true, headers: { 'x-goog-api-key': gm },
+    var g = UrlFetchApp.fetch('https://generativelanguage.googleapis.com/v1beta/models/' + encodeURIComponent(aiAutoModel(false) || AI_DEFAULT_MODEL) + ':generateContent', { method: 'post', contentType: 'application/json', muteHttpExceptions: true, headers: { 'x-goog-api-key': gm },
       payload: JSON.stringify({ contents: [{ role: 'user', parts: parts }], generationConfig: { temperature: 0.2 } }) });
     if (g.getResponseCode() === 200) { var gj = JSON.parse(g.getContentText()); text = ((((gj.candidates || [])[0] || {}).content || {}).parts || []).map(function (x) { return x.text || ''; }).join(''); }
     else log(ctx.uid, 'control', 'ai_error', 'gemini http ' + g.getResponseCode());

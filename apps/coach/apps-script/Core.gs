@@ -799,19 +799,47 @@ function aiCall(ctx, parts) {
   if (g >= (Number(st.x_aiDailyBudget) || 500)) throw new Error('ai_budget');
   if (!ctx.isAdmin && u >= (Number(st.x_aiUserDaily) || 30)) throw new Error('ai_user_cap');
   parts = [{ text: AI_GUARD }].concat(parts);
-  var models = [st.x_aiModel || 'gemini-2.5-flash', st.x_aiFallback || ''].filter(String), last;
+  var dead = String(prop('AI_MODEL_DEAD') || '').split(','), live = function (m) { return m && dead.indexOf(m) < 0; };   // names Google said "not found" for are skipped
+  var models = [st.x_aiModel || AI_DEFAULT_MODEL, st.x_aiFallback || '', prop('AI_MODEL_AUTO')].filter(live), last, tried = {}, healed = false;
+  if (!models.length) models = [aiAutoModel(true) || AI_DEFAULT_MODEL];
   for (var i = 0; i < models.length; i++) {
+    if (tried[models[i]]) continue; tried[models[i]] = 1;
     try { var r = aiJson(parts, models[i], true); c.put(gk, String(g + 1), 90000); c.put(uk, String(u + 1), 90000); metric(ctx.app, null, false, { ai: 1, tok: r._tokens || 0 }); delete r._tokens; return r; }
-    catch (e) { last = e; log(ctx.uid, ctx.app, 'ai_error', models[i] + ' ' + e.message); }
+    catch (e) {
+      last = e; log(ctx.uid, ctx.app, 'ai_error', models[i] + ' ' + e.message);
+      // Model retired or renamed by Google: ask Google which models exist and try the newest Flash once.
+      if (/^ai_http_404/.test(e.message) && dead.indexOf(models[i]) < 0) { dead.push(models[i]); setProp('AI_MODEL_DEAD', dead.filter(String).slice(-20).join(',')); }
+      if (/^ai_http_404/.test(e.message) && !healed && i === models.length - 1) { healed = true; var auto = aiAutoModel(true); if (auto && !tried[auto]) { models.push(auto); log(ctx.uid, ctx.app, 'ai_model_auto', auto); } }
+    }
   }
   throw last || new Error('ai_failed');
 }
+/* Google retires model names over time (404 "not found"). aiAutoModel() lists the models this key can use and picks
+   'gemini-flash-latest' if offered, otherwise the newest stable Flash model. Remembered in AI_MODEL_AUTO for 7 days. */
+var AI_DEFAULT_MODEL = 'gemini-flash-latest';
+function aiVer(n) { var m = /gemini-(\d+(?:\.\d+)?)/.exec(n); return m ? parseFloat(m[1]) : 0; }
+function aiAutoModel(force) {
+  var have = prop('AI_MODEL_AUTO'), at = Number(prop('AI_MODEL_AUTO_AT') || 0);
+  if (have && !force && Date.now() - at < 7 * 864e5) return have;
+  var key = prop('GEMINI_KEY'); if (!key) return have;
+  try {
+    var r = UrlFetchApp.fetch('https://generativelanguage.googleapis.com/v1beta/models?pageSize=1000', { muteHttpExceptions: true, headers: { 'x-goog-api-key': key } });
+    if (r.getResponseCode() !== 200) return have;
+    var names = (JSON.parse(r.getContentText()).models || []).filter(function (m) { return (m.supportedGenerationMethods || []).indexOf('generateContent') >= 0; })
+      .map(function (m) { return String(m.name || '').replace(/^models\//, ''); })
+      .filter(function (n) { return /^gemini-.*flash/.test(n) && !/(image|tts|live|audio|embed|thinking|exp|8b|computer)/.test(n); });
+    var pick = names.indexOf('gemini-flash-latest') >= 0 ? 'gemini-flash-latest' : names.filter(function (n) { return !/preview/.test(n); })
+      .sort(function (a, b) { return aiVer(b) - aiVer(a) || (/lite/.test(a) ? 1 : 0) - (/lite/.test(b) ? 1 : 0); })[0] || '';
+    if (pick) { setProp('AI_MODEL_AUTO', pick); setProp('AI_MODEL_AUTO_AT', String(Date.now())); }
+    return pick || have;
+  } catch (e) { return have; }
+}
 function aiJson(parts, model, withUsage) {
   var key = prop('GEMINI_KEY'); if (!key) throw new Error('ai_not_configured');
-  var url = 'https://generativelanguage.googleapis.com/v1beta/models/' + encodeURIComponent(model || 'gemini-2.5-flash') + ':generateContent';
+  var url = 'https://generativelanguage.googleapis.com/v1beta/models/' + encodeURIComponent(model || AI_DEFAULT_MODEL) + ':generateContent';
   var r = UrlFetchApp.fetch(url, { method: 'post', contentType: 'application/json', muteHttpExceptions: true, headers: { 'x-goog-api-key': key },
     payload: JSON.stringify({ contents: [{ role: 'user', parts: parts }], generationConfig: { temperature: 0.3, responseMimeType: 'application/json' } }) });
-  if (r.getResponseCode() !== 200) throw new Error('ai_http_' + r.getResponseCode());
+  if (r.getResponseCode() !== 200) { var why = ''; try { why = ((JSON.parse(r.getContentText()) || {}).error || {}).message || ''; } catch (x) {} throw new Error('ai_http_' + r.getResponseCode() + (why ? ' ' + String(why).slice(0, 160) : '')); }   // Google's reason, never the key
   var j = JSON.parse(r.getContentText()), txt = (((j.candidates || [])[0] || {}).content || {}).parts;
   txt = (txt || []).map(function (x) { return x.text || ''; }).join('');
   var out = JSON.parse(txt.replace(/^```(json)?|```$/g, '').trim());

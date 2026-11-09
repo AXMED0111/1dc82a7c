@@ -7,7 +7,7 @@
 var THIS_APP = { id: 'translator', url: 'https://axm-03.pages.dev', button: 'Translate' };
 var EXTRA_SCHEMA = EXTRA_SCHEMA || {}, APP_HOOKS = APP_HOOKS || {}, APP_DEFAULTS = APP_DEFAULTS || {}, APP_SECRETS = APP_SECRETS || {};
 
-APP_DEFAULTS.translator = { appName: 'Document Translator', freeAllowance: 1, x_aiModel: 'gemini-2.5-flash', x_aiFallback: 'gemini-2.5-flash-lite', x_aiDailyBudget: 300, x_aiUserDaily: 20, plans: [
+APP_DEFAULTS.translator = { appName: 'Document Translator', freeAllowance: 1, x_aiModel: 'gemini-flash-latest', x_aiFallback: 'gemini-flash-lite-latest', x_aiDailyBudget: 300, x_aiUserDaily: 20, plans: [
   { id: 'd1', label: '1 document', days: 0, credits: 1, usd: 3, stars: 200, region: 'ALL' },
   { id: 'd5', label: '5 documents', days: 0, credits: 5, usd: 12, stars: 850, region: 'ALL' },
   { id: 'pro_m', label: 'Unlimited · 1 month', days: 30, credits: 0, usd: 15, stars: 1000, region: 'ALL' } ] };

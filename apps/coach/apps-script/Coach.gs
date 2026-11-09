@@ -7,7 +7,7 @@
 var THIS_APP = { id: 'coach', url: 'https://axm-02.pages.dev', button: 'Practice' };
 var EXTRA_SCHEMA = EXTRA_SCHEMA || {}, APP_HOOKS = APP_HOOKS || {}, APP_DEFAULTS = APP_DEFAULTS || {}, APP_SECRETS = APP_SECRETS || {};
 
-APP_DEFAULTS.coach = { appName: 'Interview Coach', freeAllowance: 2, x_aiModel: 'gemini-2.5-flash', x_aiFallback: 'gemini-2.5-flash-lite', x_aiDailyBudget: 500, x_aiUserDaily: 30, plans: [
+APP_DEFAULTS.coach = { appName: 'Interview Coach', freeAllowance: 2, x_aiModel: 'gemini-flash-latest', x_aiFallback: 'gemini-flash-lite-latest', x_aiDailyBudget: 500, x_aiUserDaily: 30, plans: [
   { id: 's1', label: '1 session', days: 0, credits: 1, usd: 1, stars: 75, region: 'ALL' },
   { id: 's10', label: '10 sessions', days: 0, credits: 10, usd: 7, stars: 500, region: 'ALL' },
   { id: 'pro_m', label: 'Unlimited · 1 month', days: 30, credits: 0, usd: 9, stars: 650, region: 'ALL' } ] };

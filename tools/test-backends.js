@@ -343,6 +343,20 @@ E = makeEnv('translator'); E.setSettings({ testMode: false }); E.props.GEMINI_KE
 E.ctx.__fetchReply = () => ({ candidates: [{ content: { parts: [{ text: '```json\n' + JSON.stringify({ source_language: 'Somali', title: 'Birth Certificate', fields: [{ label: 'Name', value: 'Amina' }], body: '', labels: {} }) + '\n```' }] } }] });
 r = E.call(U, 'trTranslate', { doc: 'birth', to: 'en', pages: [{ data: 'AAAA', mime: 'image/jpeg' }] }); ok('translated (code-fenced JSON ok) + token', r.ok && r.result.fields[0].value === 'Amina' && r.token, r);
 ok('second doc blocked (1 free)', E.call(U, 'trTranslate', { doc: 'birth', to: 'en', pages: [{ data: 'AAAA' }] }).allowed === false);
+// Google retired the saved model names (404): the app lists the models, switches to the newest Flash and still translates
+E.setSettings({ testMode: true, x_aiModel: 'gemini-2.5-flash', x_aiFallback: 'gemini-2.5-flash-lite' });
+const GOOD = { candidates: [{ content: { parts: [{ text: JSON.stringify({ source_language: 'Somali', title: 'Certificate', fields: [{ label: 'Name', value: 'Hodan' }], body: '', labels: {} }) }] } }] };
+const asked = []; E.ctx.__fetchReply = (url) => { asked.push(url.replace(/^.*\/v1beta\//, ''));
+  if (/\/models\?/.test(url)) return { models: [{ name: 'models/gemini-3.5-flash-lite', supportedGenerationMethods: ['generateContent'] }, { name: 'models/gemini-3.6-flash', supportedGenerationMethods: ['generateContent'] },
+    { name: 'models/gemini-3.6-flash-image', supportedGenerationMethods: ['generateContent'] }, { name: 'models/gemini-omni-flash-preview', supportedGenerationMethods: ['generateContent'] }, { name: 'models/text-embedding-9', supportedGenerationMethods: ['embedContent'] }] };
+  if (/gemini-2\.5/.test(url)) return { __code: 404, error: { message: 'models/gemini-2.5-flash is not found for API version v1beta' } };
+  return GOOD; };
+r = E.call(U, 'trTranslate', { doc: 'birth', to: 'en', pages: [{ data: 'AAAA', mime: 'image/jpeg' }] });
+ok('retired model: switches to the newest stable Flash and translates', r.ok && r.result.fields[0].value === 'Hodan' && E.props.AI_MODEL_AUTO === 'gemini-3.6-flash', { r, auto: E.props.AI_MODEL_AUTO, asked });
+ok('Google\'s reason is written to the Log', E.sheets.Log.data.some((x) => x[3] === 'ai_error' && /not found for API version/.test(x[4])) && E.sheets.Log.data.some((x) => x[3] === 'ai_model_auto' && x[4] === 'gemini-3.6-flash'));
+asked.length = 0; E.call(U, 'trTranslate', { doc: 'birth', to: 'en', pages: [{ data: 'AAAA' }] });
+ok('next time it goes straight to the working model (dead names skipped)', asked.length === 1 && /gemini-3\.6-flash:/.test(asked[0]), asked);
+E.ctx.__fetchReply = null;
 
 section('market');
 E = makeEnv('market'); E.setSettings({ testMode: false });
