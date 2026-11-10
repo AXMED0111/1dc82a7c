@@ -242,15 +242,16 @@ section('Invitations on D1: locked replies, tickets, time zones, door');
   ok('unknown ticket', (await S.call(W, 'rsvTicket', { t: 'gnothing' })).error === 'not_found');
   // check-in opens N hours before the start; an early scan shows the ticket instead
   r = await S.call(U, 'rsvCheckin', { key: ek, code: gk.toUpperCase() }); ok('early scan: not checked in, shows when check-in opens', r.ok && r.result === 'early' && r.opens_at === '2026-12-24T12:00:00.000Z' && r.guest.name === 'Ali' && !S.rows('Guests').find((g) => g.guest_key === gk).checked_in_at, r);
-  r = await S.call(U, 'rsvCheckin', { key: ek, code: 'RSVP:' + gk, force: true }); ok('host can check in anyway', r.ok && r.result === 'in' && /Z$/.test(r.guest.checked_in_at) && r.door.arrived === 2, r);
-  ok('second scan = already (with the time)', (await S.call(U, 'rsvCheckin', { key: ek, code: 'https://t.me/InvBot?start=t_' + gk })).result === 'already');
+  r = await S.call(U, 'rsvCheckin', { key: ek, code: 'RSVP:' + gk, force: true });
+  ok('no way around it before check-in opens: coming soon, start time given, nothing recorded, nobody counted', r.result === 'early' && r.starts_at === '2026-12-24T15:00:00.000Z' && r.door.arrived === 0 && !S.rows('Guests').find((g) => g.guest_key === gk).checked_in_at, r);
   ok('stranger cannot check in', (await S.call(V, 'rsvCheckin', { key: ek, code: gk })).error === 'forbidden');
   const soon = local(2 * 36e5), later = local(5 * 36e5);
   const ek3 = (await S.call(U, 'rsvSave', { event: { title: 'Dinner', date: soon.date, time: soon.time, tz: TZ, checkin_before: 3 } })).event.key, ek4 = (await S.call(U, 'rsvSave', { event: { title: 'Lunch', date: later.date, time: later.time, tz: TZ, checkin_before: 3 } })).event.key;
   await S.setSettings({ testMode: true }); await S.call(U, 'rsvPublish', { key: ek3 }); await S.call(U, 'rsvPublish', { key: ek4 }); await S.setSettings({ testMode: false });
   const d3 = (await S.call(U, 'rsvGuestAdd', { key: ek3, guests: [{ name: 'Nur', max: 4 }] })).event.guests[0].key, d4 = (await S.call(U, 'rsvGuestAdd', { key: ek4, guests: [{ name: 'Sahra', max: 1 }] })).event.guests[0].key;
   await S.call(W, 'rsvReply', { g: d3, rsvp: 'yes', party: 4 }); await S.call(H2, 'rsvReply', { g: d4, rsvp: 'yes', party: 1 });
-  ok('event in 2 h, check-in 3 h before: open now', (await S.call(U, 'rsvCheckin', { key: ek3, code: d3 })).result === 'in');
+  r = await S.call(U, 'rsvCheckin', { key: ek3, code: d3 }); ok('event in 2 h, check-in 3 h before: open now', r.result === 'in' && /Z$/.test(r.guest.checked_in_at) && r.door.arrived === 4, r);
+  ok('second scan = already (with the time)', (await S.call(U, 'rsvCheckin', { key: ek3, code: 'https://t.me/InvBot?start=t_' + d3 })).result === 'already');
   ok('event in 5 h: early', (await S.call(U, 'rsvCheckin', { key: ek4, code: d4 })).result === 'early');
   r = await S.call(U, 'rsvCheckin', { key: ek4, code: d3 }); ok('ticket of another event of the same host: says which', r.error === 'other_event' && r.other === 'Dinner', r);
   const ek5 = (await S.call(U, 'rsvSave', { event: { title: 'Any', date: later.date, time: later.time, tz: TZ, checkin_before: 999 } })).event; ok('"any time" check-in has no opening time', ek5.checkin_opens_at === '' && ek5.checkin_before === 999, ek5);
@@ -258,10 +259,14 @@ section('Invitations on D1: locked replies, tickets, time zones, door');
   r = await S.call(U, 'rsvStaffLink', { key: ek4 }); const staff = r.event.staff; ok('helper link made', /^e\w+-\w{10}$/.test(staff));
   ok('helper: door screen with numbers', (await S.call(H2, 'rsvDoor', { key: ek4, staff: [staff] })).role === 'staff');
   ok('helper cannot open the guest list', (await S.call(H2, 'rsvEvent', { key: ek4 })).error === 'forbidden' && (await S.call(H2, 'rsvMine')).events.length === 0);
-  ok('helper can check in (and force when early)', (await S.call(H2, 'rsvCheckin', { key: ek4, code: d4, staff: [staff], force: true })).result === 'in');
+  ok('helper is blocked early too', (await S.call(H2, 'rsvCheckin', { key: ek4, code: d4, staff: [staff], force: true })).result === 'early' && !S.rows('Guests').find((g) => g.guest_key === d4).checked_in_at);
+  await S.call(U, 'rsvStaffLink', { key: ek3 }); const staff3 = (await S.call(U, 'rsvEvent', { key: ek3 })).event.staff, d3b = (await S.call(U, 'rsvGuestAdd', { key: ek3, guests: [{ name: 'Idil', max: 1 }] })).event.guests.find((g) => g.name === 'Idil').key;
+  await S.call(O, 'rsvReply', { g: d3b, rsvp: 'yes', party: 1 }); ok('helper checks in once check-in is open', (await S.call(H2, 'rsvCheckin', { key: ek3, code: d3b, staff: [staff3] })).result === 'in');
+  ok('helper cannot undo a check-in', (await S.call(H2, 'rsvCheckinUndo', { key: ek3, guest: d3b, staff: [staff3] })).error === 'forbidden');
+  r = await S.call(U, 'rsvCheckinUndo', { key: ek3, guest: d3b }); ok('host undoes a check-in made by mistake', r.ok && !r.event.guests.find((g) => g.key === d3b).checked_in_at && r.event.stats.checked === 4, r.event && r.event.stats);
   ok('helper opening a ticket link: may check in', (await S.call(H2, 'rsvTicket', { t: d4, staff: ['x', staff] })).role === 'staff');
   await S.call(U, 'rsvStaffLink', { key: ek4, renew: true }); ok('a new link stops the old one', (await S.call(H2, 'rsvDoor', { key: ek4, staff: [staff] })).error === 'forbidden');
-  r = await S.call(U, 'rsvDoor', { key: ek3 }); ok('door: arrived / expected and latest arrivals', r.ok && r.door.arrived === 4 && r.door.expected === 4 && r.recent[0].name === 'Nur', r);
+  r = await S.call(U, 'rsvDoor', { key: ek3 }); ok('door: arrived / expected and latest arrivals', r.ok && r.door.arrived === 4 && r.door.expected === 5 && r.recent[0].name === 'Nur', r);
   // the host can reopen a reply (not after check-in)
   ok('checked-in guest cannot be reopened', (await S.call(U, 'rsvGuestReset', { key: ek3, guest: d3 })).error === 'checked_in');
   const hw = (await S.call(U, 'rsvEvent', { key: ek })).event.guests.find((g) => g.name === 'Hawa').key;
@@ -282,7 +287,7 @@ section('Invitations on D1: locked replies, tickets, time zones, door');
   let m = S.sent.slice(n0).find((s) => s.method === 'sendMessage'); ok('camera scan by a guest: ticket summary in the chat, check-in by the hosts', m && /^Ticket\nWedding\nAli · 2 people/.test(m.payload.text) && /hosts at the entrance/.test(m.payload.text) && /\?t=g/.test(JSON.stringify(m.payload.reply_markup)), m && m.payload);
   n0 = S.sent.length; await S.tg(tgMsg(2002, { text: '/start t_' + gk })); m = S.sent.slice(n0).find((s) => s.method === 'sendMessage');
   ok('camera scan by the host: tap to check in', m && /Tap below to check in/.test(m.payload.text), m && m.payload);
-  r = await S.call(U, 'rsvMine'); ok('my events with guests and numbers', r.events.length === 5 && r.events.find((e) => e.key === ek).stats.yesPeople === 6 && r.events.find((e) => e.key === ek).stats.checked === 2, r.events.map((e) => e.stats));
+  r = await S.call(U, 'rsvMine'); ok('my events with guests and numbers', r.events.length === 5 && r.events.find((e) => e.key === ek).stats.yesPeople === 6 && r.events.find((e) => e.key === ek).stats.checked === 0, r.events.map((e) => e.stats));
   ok('delete a guest', (await S.call(U, 'rsvGuestDel', { key: ek, guest: hw })).event.guests.length === 2);
 }
 

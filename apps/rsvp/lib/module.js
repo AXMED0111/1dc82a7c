@@ -3,7 +3,7 @@
  * Every event has its own time zone (the host's phone, changeable): event times are venue times; check-in times are shown in it.
  * A guest's Yes / No is final (the host can reopen it); after replying, guests can only send messages to the hosts.
  * Tickets: a QR link (t_<guest key>) — the host or a door helper checks in; anyone else scanning only sees the ticket.
- * Check-in opens N hours before the start (default 3); an early scan shows the ticket and when check-in opens. */
+ * Check-in opens N hours before the start (default 3); an earlier scan only shows the ticket and when check-in opens — nobody can check in early. */
 const FIELDS = ['title', 'hosts', 'date', 'time', 'venue', 'address', 'map_url', 'notes', 'dress', 'deadline', 'open_max'];
 const DEF_TZ = 'Africa/Mogadishu', DEF_BEFORE = 3, ANYTIME = 999;
 const key = (p) => p + crypto.randomUUID().replace(/-/g, '').slice(0, 7).toLowerCase();
@@ -172,6 +172,12 @@ export default {
       if (g.tg_user) E.defer(A.notify(E, g.tg_user, 'The hosts of ' + e.title + ' reopened your reply. Open your invitation to answer again.', { inline_keyboard: [[{ text: 'Open invitation', web_app: { url: A.APP_URL + '?g=' + g.guest_key } }]] }));
       return { ok: true, event: await fullOf(E, e, A.iso) };
     },
+    async rsvCheckinUndo(ctx, req, A) {   // a mistake at the door: only the host
+      const E = ctx.E, e = await own(ctx, req.key); if (!e) return { ok: false, error: 'forbidden' };
+      const g = await E.db.one('Guests', { guest_key: String(req.guest || ''), event_key: e.event_key }); if (!g) return { ok: false, error: 'not_found' };
+      await E.db.upd('Guests', g, { checked_in_at: '' }); E.defer(A.log(E, ctx.uid, 'checkin_undo', e.event_key + ' ' + g.guest_key));
+      return { ok: true, event: await fullOf(E, e, A.iso) };
+    },
     async rsvStaffLink(ctx, req, A) {   // door helpers: scan tickets only (a new link stops the old one)
       const E = ctx.E, e = await own(ctx, req.key); if (!e) return { ok: false, error: 'forbidden' };
       if (!e.staff_code || req.renew) await E.db.upd('Events', e, { staff_code: crypto.randomUUID().replace(/-/g, '').slice(0, 10) });
@@ -232,7 +238,7 @@ export default {
       if (g.rsvp !== 'yes') return Object.assign(base, { ok: false, error: 'not_attending', guest: guestOut(g, A.iso) });
       if (g.checked_in_at) return Object.assign(base, { ok: true, result: 'already', guest: guestOut(g, A.iso), door: await counts(E, e.event_key) });
       const w = when(e);
-      if (w.opens && Date.now() < w.opens.getTime() && !req.force) return Object.assign(base, { ok: true, result: 'early', guest: guestOut(g, A.iso), opens_at: w.opens.toISOString(), door: await counts(E, e.event_key) });
+      if (w.opens && Date.now() < w.opens.getTime()) return Object.assign(base, { ok: true, result: 'early', guest: guestOut(g, A.iso), opens_at: w.opens.toISOString(), starts_at: w.start ? w.start.toISOString() : '', door: await counts(E, e.event_key) });   // coming soon: nothing is recorded
       const at = A.iso(new Date()), c = await E.db.run('Guests', 'UPDATE "Guests" SET "checked_in_at" = ? WHERE rowid = ? AND ("checked_in_at" IS NULL OR "checked_in_at" = \'\')', at, g._id);
       const now = c.meta && c.meta.changes ? Object.assign(g, { checked_in_at: at }) : await E.db.one('Guests', { guest_key: g.guest_key });
       return Object.assign(base, { ok: true, result: c.meta && c.meta.changes ? 'in' : 'already', guest: guestOut(now, A.iso), door: await counts(E, e.event_key) });

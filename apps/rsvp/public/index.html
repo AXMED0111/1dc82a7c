@@ -1177,8 +1177,8 @@ function resultCard(r,e){if(!r)return'';var g=r.guest,tz=tzOf(e||r.event||{}),ev
  function pv(){return g?'<div class="pv"><b>'+esc(g.name)+(plus(g.party)?' <span class="pill ac">'+plus(g.party)+'</span>':'')+'</b><br>'+people(g.party)+'<br>'+esc(ev.title||'')+'<br>'+esc(fmtWhen(ev))+(ev.venue?'<br>'+esc(ev.venue):'')+'</div>':''}
  if(r.ok&&r.result==='in')return'<div class="res in"><div class="ri">'+ic('check','l')+'</div><h2>'+esc(g.name)+(plus(g.party)?' '+plus(g.party):'')+'</h2><p class="m">'+t('ok_in')+' · '+people(g.party)+'</p><div class="fs">'+t('checked_at',{t:clockIn(g.checked_in_at,tz)})+'</div></div>';
  if(r.ok&&r.result==='already')return'<div class="res warn"><div class="ri">'+ic('alert','l')+'</div><h2>'+esc(g.name)+'</h2><p class="m">'+t('already',{t:whenAt(g.checked_in_at,tz)})+'</p>'+pv()+'</div>';
- if(r.ok&&r.result==='early')return'<div class="res early"><div class="ri">'+ic('clock','l')+'</div><h2>'+t('early')+'</h2><p class="m">'+t('early_sub',{t:whenAt(r.opens_at,tz),d:inTime(r.opens_at)})+'</p>'+pv()+
-  '<button class="btn sec2" style="margin-top:12px" data-a="force" data-code="'+esc(g.key)+'">'+ic('check','s')+t('force')+'</button></div>';
+ if(r.ok&&r.result==='early')return'<div class="res early"><div class="ri">'+ic('clock','l')+'</div><h2>'+t('early')+'</h2><p class="m">'+t('starts_in',{t:whenAt(r.starts_at||ev.starts_at,tz),d:inTime(r.starts_at||ev.starts_at)})+'</p><p class="m" style="margin-top:2px">'+t('early_sub',{t:whenAt(r.opens_at,tz)})+'</p>'+pv()+
+  '</div>';
  var msg=r.error==='not_attending'?t('not_attending'):r.error==='other_event'?t('other_event',{e:esc(r.other||'')}):r.error==='forbidden'?t('door_bad'):t('bad_code');
  return'<div class="res bad"><div class="ri">'+ic('x','l')+'</div>'+(g?'<h2>'+esc(g.name)+'</h2>':'')+'<p class="m">'+msg+'</p></div>'}
 function doorCard(d){if(!d)return'';var pct=d.expected?Math.min(100,Math.round(d.arrived*100/d.expected)):0;
@@ -1203,7 +1203,7 @@ K.app({
   opens_at:'Check-in opens at {t}',started:'Started',in_days:'in {n} days',in_hm:'in {h} h {m} min',in_m:'in {n} min',venue_time:'{c} time',your_time:'{t} your time',
   arrived:'Arrived',of_people:'{b} people',tickets_scanned:'{n} tickets scanned',ticket_scanned1:'1 ticket scanned',recent:'Latest arrivals',scan_next:'Scan next',
   door_title:'Door helpers',door_sub:'Helpers open this link to scan tickets at the entrance. They cannot see or change your guest list.',door_make:'Create helper link',door_new:'New link (the old one stops)',door_bad:'This door link is not valid any more. Ask the host for a new one.',door_for:'Door check-in',
-  early:'Not open yet',early_sub:'Check-in opens at {t} ({d}).',force:'Check in anyway',checked_at:'Checked in at {t}',other_event:'This ticket is for another event: {e}',
+  early:'Coming soon',starts_in:'The event starts {t} — {d}.',early_sub:'Check-in opens at {t}. Nothing was recorded.',undo:'Undo check-in',undo_q:'Undo the check-in of {n}?',undone:'Check-in undone.',checked_at:'Checked in at {t}',other_event:'This ticket is for another event: {e}',
   ticket_for:'Personal ticket',ticket_note:'Check-in is done by the hosts at the entrance.',ticket_valid:'Valid ticket',ticket_used:'Used at {t}',not_valid:'This ticket is not valid.',
   send_chat:'Send ticket to my Telegram chat',sent_again:'Sent to your chat — send again',ticket_sent:'Ticket sent to your Telegram chat',sending:'Sending…',save_img:'Save ticket picture',
   final_note:'Your reply is final. If something changes, write to the hosts — they can reopen it.',msg_hosts:'Message to the hosts',send_msg:'Send message',msg_sent:'Message sent to the hosts.',
@@ -1224,7 +1224,7 @@ K.app({
   opens_at:'Hubintu waxay furantaa {t}',started:'Wuu bilaabmay',in_days:'{n} maalmood kadib',in_hm:'{h} saac {m} daqiiqo kadib',in_m:'{n} daqiiqo kadib',venue_time:'Waqtiga {c}',your_time:'{t} waqtigaaga',
   arrived:'Yimid',of_people:'{b} qof',tickets_scanned:'{n} tigidh ayaa la iskaanay',ticket_scanned1:'1 tigidh ayaa la iskaanay',recent:'Kuwii ugu dambeeyay ee yimid',scan_next:'Iskaan ka xiga',
   door_title:'Caawiyayaasha albaabka',door_sub:'Caawiyayaashu waxay furaan link-gan si ay albaabka ugu iskaanaan tigidhada. Ma arki karaan mana beddeli karaan liiska martida.',door_make:'Samee link caawiye',door_new:'Link cusub (kii hore wuu joogsanayaa)',door_bad:'Link-gan albaabka ma shaqeynayo. Martigeliyaha weydii mid cusub.',door_for:'Hubinta albaabka',
-  early:'Weli ma furna',early_sub:'Hubintu waxay furantaa {t} ({d}).',force:'Hubi si kastaba',checked_at:'Waxaa la hubiyay {t}',other_event:'Tigidhkan waa munaasabad kale: {e}',
+  early:'Dhowaan',starts_in:'Munaasabaddu waxay bilaabanaysaa {t} — {d}.',early_sub:'Hubintu waxay furantaa {t}. Waxba lama diiwaangelin.',undo:'Ka noqo hubinta',undo_q:'Ka noqo hubinta {n}?',undone:'Hubinta waa laga noqday.',checked_at:'Waxaa la hubiyay {t}',other_event:'Tigidhkan waa munaasabad kale: {e}',
   ticket_for:'Tigidh shakhsi ah',ticket_note:'Hubinta waxaa sameeya martigeliyayaasha albaabka.',ticket_valid:'Tigidh sax ah',ticket_used:'La isticmaalay {t}',not_valid:'Tigidhkan ma shaqeynayo.',
   send_chat:'Tigidhka u dir sheekadayda Telegram',sent_again:'Waa loo diray sheekadaada — mar kale dir',ticket_sent:'Tigidhka waxaa loo diray sheekadaada Telegram',sending:'Waa la dirayaa…',save_img:'Keydi sawirka tigidhka',
   final_note:'Jawaabtaadu waa mid kama dambays ah. Haddii wax isbeddelaan, u qor martigeliyayaasha — way dib u furi karaan.',msg_hosts:'Fariin martigeliyayaasha',send_msg:'Dir fariinta',msg_sent:'Fariinta waxaa loo diray martigeliyayaasha.',
@@ -1276,7 +1276,8 @@ K.app({
    (e.guests||[]).forEach(function(g){var link=K.appLink('g_'+g.key),cls=g.rsvp==='yes'?'ok':g.rsvp==='no'?'bad':'';
      h+='<div class="card" style="padding:12px"><div class="row"><div class="grow"><div class="fn">'+esc(g.name)+(g.rsvp==='yes'&&plus(g.party)?' <span class="pill ac">'+plus(g.party)+'</span>':'')+'</div><div><span class="pill '+cls+'">'+t(g.rsvp==='pending'?'pending':g.rsvp==='yes'?'attending':g.rsvp==='no'?'declined':'maybe')+(g.rsvp==='yes'?' · '+people(g.party):'')+'</span>'+(g.checked_in_at?'<span class="pill ac">'+t('checked_short',{t:clockIn(g.checked_in_at,tz)})+'</span>':'')+'</div>'+(g.message?'<div class="fs">“'+esc(g.message)+'”</div>':'')+'</div>'+
        '<button class="mini" data-copy="'+esc(link)+'">'+ic('copy')+'</button><button class="mini" data-a="sharetg" data-link="'+esc(link)+'">'+ic('send')+'</button><button class="mini" data-a="sharewa" data-link="'+esc(link)+'">'+ic('message')+'</button><button class="mini" data-a="delguest" data-key="'+esc(g.key)+'">'+ic('trash')+'</button></div>'+
-       ((g.rsvp==='yes'||g.rsvp==='no')&&!g.checked_in_at?'<button class="btn sm ghost" style="margin-top:8px" data-a="reopen" data-key="'+esc(g.key)+'" data-name="'+esc(g.name)+'">'+ic('refresh','s')+t('reopen')+'</button>':'')+'</div>'});
+       ((g.rsvp==='yes'||g.rsvp==='no')&&!g.checked_in_at?'<button class="btn sm ghost" style="margin-top:8px" data-a="reopen" data-key="'+esc(g.key)+'" data-name="'+esc(g.name)+'">'+ic('refresh','s')+t('reopen')+'</button>':'')+
+       (g.checked_in_at?'<button class="btn sm ghost" style="margin-top:8px" data-a="undoin" data-key="'+esc(g.key)+'" data-name="'+esc(g.name)+'">'+ic('x','s')+t('undo')+'</button>':'')+'</div>'});
    return h},
   checkin:function(){return doorScreen(R.ev,'host')},
   door:function(){var d=R.door;if(!d)return K.header(t('door_for'),'')+K.spin();if(!d.ok)return K.header(t('door_for'),'')+resultCard({ok:false,error:'forbidden'});return doorScreen(d.event,d.role)},
@@ -1287,8 +1288,9 @@ K.app({
     var early=e.checkin_opens_at&&new Date(e.checkin_opens_at)>Date.now();
     if(g.checked_in_at)return h+resultCard({ok:true,result:'already',guest:g,event:e},e);
     if(g.rsvp!=='yes')return h+resultCard({ok:false,error:'not_attending',guest:g},e);
-    return h+'<div class="res '+(early?'early':'')+'"><div class="ri">'+ic(early?'clock':'qr','l')+'</div><h2>'+esc(g.name)+(plus(g.party)?' '+plus(g.party):'')+'</h2><p class="m">'+people(g.party)+'</p>'+(early?'<p class="m">'+t('early_sub',{t:whenAt(e.checkin_opens_at,tz),d:inTime(e.checkin_opens_at)})+'</p>':'')+'</div>'+
-     '<button class="btn" data-a="tkcheck" data-force="'+(early?1:'')+'">'+ic('check')+t(early?'force':'check')+'</button>'}
+    if(early)return h+resultCard({ok:true,result:'early',guest:g,event:e,opens_at:e.checkin_opens_at,starts_at:e.starts_at},e);
+    return h+'<div class="res"><div class="ri">'+ic('qr','l')+'</div><h2>'+esc(g.name)+(plus(g.party)?' '+plus(g.party):'')+'</h2><p class="m">'+people(g.party)+'</p></div>'+
+     '<button class="btn" data-a="tkcheck">'+ic('check')+t('check')+'</button>'}
    h+='<div class="tkt"><div class="top"><div class="ey">'+t('ticket_for')+'</div><h3>'+esc(e.title)+'</h3><div class="sub">'+esc(fmtWhen(e))+'</div>'+(e.venue?'<div class="sub">'+esc(e.venue)+(e.address?' · '+esc(e.address):'')+'</div>':'')+'</div><div class="cut"></div><div class="bot">'+
     '<div class="who" style="margin-top:0">'+esc(g.name)+(plus(g.party)?'<span class="plus">'+plus(g.party)+'</span>':'')+'</div><div class="op">'+people(g.party)+'</div>'+
     '<div class="op" style="margin-top:12px">'+(g.rsvp!=='yes'?esc(t('not_valid')):g.checked_in_at?esc(t('ticket_used',{t:whenAt(g.checked_in_at,tz)})):esc(t('ticket_valid'))+(e.checkin_opens_at?' · '+esc(opensLine(e)):''))+'</div></div></div>';
@@ -1339,6 +1341,7 @@ K.app({
    if(!lines.length)return;api('rsvGuestAdd',{key:R.ev.key,guests:lines}).then(function(r){if(r.ok){R.ev=r.event;K.render()}else K.toast(t('e_gen'))})},
   delguest:function(el,d){api('rsvGuestDel',{key:R.ev.key,guest:d.key}).then(function(r){if(r.ok){R.ev=r.event;K.render()}})},
   reopen:function(el,d){confirmBox(t('reopen_q',{n:d.name}),function(){api('rsvGuestReset',{key:R.ev.key,guest:d.key}).then(function(r){if(r.ok){R.ev=r.event;S.msg=t('reopened');S.err=''}else S.err=t('e_gen');K.render()})})},
+  undoin:function(el,d){confirmBox(t('undo_q',{n:d.name}),function(){api('rsvCheckinUndo',{key:R.ev.key,guest:d.key}).then(function(r){if(r.ok){R.ev=r.event;S.msg=t('undone');S.err=''}else S.err=t('e_gen');K.render()})})},
   staffmake:function(){api('rsvStaffLink',{key:R.ev.key}).then(function(r){if(r.ok){R.ev=r.event;K.haptic('ok')}K.render()})},
   staffnew:function(){api('rsvStaffLink',{key:R.ev.key,renew:true}).then(function(r){if(r.ok){R.ev=r.event;K.toast(t('door_new'));K.haptic('ok')}K.render()})},
   sharetg:function(el,d){K.shareTg(d.link,d.door?t('door_for')+': '+R.ev.title:inviteText(R.ev,'').trim())},
@@ -1346,8 +1349,7 @@ K.app({
   scan:function(){if(K.IN_TG&&K.TG.showScanQrPopup){K.TG.showScanQrPopup({text:t('scan')},function(txt){checkin(parseCode(txt));return true});return}
    var c=prompt(t('manual'));if(c)checkin(parseCode(c))},
   manual:function(){var c=document.getElementById('code').value.trim();if(c)checkin(parseCode(c))},
-  force:function(el,d){checkin(d.code,true)},
-  tkcheck:function(el,d){var v=R.tk;api('rsvCheckin',{key:v.event.key,code:v.guest.key,staff:STAFF,force:!!d.force}).then(function(r){R.scan=r;K.haptic(r.ok&&r.result==='in'?'ok':'');K.render()})},
+  tkcheck:function(el,d){var v=R.tk;api('rsvCheckin',{key:v.event.key,code:v.guest.key,staff:STAFF}).then(function(r){R.scan=r;K.haptic(r.ok&&r.result==='in'?'ok':'');K.render()})},
   minus:function(){keepForm();R.reply.party=Math.max(1,R.reply.party-1);K.render()},
   plus:function(){keepForm();R.reply.party++;K.render()},
   sendticket:function(){sendTicket(false)},
@@ -1371,6 +1373,7 @@ K.app({
   rsvGuestAdd:function(d,s){var e=find(s,d.key);d.guests.forEach(function(g){e.guests.push({key:'g'+K.uid().slice(-5),name:g.name,max_party:g.max,rsvp:'pending',party:0,message:'',checked_in_at:''})});return{ok:true,event:full(e)}},
   rsvGuestDel:function(d,s){var e=find(s,d.key);e.guests=e.guests.filter(function(g){return g.key!==d.guest});return{ok:true,event:full(e)}},
   rsvGuestReset:function(d,s){var e=find(s,d.key),g=e.guests.filter(function(x){return x.key===d.guest})[0];if(!g||g.checked_in_at)return{ok:false};g.rsvp='pending';g.party=0;return{ok:true,event:full(e)}},
+  rsvCheckinUndo:function(d,s){var e=find(s,d.key),g=e.guests.filter(function(x){return x.key===d.guest})[0];if(g)g.checked_in_at='';return{ok:true,event:full(e)}},
   rsvStaffLink:function(d,s){var e=find(s,d.key);if(!e.staff||d.renew)e.staff=e.key+'-'+K.uid().slice(-8);return{ok:true,event:full(e)}},
   rsvInvite:function(d,s){var x=byGuest(s,d.g),e=x?x.e:find(s,d.e);if(!e||e.status!=='published')return{ok:false,error:'not_found'};return{ok:true,event:pub(e),guest:x?x.g:null}},
   rsvReply:function(d,s){var x=byGuest(s,d.g),e,g;if(x){e=x.e;g=x.g}else{e=find(s,d.e);g={key:'g'+K.uid().slice(-5),name:d.name,max_party:e.open_max,rsvp:'pending',party:0,message:'',checked_in_at:''};e.guests.push(g)}
@@ -1381,7 +1384,7 @@ K.app({
    return{ok:true,role:'host',event:pub(e),door:counts(e),recent:e.guests.filter(function(g){return g.checked_in_at}).map(function(g){return{name:g.name,party:g.party,at:g.checked_in_at}})}},
   rsvCheckin:function(d,s){var e=find(s,d.key),code=String(parseCode(d.code)).toLowerCase(),g=e.guests.filter(function(x){return x.key===code})[0],base={event:pub(e)};
    if(!g)return{ok:false,error:'not_found'};if(g.rsvp!=='yes')return Object.assign(base,{ok:false,error:'not_attending',guest:g});if(g.checked_in_at)return Object.assign(base,{ok:true,result:'already',guest:g,door:counts(e)});
-   var p=pub(e);if(p.checkin_opens_at&&new Date(p.checkin_opens_at)>Date.now()&&!d.force)return Object.assign(base,{ok:true,result:'early',guest:g,opens_at:p.checkin_opens_at,door:counts(e)});
+   var p=pub(e);if(p.checkin_opens_at&&new Date(p.checkin_opens_at)>Date.now())return Object.assign(base,{ok:true,result:'early',guest:g,opens_at:p.checkin_opens_at,starts_at:p.starts_at,door:counts(e)});
    g.checked_in_at=new Date().toISOString();return Object.assign(base,{ok:true,result:'in',guest:g,door:counts(e)})}
  }
 });
@@ -1409,7 +1412,7 @@ function save(andPublish){readEditor();var e=R.edit;if(!e.title||!e.date){S.err=
 function publish(key,fromEditor){api('rsvPublish',{key:key}).then(function(r){
  if(r.ok&&!r.allowed)return K.paywall({title:t('publish'),text:t('publish_hint'),icon:'calendar',features:[t('guests'),t('checkin'),'QR'],after:function(){K.S.stack=['home'];K.S.screen='event';K.render()}});
  if(!r.ok){S.err=t('e_gen');return K.render()}R.ev=r.event;if(r.access)S.me.access=r.access;K.refreshMe();if(fromEditor)S.stack.pop();S.screen='event';S.msg=t('live');K.haptic('ok');K.render()})}
-function checkin(code,force){var key=doorKey()||(R.tk&&R.tk.event&&R.tk.event.key);api('rsvCheckin',{key:key,code:code,staff:STAFF,force:!!force}).then(function(r){R.scan=r;
+function checkin(code){var key=doorKey()||(R.tk&&R.tk.event&&R.tk.event.key);api('rsvCheckin',{key:key,code:code,staff:STAFF}).then(function(r){R.scan=r;
  if(r.ok&&r.result==='in'&&R.door&&R.door.ok!==false){R.door.recent=[{name:r.guest.name,party:r.guest.party,at:r.guest.checked_in_at}].concat(R.door.recent||[]).slice(0,8)}
  K.haptic(r.ok&&r.result==='in'?'ok':'');K.render()})}
 })();
