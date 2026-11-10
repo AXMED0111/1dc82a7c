@@ -102,7 +102,7 @@ export class Store {
   }
   async one(name, w, o = {}) { return (await this.sel(name, w, Object.assign({ limit: 1 }, o)))[0] || null; }
   async count(name, w, o = {}) { const W = this.where(w); const r = await this.d(name).prepare(`SELECT COUNT(*) AS n FROM ${q(name)}${W.sql}${o.where ? (W.sql ? ' AND ' : ' WHERE ') + o.where : ''}`).bind(...W.args, ...(o.args || [])).first(); return r ? r.n : 0; }
-  insStmt(name, obj) { const cols = this.cols(name).filter((c) => obj[c] !== undefined); return this.d(name).prepare(`INSERT INTO ${q(name)} (${cols.map(q).join(', ')}) VALUES (${cols.map(() => '?').join(', ')})`).bind(...cols.map((c) => val(obj[c]))); }
+  insStmt(name, obj, mode) { const cols = this.cols(name).filter((c) => obj[c] !== undefined); return this.d(name).prepare(`INSERT ${mode ? 'OR ' + mode + ' ' : ''}INTO ${q(name)} (${cols.map(q).join(', ')}) VALUES (${cols.map(() => '?').join(', ')})`).bind(...cols.map((c) => val(obj[c]))); }
   async ins(name, obj) { const r = await this.insStmt(name, obj).run(); return Object.assign({ _id: r.meta && r.meta.last_row_id }, obj); }
   async upd(name, row, patch) {
     const cols = Object.keys(patch).filter((c) => this.cols(name).indexOf(c) >= 0); if (!cols.length) return row;
@@ -788,6 +788,9 @@ export function createApp(MOD) {
   }
   async function migrate(E, body, sig) {
     if (!(await signedBy(E, body, sig))) return { ok: false, error: 'forbidden' };
+    try { return await migrateInner(E, body); } catch (e) { return { ok: false, error: String(e && e.message || e).slice(0, 300) }; }
+  }
+  async function migrateInner(E, body) {
     const req = JSON.parse(body);
     if (req.secrets) { let n = 0; for (const [k, v] of Object.entries(req.secrets)) if (v && /^[A-Z_]{3,40}$/.test(k)) { await setSecret(E, k, v); n++; } return { ok: true, secrets: n }; }
     const name = String(req.table || ''); if (!E.db.cols(name) || name === 'Secrets') return { ok: false, error: 'table' };
@@ -797,7 +800,7 @@ export function createApp(MOD) {
     for (const r of rowsIn) {
       const o = {}; E.db.cols(name).forEach((c) => { if (r[c] !== undefined && r[c] !== '') o[c] = typeof r[c] === 'string' ? r[c].replace(/^'/, '') : r[c]; });
       if (key && CENTRAL_SCHEMA[name]) { const ex = await E.db.one(name, Object.fromEntries(key.map((k) => [k, o[k] === undefined ? null : o[k]]))); if (ex) continue; }   // central tables: never twice
-      stmts.push(E.db.insStmt(name, o));
+      stmts.push(E.db.insStmt(name, o, CENTRAL_SCHEMA[name] ? 'IGNORE' : 'REPLACE'));   // the same row twice in a sheet: keep the latest
     }
     for (let i = 0; i < stmts.length; i += 50) await E.db.d(name).batch(stmts.slice(i, i + 50));
     E.c.settings = null;

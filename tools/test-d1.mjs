@@ -129,6 +129,8 @@ ok('unsigned migration refused', r.error === 'forbidden');
 r = await S.migrate({ table: 'Users', rows: [{ user_id: '11', app: 'converter', first_name: 'Old', phone: "'+252611234567", created_at: '2026-01-02T00:00:00.000Z' }] });
 ok('rows imported (sheet apostrophe removed)', r.ok && S.rows('Users').some((x) => x.user_id === '11' && x.phone === '+252611234567'), r);
 r = await S.migrate({ secrets: { GEMINI_KEY: 'gk-123', BOT_TOKEN: '123456:TEST_TOKEN' } }); ok('secrets imported', r.ok && r.secrets === 2);
+r = await S.migrate({ table: 'Users', rows: [{ user_id: '21', app: 'converter', first_name: 'Twice' }, { user_id: '21', app: 'converter', first_name: 'Twice again' }] });
+ok('same user twice in the sheet: copied once (latest kept)', r.ok && S.rows('Users').filter((x) => x.user_id === '21').length === 1 && S.rows('Users').find((x) => x.user_id === '21').first_name === 'Twice again', r);
 r = await S.migrate({ table: 'Tickets', rows: [{ ticket_id: 'TOLD', app: 'converter', user_id: '11', status: 'open' }] }); await S.migrate({ table: 'Tickets', rows: [{ ticket_id: 'TOLD', app: 'converter', user_id: '11', status: 'open' }] });
 ok('central rows never imported twice', S.crows('Tickets').filter((t) => t.ticket_id === 'TOLD').length === 1);
 ok('secrets table cannot be imported raw', (await S.migrate({ table: 'Secrets', rows: [{ name: 'BOT_TOKEN', val: 'x' }] })).error === 'table');
