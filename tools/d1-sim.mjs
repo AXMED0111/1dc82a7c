@@ -53,9 +53,10 @@ export async function makeSim(mod, opts = {}) {
     const rep = S.reply ? S.reply(url, o) : null; if (rep !== null && rep !== undefined) body = rep;
     if (body === undefined) body = { ok: true };
     const code = (body && body.__code) || 200;
-    return { ok: code === 200, status: code, json: async () => body, text: async () => JSON.stringify(body) };
+    return { ok: code === 200, status: code, json: async () => body, text: async () => JSON.stringify(body),
+      arrayBuffer: async () => (body instanceof Uint8Array ? body.buffer.slice(body.byteOffset, body.byteOffset + body.byteLength) : new TextEncoder().encode(JSON.stringify(body)).buffer) };
   };
-  const ctx = (body, extra = {}) => Object.assign({ request: { text: async () => (typeof body === 'string' ? body : JSON.stringify(body)), json: async () => body, arrayBuffer: async () => (body instanceof Uint8Array ? body.buffer.slice(body.byteOffset, body.byteOffset + body.byteLength) : new ArrayBuffer(0)), headers: { get: (h) => (extra.headers || {})[h.toLowerCase()] || null }, url: extra.url || 'https://x.pages.dev/api/app' }, env, waitUntil: (p) => pending.push(p) });
+  const ctx = (body, extra = {}) => Object.assign({ request: { text: async () => (typeof body === 'string' ? body : JSON.stringify(body)), json: async () => body, arrayBuffer: async () => (body instanceof Uint8Array ? body.buffer.slice(body.byteOffset, body.byteOffset + body.byteLength) : new ArrayBuffer(0)), headers: { get: (h) => (extra.headers || {})[h.toLowerCase()] || null }, method: extra.method || 'POST', url: extra.url || 'https://x.pages.dev/api/app' }, env, waitUntil: (p) => pending.push(p) });
   S.E = await eng._open(env);
   await eng._setSecret(S.E, 'BOT_TOKEN', TOKEN); await eng._setSecret(S.E, 'ADMIN_IDS', opts.admins || '1001'); await eng._setSecret(S.E, 'WEBHOOK_SECRET', WHSEC);
   S.settle = async () => { while (pending.length) await pending.shift(); };
@@ -63,6 +64,7 @@ export async function makeSim(mod, opts = {}) {
   S.tg = async (update, secret = WHSEC) => { const r = await eng.telegram(ctx(update, { headers: { 'x-telegram-bot-api-secret-token': secret } })); await S.settle(); return r.status; };
   S.cron = async (job, key = 'cron-key') => { const r = await eng.cron(ctx('', { headers: { 'x-cron-key': key }, url: 'https://x/api/cron?job=' + job })); return r.status === 200 ? r.json() : { status: r.status }; };
   S.file = async (user, kind, bytes, params = {}) => { const qs = new URLSearchParams(Object.assign({ kind }, params)).toString(); const r = await eng.file(ctx(bytes, { headers: { 'x-tg-init': user ? initData(user) : '' }, url: 'https://x/api/file?' + qs })); return r.json(); };
+  S.get = async (path) => { const r = await eng.file(ctx('', { method: 'GET', url: 'https://x.pages.dev' + path })); return { status: r.status, type: r.headers.get('content-type'), bytes: new Uint8Array(await r.arrayBuffer()) }; };
   S.sign = (body, key = WHSEC) => crypto.createHmac('sha256', key).update(body).digest('hex');
   S.migrate = async (obj, key = WHSEC) => { const body = JSON.stringify(obj); const r = await eng.migrate(ctx(body, { headers: { 'x-sig': S.sign(body, key) } })); return r.json(); };
   S.export = async (table, after = 0, key = CONTROL_WHSEC) => { const ts = String(Date.now()), sig = S.sign(table + '|' + after + '|' + ts, key); const r = await eng.exportRows(ctx('', { url: `https://x/api/export?table=${table}&after=${after}&ts=${ts}&sig=${sig}` })); return r.json(); };

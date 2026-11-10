@@ -562,7 +562,7 @@ export function createApp(MOD) {
   }
 
   /* ---------- the API that app modules use ---------- */
-  const API = { truthy, iso, dayOf, uuid, consume, accessFor, isPro, activeSub, usageRow, computeAccess, getSettings, saveSettings, log, notify, notifyAdmins, queueMsg, tgCall, botToken, secret, adminIds,
+  const API = { fileUrl, b64bytes, truthy, iso, dayOf, uuid, consume, accessFor, isPro, activeSub, usageRow, computeAccess, getSettings, saveSettings, log, notify, notifyAdmins, queueMsg, tgCall, botToken, secret, adminIds,
     rateLimit, kvGet, kvPut, kvIncr, markPaid, priceFor, findCode, codeSave, codeToggle, codeOut, aiCall, aiJson, aiAutoModel, AI_DEFAULT_MODEL, plansFor, tkAdd, tkOut, tkMsgs, notifyControl, metric, can, PERMS, APP_URL: MOD.url };
 
   /* ---------- prefetch: everything a request usually needs, in ONE database trip (+ the central one in parallel) ----------
@@ -845,12 +845,28 @@ export function createApp(MOD) {
     E.c.settings = null;
     return { ok: true, table: name, inserted: stmts.length };
   }
+  /* ---------- private pictures: a signed link that works in <img> (no login header), the same all day so the phone caches it ---------- */
+  const fileSig = async (E, id, exp) => (await hmacHex(E.env.MASTER_KEY, 'get|' + id + '|' + exp)).slice(0, 32);
+  async function fileUrl(E, id) { const exp = (Math.floor(Date.now() / 864e5) + 8) * 864e5; return '/api/file?get=' + encodeURIComponent(id) + '&exp=' + exp + '&sig=' + (await fileSig(E, id, exp)); }
+  function b64bytes(s) {
+    if (typeof Uint8Array.fromBase64 === 'function') { try { return Uint8Array.fromBase64(s); } catch (e) { return null; } }
+    let bin; try { bin = atob(s); } catch (e) { return null; }
+    const out = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i); return out;
+  }
+  async function fileGet(E, u) {
+    const id = u.searchParams.get('get') || '', exp = Number(u.searchParams.get('exp')) || 0, sig = u.searchParams.get('sig') || '';
+    if (!id || exp < Date.now() || sig !== (await fileSig(E, id, exp)) || !MOD.fileGet) return new Response('not found', { status: 404 });
+    const f = await MOD.fileGet(id, API, E); const bytes = f && (f.bytes || b64bytes(f.b64 || ''));
+    if (!bytes) return new Response('not found', { status: 404 });
+    return new Response(bytes, { headers: { 'content-type': f.mime || 'image/jpeg', 'cache-control': 'private, max-age=86400' } });
+  }
+
   async function exportTable(E, name, after, sig, ts) {
     const ctl = await (E.env.EDGE || E.db.cen).prepare('SELECT whsec FROM meta WHERE app = ?').bind('control').first().catch(() => null), own = await secret(E, 'WEBHOOK_SECRET');
     const msg = name + '|' + after + '|' + ts, ok = Math.abs(Date.now() - Number(ts)) < 600000;
     let good = false; for (const k of [ctl && ctl.whsec, own].filter(Boolean)) if ((await hmacHex(k, msg)) === sig) good = true;
     if (!ok || !good) return { ok: false, error: 'forbidden' };
-    if (!E.db.cols(name) || name === 'Secrets' || name === 'Kv') return { ok: false, error: 'table' };
+    if (!E.db.cols(name) || name === 'Secrets' || name === 'Kv' || (MOD.noExport || []).indexOf(name) >= 0) return { ok: false, error: 'table' };
     const rows = await E.db.sel(name, CENTRAL_SCHEMA[name] ? { app: APP } : {}, { where: 'rowid > ?', args: [Number(after) || 0], limit: 1000 });
     return { ok: true, table: name, rows, next: rows.length === 1000 ? rows[rows.length - 1]._id : null };
   }
@@ -882,6 +898,7 @@ export function createApp(MOD) {
     },
     async file(context) {   // POST /api/file?kind=file|report&name=&mime=&token= — raw bytes, Telegram login in header x-tg-init
       let E; try { E = await open(context.env); } catch (e) { return json({ ok: false, error: 'not_configured' }); }
+      if (context.request.method === 'GET') return fileGet(E, new URL(context.request.url));   // GET /api/file?get=&exp=&sig= — a private picture (signed link)
       const u = new URL(context.request.url), token = await botToken(E), auth = await verifyInitData(context.request.headers.get('x-tg-init') || '', token);
       if (!auth) return json({ ok: false, error: 'unauthorized' });
       const kind = u.searchParams.get('kind') === 'report' ? 'report' : 'file', bytes = new Uint8Array(await context.request.arrayBuffer());

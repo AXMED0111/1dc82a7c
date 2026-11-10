@@ -6,6 +6,8 @@ import rsvpMod from '../apps/rsvp/worker/rsvp.js';
 import controlMod from '../apps/control/worker/control.js';
 import coachMod from '../apps/coach/worker/coach.js';
 import translatorMod from '../apps/translator/worker/translator.js';
+import scholarMod from '../apps/scholar/worker/scholar.js';
+import marketMod from '../apps/market/worker/market.js';
 
 let pass = 0, fail = 0;
 const ok = (n, c, info) => { if (c) pass++; else { fail++; console.log('  FAIL', n, info !== undefined ? JSON.stringify(info).slice(0, 400) : ''); } };
@@ -293,6 +295,108 @@ section('Interview Coach and Document Translator on D1 (AI)');
   ok('second document blocked (1 free)', (await S.call(U, 'trTranslate', { doc: 'birth', to: 'en', pages: [{ data: 'AAAA' }] })).allowed === false);
   ok('history: no images stored', (await S.call(U, 'trHistory')).items[0].title === 'Birth Certificate' && !JSON.stringify(S.rows('Translations')).includes('AAAA'));
   S.reply = null;
+}
+
+section('Scholarship Finder on D1');
+{
+  const S = await makeSim(scholarMod); await S.setSettings({ testMode: false });
+  for (const [i, n] of ['A', 'B', 'C', 'D', 'E'].entries()) await S.call(ADMIN, 'adminSchSave', { item: { name: 'Award ' + n, url: 'https://x.org', deadline: '2027-0' + (i + 1) + '-01', levels: ['master'], fields: ['any'], eligible: i === 4 ? ['SOUTH_ASIA'] : ['AFRICA'], funding: 'full' } });
+  ok('non-admin cannot add', (await S.call(U, 'adminSchSave', { item: {} })).error === 'forbidden');
+  ok('admin input checked', /required/.test((await S.call(ADMIN, 'adminSchSave', { item: { name: 'X', url: 'ftp://x', deadline: '2027-01-01' } })).error));
+  ok('no profile yet: empty home', (await S.call(U, 'scHome')).profile === null);
+  await S.call(U, 'scSaveProfile', { profile: { country: 'SO', level: 'master', field: 'agriculture', english: 'ielts', need: 'full', alerts: true } });
+  await S.call(U, 'scSaveProfile', { profile: { country: 'SO', level: 'master', field: 'agriculture', english: 'ielts', need: 'full', alerts: true, gpa: '3.5' } });
+  ok('profile saved once (second save updates)', S.rows('Profiles').length === 1 && S.rows('Profiles')[0].gpa === '3.5');
+  r = await S.call(U, 'scHome'); ok('free: 3 shown, 1 locked (South Asia excluded)', r.matches.length === 3 && r.locked === 1 && r.profile.alerts === true && r.matches[0].score === 90, { n: r.matches.length, l: r.locked, p: r.profile, s: r.matches[0] });
+  ok('earliest deadline first on equal score', r.matches[0].name === 'Award A' && r.matches[0].deadline === '2027-01-01');
+  ok('save needs pro', (await S.call(U, 'scSave', { id: r.matches[0].id, on: true })).error === 'pro_required');
+  await S.setSettings({ testMode: true });
+  r = await S.call(U, 'scHome'); ok('pro: every match, nothing locked', r.matches.length === 4 && r.locked === 0);
+  const first = r.matches[0].id; ok('save', (await S.call(U, 'scSave', { id: first, on: true })).saved.join() === first);
+  ok('save twice = one row', (await S.call(U, 'scSave', { id: first, on: true })).saved.length === 1 && S.rows('Saved').length === 1);
+  ok('saved list on home', (await S.call(U, 'scHome')).saved.join() === first);
+  ok('unsave', (await S.call(U, 'scSave', { id: first, on: false })).saved.length === 0);
+  const items = (await S.call(ADMIN, 'adminSchList')).items; ok('admin list', items.length === 5 && items[0].levels.join() === 'master');
+  const b = items.find((x) => x.name === 'Award B'); await S.call(ADMIN, 'adminSchSave', { item: Object.assign({}, b, { status: 'hidden' }) });
+  ok('hidden scholarship not matched', (await S.call(U, 'scHome')).matches.length === 3 && S.rows('Scholarships').length === 5);
+  await S.call(ADMIN, 'adminSchDelete', { id: b.id }); ok('delete', S.rows('Scholarships').length === 4);
+  const soon = new Date(Date.now() + 13 * 864e5).toISOString().slice(0, 10);   // 14 days left (counted to the end of the deadline day)
+  await S.call(ADMIN, 'adminSchSave', { item: { name: 'Closing Soon', url: 'https://soon.org', deadline: soon, levels: ['master'], fields: ['any'], eligible: ['ALL'] } });
+  await S.call(V, 'scSaveProfile', { profile: { country: 'SO', level: 'master', field: 'any', english: 'ielts', need: 'any', alerts: false } });
+  let n0 = S.sent.length; await S.cron('daily'); const alerts = S.sent.slice(n0).filter((x) => /days left to apply/.test((x.payload || {}).text || ''));
+  ok('deadline alert sent 14 days before, with the official website button', alerts.length === 1 && String(alerts[0].payload.chat_id) === '2002' && /^Closing Soon — 14 days left/.test(alerts[0].payload.text) && alerts[0].payload.reply_markup.inline_keyboard[0][0].url === 'https://soon.org', alerts.map((x) => x.payload));
+  await S.setSettings({ testMode: false }); n0 = S.sent.length; await S.cron('daily');
+  ok('no alert without Pro', !S.sent.slice(n0).some((x) => /days left to apply/.test((x.payload || {}).text || '')));
+}
+
+section('Field Tasks on D1: money, slots, photos');
+{
+  const S = await makeSim(marketMod); await S.setSettings({ testMode: false });
+  r = await S.call(U, 'mkSaveTask', { task: { title: 'Shelf photo', instructions: 'Do it', city: 'Hargeisa', reward: 1, slots: 2, needs_photo: true, needs_gps: true, questions: ['Shop name'] } });
+  ok('task total incl 20% fee', r.ok && r.task.total === 2.4 && r.task.status === 'awaiting_payment' && r.task.needs_photo === true && r.task.questions[0] === 'Shop name', r);
+  const tid = r.task.id;
+  ok('not in feed before payment', (await S.call(V, 'mkFeed', { city: 'hargeisa' })).tasks.length === 0);
+  ok('bad task refused', (await S.call(U, 'mkSaveTask', { task: { title: 'x', instructions: 'y', city: 'z', reward: 0.1, slots: 1 } })).error === 'fields');
+  await S.setSettings({ methods: { stars: true, usdt_trc20: '', usdt_bep20: '', evc: '', zaad: '', sahal: '', mpesa: '' } });
+  ok('other user cannot pay my task', (await S.call(V, 'createOrder', { plan: 'task:' + tid, method: 'stars' })).ok === false);
+  r = await S.call(U, 'createOrder', { plan: 'task:' + tid, method: 'stars' }); ok('task order (180 stars)', r.ok && S.rows('Payments')[0].amount === 180, r);
+  await S.tg({ update_id: 11, pre_checkout_query: { id: 'pcm', from: { id: 2002 }, currency: 'XTR', total_amount: 180, invoice_payload: r.order_id } });
+  ok('precheckout ok', S.sent.some((s) => s.method === 'answerPreCheckoutQuery' && s.payload.pre_checkout_query_id === 'pcm' && s.payload.ok === true));
+  await S.tg(tgMsg(2002, { successful_payment: { invoice_payload: r.order_id, telegram_payment_charge_id: 'm1', total_amount: 180 } }));
+  ok('paid: task live, owner told', S.rows('Tasks')[0].status === 'live' && S.sent.some((s) => /is now live/.test((s.payload || {}).text || '')));
+  r = await S.call(V, 'mkFeed', { city: 'Hargeisa' }); ok('live in feed', r.tasks.length === 1 && r.tasks[0].id === tid, r);
+  ok('worker city remembered', S.rows('Workers').some((w) => w.user_id === '3003' && w.city === 'Hargeisa'));
+  ok('owner does not see own task', (await S.call(U, 'mkFeed', {})).tasks.length === 0);
+  ok('owner cannot do own task', (await S.call(U, 'mkSubmit', { task: tid, photo: 'AAAA', lat: 1, lng: 2, answers: ['x'] })).error === 'own');
+  ok('missing gps refused', (await S.call(V, 'mkSubmit', { task: tid, photo: 'AAAA', answers: ['x'] })).error === 'e_gps');
+  ok('missing photo refused', (await S.call(V, 'mkSubmit', { task: tid, lat: 1, lng: 2, answers: ['x'] })).error === 'e_photo');
+  ok('missing answer refused', (await S.call(V, 'mkSubmit', { task: tid, photo: 'AAAA', lat: 1, lng: 2, answers: [' '] })).error === 'e_answers');
+  // Telegram keeps the photo (sent to the owner's chat); the database copy is removed
+  const jpg = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 1, 2, 3, 4, 0xff, 0xd9]);
+  S.reply = (url) => (/\/sendPhoto$/.test(url) ? { ok: true, result: { photo: [{ file_id: 'small' }, { file_id: 'BIG' }] } } : /\/getFile$/.test(url) ? { ok: true, result: { file_path: 'photos/f1.jpg' } } : /\/file\/bot.*\/photos\/f1\.jpg$/.test(url) ? new Uint8Array(jpg) : null);
+  ok('submit ok', (await S.call(V, 'mkSubmit', { task: tid, photo: jpg.toString('base64'), lat: 9.5, lng: 44, answers: ['Hodan'] })).ok);
+  const sp = S.sent.find((s) => s.method === 'sendPhoto');
+  ok('owner gets the photo in Telegram with an Open app button', sp && sp.raw === '[form]' && S.fetches.some((f) => /sendPhoto/.test(f.url) && f.o.body.get('chat_id') === '2002' && /New submission for "Shelf photo"/.test(f.o.body.get('caption'))));
+  ok('photo kept by Telegram, not in the database', S.rows('Submissions')[0].photo_file === 'tg:BIG' && S.rows('Photos').length === 0, S.rows('Submissions')[0]);
+  ok('duplicate refused', (await S.call(V, 'mkSubmit', { task: tid, photo: 'AAAA', lat: 9.5, lng: 44, answers: ['Hodan'] })).error === 'already');
+  r = await S.call(U, 'mkSubs', { task: tid }); const link = r.subs[0].photo;
+  ok('owner sees submission with a private photo link', r.subs.length === 1 && /^\/api\/file\?get=u\w+&exp=\d+&sig=\w{32}$/.test(link) && r.subs[0].answers[0] === 'Hodan' && r.subs[0].lat === 9.5, r);
+  ok('the link stays the same all day (phone keeps the picture)', (await S.call(U, 'mkSubs', { task: tid })).subs[0].photo === link);
+  let g = await S.get(link); ok('photo link shows the picture', g.status === 200 && g.type === 'image/jpeg' && Buffer.from(g.bytes).equals(jpg), g.status);
+  ok('changed link refused', (await S.get(link.replace(/sig=\w/, 'sig=0'))).status === 404 && (await S.get(link.replace(/get=\w+/, 'get=u0'))).status === 404);
+  ok('stranger cannot list submissions', (await S.call(V, 'mkSubs', { task: tid })).error === 'forbidden');
+  // Telegram cannot deliver the photo: it stays in the database and is served from there
+  const W2 = { id: 6006, first_name: 'Ayan' }; S.reply = (url) => (/\/sendPhoto$/.test(url) ? { ok: false, error_code: 403, description: 'Forbidden: bot was blocked by the user' } : null);
+  ok('second worker takes the last slot', (await S.call(W2, 'mkSubmit', { task: tid, photo: jpg.toString('base64'), lat: 9.5, lng: 44, answers: ['Ayan shop'] })).ok);
+  ok('photo kept in the database when Telegram refuses', S.rows('Submissions').find((s) => s.worker_id === '6006').photo_file === 'd1' && S.rows('Photos').length === 1);
+  g = await S.get((await S.call(U, 'mkSubs', { task: tid })).subs[0].photo); ok('database photo served', g.status === 200 && Buffer.from(g.bytes).equals(jpg));
+  S.reply = null;
+  ok('task full: third worker refused', (await S.call({ id: 8008, first_name: 'Z' }, 'mkSubmit', { task: tid, photo: 'AAAA', lat: 1, lng: 1, answers: ['z'] })).error === 'full');
+  ok('full task leaves the feed', (await S.call({ id: 8008, first_name: 'Z' }, 'mkFeed', { city: 'Hargeisa' })).tasks.length === 0);
+  ok('owner sees 2 waiting', (await S.call(U, 'mkMine')).tasks[0].pending === 2);
+  r = await S.call(U, 'mkSubs', { task: tid }); const subV = r.subs.find((x) => x.answers[0] === 'Hodan').id, subW = r.subs.find((x) => x.answers[0] === 'Ayan shop').id;
+  ok('stranger cannot approve', (await S.call(V, 'mkDecide', { sub: subV, approve: true })).error === 'forbidden');
+  const [a1, a2] = await Promise.all([S.call(U, 'mkDecide', { sub: subV, approve: true }), S.call(U, 'mkDecide', { sub: subV, approve: true })]);
+  ok('approve twice at once: paid once', [a1, a2].filter((x) => x.ok).length === 1 && (await S.call(V, 'mkWallet')).balance === 1, [a1, a2]);
+  ok('worker told', S.sent.some((s) => /Approved: "Shelf photo"\. \$1\.00/.test((s.payload || {}).text || '')));
+  ok('reject with reason', (await S.call(U, 'mkDecide', { sub: subW, approve: false, reason: 'Blurry' })).ok && (await S.call(W2, 'mkWallet')).subs[0].reason === 'Blurry');
+  ok('decided submission cannot change', (await S.call(U, 'mkDecide', { sub: subW, approve: true })).error === 'state');
+  r = await S.call(V, 'mkWallet'); ok('wallet: balance, earned, my work with task title', r.balance === 1 && r.earned === 1 && r.subs[0].title === 'Shelf photo' && r.subs[0].status === 'approved', r);
+  ok('withdraw: bad address', (await S.call(V, 'mkWithdraw', { address: 'xyz' })).error === 'address');
+  ok('withdraw below min refused', (await S.call(V, 'mkWithdraw', { address: 'T' + 'A'.repeat(33) })).error === 'min');
+  S.env.DB._db.prepare("UPDATE Workers SET balance = 6 WHERE user_id = '3003'").run();
+  const [w1, w2] = await Promise.all([S.call(V, 'mkWithdraw', { address: 'T' + 'A'.repeat(33) }), S.call(V, 'mkWithdraw', { address: 'T' + 'A'.repeat(33) })]);
+  ok('withdraw twice at once: one request', [w1, w2].filter((x) => x.ok).length === 1 && S.rows('Withdrawals').length === 1 && (await S.call(V, 'mkWallet')).balance === 0, [w1, w2]);
+  ok('admin told about the request', S.sent.some((s) => /Withdrawal request: \$6\.00/.test((s.payload || {}).text || '')));
+  r = await S.call(ADMIN, 'adminMk'); ok('admin sees withdrawal', r.withdrawals.length === 1 && r.withdrawals[0].amount === 6, r);
+  ok('non-admin cannot see withdrawals', (await S.call(V, 'adminMk')).error === 'forbidden');
+  ok('reject: money back to balance', (await S.call(ADMIN, 'adminMkWithdrawal', { id: r.withdrawals[0].id, paid: false })).ok && (await S.call(V, 'mkWallet')).balance === 6);
+  ok('rejected once only', (await S.call(ADMIN, 'adminMkWithdrawal', { id: r.withdrawals[0].id, paid: false })).error === 'state' && (await S.call(V, 'mkWallet')).balance === 6);
+  await S.call(V, 'mkWithdraw', { address: 'T' + 'B'.repeat(33) }); r = await S.call(ADMIN, 'adminMk');
+  ok('mark paid', (await S.call(ADMIN, 'adminMkWithdrawal', { id: r.withdrawals[0].id, paid: true })).ok && S.sent.some((s) => /withdrawal of \$6\.00 has been sent/.test((s.payload || {}).text || '')));
+  ok('wallet history', (await S.call(V, 'mkWallet')).withdrawals.map((x) => x.status).join() === 'paid,rejected');
+  ok('photos not in the nightly backup', (await S.export('Photos')).error === 'table' && (await S.export('Submissions')).rows.length === 2);
+  await S.setSettings({ testMode: true }); ok('test mode: task live at once', (await S.call(U, 'mkSaveTask', { task: { title: 'T', instructions: 'I', city: 'Burao', reward: 1, slots: 1 } })).task.status === 'live');
 }
 
 section('migration from the real Apps Script (Debt Book)');
