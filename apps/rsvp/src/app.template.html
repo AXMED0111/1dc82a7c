@@ -11,6 +11,24 @@
 <script src="vendor/qrcode.js"></script>
 %%STYLE%%
 %%EXTRA%%
+<style>
+.cd{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;font-weight:600;border-radius:999px;padding:4px 10px;background:var(--soft);color:var(--accent);margin-top:12px}
+.tz2{font-size:12.5px;color:var(--hint);margin-top:4px}
+.tkt{position:relative;border-radius:22px;overflow:hidden;margin-bottom:12px;background:linear-gradient(150deg,#0b1024 0%,#16205a 55%,#3a1d6e 100%);color:#fff;box-shadow:0 18px 40px -22px rgba(22,32,90,.7)}
+.tkt .top{display:block;padding:20px 20px 16px;text-align:left;position:static}.tkt .ey{font-size:11px;letter-spacing:.2em;text-transform:uppercase;opacity:.65}.tkt h3{font-family:Georgia,"Times New Roman",serif;font-weight:500;font-size:22px;margin:6px 0 4px;line-height:1.25}
+.tkt .sub{font-size:13px;opacity:.8}.tkt .cut{position:relative;border-top:2px dashed rgba(255,255,255,.22);margin:0 16px}
+.tkt .cut:before,.tkt .cut:after{content:'';position:absolute;top:-13px;width:24px;height:24px;border-radius:50%;background:var(--bg)}.tkt .cut:before{left:-29px}.tkt .cut:after{right:-29px}
+.tkt .bot{display:block;padding:16px 20px 20px;text-align:center}.tkt .sub{display:block}.tkt .qrbox{box-shadow:0 0 0 6px rgba(255,255,255,.08)}
+.tkt .who{font-size:20px;font-weight:700;margin-top:12px}.tkt .plus{display:inline-block;margin-left:6px;font-size:13px;font-weight:700;border-radius:999px;padding:2px 9px;background:rgba(255,255,255,.16);vertical-align:3px}
+.tkt .code{font-family:ui-monospace,Menlo,Consolas,monospace;letter-spacing:.14em;font-size:13px;opacity:.75;margin-top:6px}.tkt .op{font-size:12.5px;opacity:.8;margin-top:8px}
+.bar{height:10px;border-radius:99px;background:var(--bg);overflow:hidden;margin-top:10px}.bar i{display:block;height:100%;border-radius:99px;background:linear-gradient(90deg,var(--accent),#8b5cf6);transition:width .4s}
+.door b.n{font-size:30px;letter-spacing:-.02em}.door .fs{margin-top:2px}
+.res{text-align:center;border-radius:18px;padding:22px 18px;margin:12px 0;border:1px solid var(--sep);background:var(--card)}
+.res .ri{width:64px;height:64px;border-radius:50%;display:grid;place-items:center;margin:0 auto 10px}.res h2{margin:4px 0}.res.in .ri{background:color-mix(in srgb,var(--ok) 16%,transparent);color:var(--ok)}
+.res.warn .ri{background:color-mix(in srgb,#f59e0b 18%,transparent);color:#d97706}.res.early .ri{background:var(--soft);color:var(--accent)}.res.bad .ri{background:color-mix(in srgb,var(--danger) 14%,transparent);color:var(--danger)}
+.res.in{border-color:color-mix(in srgb,var(--ok) 40%,var(--sep))}.res .pv{margin-top:12px;text-align:left;background:var(--bg);border-radius:12px;padding:12px 14px;font-size:14px;line-height:1.5}
+.lst{list-style:none;margin:0;padding:0}.lst li{display:flex;justify-content:space-between;gap:10px;padding:8px 0;border-top:1px solid var(--sep);font-size:14px}.lst li:first-child{border-top:0}
+</style>
 </head>
 <body>
 %%ICONS%%
@@ -19,94 +37,227 @@
 <script>
 (function(){
 var t=K.t,esc=K.esc,ic=K.ic,S=K.S,api=K.api;
-var EKEY=K.param('e'),GKEY=K.param('g');
-var R={events:null,ev:null,edit:null,inv:null,ticket:null,scan:null,reply:{rsvp:'yes',party:1,name:'',msg:''}};
-function fmtWhen(e){var d=e.date?new Date(e.date+'T'+(e.time||'00:00')):null;if(!d||isNaN(d))return e.date||'';
-  try{return d.toLocaleDateString(K.lang()==='so'?'so-SO':'en-GB',{weekday:'long',day:'numeric',month:'long',year:'numeric'})+(e.time?' · '+e.time:'')}catch(x){return e.date+' '+(e.time||'')}}
-function qrSvg(text){try{var q=qrcode(0,'M');q.addData(text);q.make();return q.createSvgTag({cellSize:4,margin:2,scalable:true})}catch(e){return''}}
-function blank(){return{key:'',title:'',hosts:'',date:'',time:'',venue:'',address:'',map_url:'',notes:'',dress:'',deadline:'',open_max:4,status:'draft'}}
+var EKEY=K.param('e'),GKEY=K.param('g'),TKEY=K.param('t'),SKEY=K.param('s');
+var R={events:null,ev:null,edit:null,inv:null,tk:null,door:null,scan:null,reply:{rsvp:'yes',party:1,name:'',msg:''},sending:false,msgOk:false};
+/* door helper links this phone has opened (a helper can then also check in from a scanned ticket link) */
+var STAFF=K.lsGet('rsv_staff',[]);if(SKEY&&STAFF.indexOf(SKEY)<0){STAFF.unshift(SKEY);STAFF=STAFF.slice(0,10);K.lsSet('rsv_staff',STAFF)}
+
+/* ---------- time zones: event times are venue times; every clock time is shown in the event's zone ---------- */
+var DEF_TZ='Africa/Mogadishu';
+function tzOk(z){try{new Intl.DateTimeFormat('en',{timeZone:z});return!!z}catch(e){return false}}
+var PHONE_TZ=(function(){try{var z=Intl.DateTimeFormat().resolvedOptions().timeZone;return tzOk(z)?z:DEF_TZ}catch(e){return DEF_TZ}})();
+var ZONES=['Africa/Mogadishu','Africa/Nairobi','Africa/Addis_Ababa','Africa/Djibouti','Africa/Kampala','Africa/Dar_es_Salaam','Africa/Cairo','Asia/Dubai','Asia/Riyadh','Asia/Qatar','Europe/Istanbul','Europe/London','Europe/Stockholm','Europe/Oslo','Europe/Helsinki','Europe/Copenhagen','Europe/Amsterdam','Europe/Berlin','America/New_York','America/Chicago','America/Toronto','America/Los_Angeles','Australia/Melbourne','UTC'];
+function tzOf(e){return e&&tzOk(e.tz)?e.tz:DEF_TZ}
+function loc(){return K.lang()==='so'?'so-SO':'en-GB'}
+function offMin(tz,d){try{var p={};new Intl.DateTimeFormat('en-US',{timeZone:tz,hourCycle:'h23',year:'numeric',month:'numeric',day:'numeric',hour:'numeric',minute:'numeric'}).formatToParts(d).forEach(function(x){p[x.type]=x.value});
+ return Math.round((Date.UTC(+p.year,p.month-1,+p.day,+p.hour%24,+p.minute)-Math.floor(d.getTime()/60000)*60000)/60000)}catch(e){return 0}}
+function zoned(date,time,tz){var a=String(date||'').split('-').map(Number);if(!a[0]||!a[1]||!a[2])return null;var b=String(time||'00:00').split(':').map(function(x){return+x||0});
+ var wall=Date.UTC(a[0],a[1]-1,a[2],b[0],b[1]),u=wall-offMin(tz,new Date(wall))*6e4;u=wall-offMin(tz,new Date(u))*6e4;return new Date(u)}
+function city(tz){return String(tz).split('/').pop().replace(/_/g,' ')}
+function tzLabel(tz){var m=offMin(tz,new Date()),a=Math.abs(m);return city(tz)+' (UTC'+(m<0?'−':'+')+Math.floor(a/60)+(a%60?':'+('0'+a%60).slice(-2):'')+')'}
+function clockIn(iso,tz){if(!iso)return'';var d=new Date(iso);if(isNaN(d))return'';try{return new Intl.DateTimeFormat('en-GB',{timeZone:tz,hour:'2-digit',minute:'2-digit',hourCycle:'h23'}).format(d)}catch(x){return d.toISOString().slice(11,16)}}
+function dayIn(iso,tz){var d=new Date(iso);try{return new Intl.DateTimeFormat(loc(),{timeZone:tz,weekday:'short',day:'numeric',month:'short'}).format(d)}catch(x){return d.toISOString().slice(0,10)}}
+function sameDay(a,b,tz){try{var f=new Intl.DateTimeFormat('en-CA',{timeZone:tz});return f.format(new Date(a))===f.format(new Date(b))}catch(x){return false}}
+function whenAt(iso,tz){return(sameDay(iso,Date.now(),tz)?'':dayIn(iso,tz)+' ')+clockIn(iso,tz)}   // "15:00" today, "Sat 24 Dec 15:00" otherwise
+function inTime(iso){var ms=new Date(iso)-Date.now();if(!iso||isNaN(ms))return'';if(ms<=0)return t('started');var m=Math.ceil(ms/6e4),h=Math.floor(m/60),d=Math.floor(h/24);
+ return d>=2?t('in_days',{n:d}):h>=1?t('in_hm',{h:h,m:m%60}):t('in_m',{n:m})}
+function fmtWhen(e){var d=e.date?new Date(e.date+'T12:00:00Z'):null;if(!d||isNaN(d))return e.date||'';
+ try{return d.toLocaleDateString(loc(),{weekday:'long',day:'numeric',month:'long',year:'numeric',timeZone:'UTC'})+(e.time?' · '+e.time:'')}catch(x){return e.date+' '+(e.time||'')}}
+function yourTime(e){var tz=tzOf(e);if(!e.time||!e.starts_at)return'';var a=offMin(tz,new Date(e.starts_at)),b=offMin(PHONE_TZ,new Date(e.starts_at));
+ return a===b?'':t('venue_time',{c:city(tz)})+' · '+t('your_time',{t:whenAt(e.starts_at,PHONE_TZ)})}
+function opensLine(e){if(!e.checkin_opens_at)return'';return t('opens_at',{t:whenAt(e.checkin_opens_at,tzOf(e))})}
+function cbLabel(n){n=+n;return n>=999?t('cb_any'):n===0?t('cb_0'):n<1?t('cb_m'):t('cb_h',{n:n})}
+function people(n){n=+n||0;return n===1?t('one_person'):t('people',{n:n})}
+function plus(n){n=+n||1;return n>1?'+'+(n-1):''}
+
+/* ---------- tickets ---------- */
+function ticketUrl(key){return K.CFG.botUsername?K.appLink('t_'+key):'RSVP:'+key}
+function qrObj(text){var q=qrcode(0,'M');q.addData(text);q.make();return q}
+function qrSvg(text){try{return qrObj(text).createSvgTag({cellSize:4,margin:2,scalable:true})}catch(e){return''}}
+function parseCode(s){var m=/(?:[?&](?:start|startapp)=t_|[?&]t=|^RSVP:|^t_)([A-Za-z0-9]+)/i.exec(String(s||'').trim());return m?m[1]:String(s||'').trim()}
+function wrap(x,s,maxW){var w=String(s||'').split(/\s+/),out=[],line='';w.forEach(function(word){var tst=line?line+' '+word:word;if(x.measureText(tst).width>maxW&&line){out.push(line);line=word}else line=tst});if(line)out.push(line);return out}
+function rr(x,X,Y,W,H,r){x.beginPath();x.moveTo(X+r,Y);x.arcTo(X+W,Y,X+W,Y+H,r);x.arcTo(X+W,Y+H,X,Y+H,r);x.arcTo(X,Y+H,X,Y,r);x.arcTo(X,Y,X+W,Y,r);x.closePath()}
+/* a designed ticket picture (1080×1600): invitation on top, QR + name + party below a perforation */
+function ticketBlob(e,g){return new Promise(function(res){
+ var W=1080,H=1600,c=document.createElement('canvas');c.width=W;c.height=H;var x=c.getContext('2d'),F='"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif',SER='Georgia,"Times New Roman",serif';
+ var bg=x.createLinearGradient(0,0,W,H);bg.addColorStop(0,'#0b1024');bg.addColorStop(.55,'#16205a');bg.addColorStop(1,'#3a1d6e');x.fillStyle=bg;x.fillRect(0,0,W,H);
+ [[150,120,460,'rgba(99,102,241,.35)'],[W-80,560,420,'rgba(236,72,153,.22)'],[W/2,H,520,'rgba(56,189,248,.14)']].forEach(function(o){var gr=x.createRadialGradient(o[0],o[1],0,o[0],o[1],o[2]);gr.addColorStop(0,o[3]);gr.addColorStop(1,'rgba(0,0,0,0)');x.fillStyle=gr;x.fillRect(0,0,W,H)});
+ var tz=tzOf(e),y=128;x.textAlign='center';x.fillStyle='rgba(255,255,255,.62)';x.font='600 28px '+F;x.fillText(t('t_invite').split('').join(String.fromCharCode(8202))+'   ·   '+t('t_ticket').split('').join(String.fromCharCode(8202)),W/2,y);
+ x.fillStyle='#fff';x.font='500 68px '+SER;y+=88;wrap(x,e.title,W-180).slice(0,3).forEach(function(l){x.fillText(l,W/2,y);y+=80});
+ if(e.hosts){x.fillStyle='rgba(255,255,255,.75)';x.font='400 32px '+F;y+=4;wrap(x,e.hosts,W-200).slice(0,2).forEach(function(l){x.fillText(l,W/2,y);y+=42})}
+ y+=18;x.fillStyle='rgba(255,255,255,.35)';x.fillRect(W/2-40,y,80,3);y+=58;x.fillStyle='#fff';x.font='600 36px '+F;x.fillText(fmtWhen(e),W/2,y);
+ if(e.venue||e.address){y+=50;x.fillStyle='rgba(255,255,255,.8)';x.font='400 31px '+F;wrap(x,[e.venue,e.address].filter(Boolean).join(' · '),W-200).slice(0,2).forEach(function(l){x.fillText(l,W/2,y);y+=42});y-=42}
+ var py=Math.max(y+56,600),pw=W-120,q=qrObj(ticketUrl(g.key)),n=q.getModuleCount(),room=H-60-py-56-40-250,qs=Math.max(380,Math.min(540,room)),cell=Math.floor(qs/(n+2)),qw=cell*(n+2),qx=Math.round((W-qw)/2),qy=py+56,ny=qy+qw+40;
+ x.save();x.beginPath();x.rect(0,0,W,H);[60,W-60].forEach(function(cx){x.moveTo(cx+28,ny);x.arc(cx,ny,28,0,Math.PI*2)});x.clip('evenodd');x.fillStyle='#fff';rr(x,60,py,pw,H-py-60,40);x.fill();x.restore();
+ x.strokeStyle='#d0d5dd';x.lineWidth=3;x.setLineDash([16,12]);x.beginPath();x.moveTo(110,ny);x.lineTo(W-110,ny);x.stroke();x.setLineDash([]);
+ x.fillStyle='#0b1024';for(var r=0;r<n;r++)for(var k=0;k<n;k++)if(q.isDark(r,k))x.fillRect(qx+(k+1)*cell,qy+(r+1)*cell,cell,cell);
+ var ty=ny+92,nm=g.name,pl=plus(g.party),fs=56,plw=0;x.font='700 34px '+F;if(pl)plw=x.measureText(pl).width+44;
+ do{x.font='700 '+fs+'px '+F;fs-=2}while(fs>34&&x.measureText(nm).width+(pl?plw+18:0)>W-220);var nmw=x.measureText(nm).width;
+ var sx=W/2-(nmw+(pl?plw+18:0))/2;x.textAlign='left';x.fillStyle='#0b1024';x.fillText(nm,sx,ty);
+ if(pl){var bx=sx+nmw+18;x.fillStyle='#4f46e5';rr(x,bx,ty-44,plw,56,28);x.fill();x.fillStyle='#fff';x.font='700 34px '+F;x.fillText(pl,bx+22,ty-4)}
+ x.textAlign='center';x.fillStyle='#475467';x.font='500 32px '+F;x.fillText(people(g.party),W/2,ty+54);
+ x.fillStyle='#98a2b3';x.font='600 28px ui-monospace,Menlo,Consolas,monospace';x.fillText(t('t_code')+'  '+String(g.key).toUpperCase(),W/2,ty+104);
+ x.fillStyle='#667085';x.font='400 27px '+F;x.fillText(t('t_show')+(e.checkin_opens_at?'  ·  '+opensLine(e):''),W/2,H-100);
+ c.toBlob(function(b){res(b)},'image/jpeg',0.92)})}
+function sendTicket(auto){var v=R.inv,g=v&&v.guest;if(!g||g.rsvp!=='yes'||R.sending)return;R.sending=true;K.render();
+ ticketBlob(v.event,g).then(function(blob){
+  if(!K.CFG.fileUrl||!K.IN_TG){K.saveBlob(blob,(v.event.title.replace(/[^\w\- ]+/g,'')||'ticket')+' ticket.jpg');R.sending=false;K.render();return}
+  function up(){return fetch(K.CFG.fileUrl+'?kind=photo&ref='+encodeURIComponent(g.key),{method:'POST',headers:{'x-tg-init':K.TG.initData},body:blob}).then(function(r){return r.json()}).catch(function(){return{ok:false,error:'network'}})}
+  function done(r){R.sending=false;if(r.ok){g.ticket_sent=true;K.toast(t('ticket_sent'));K.haptic('ok')}else if(!auto)K.toast(t('e_gen'));K.render()}
+  up().then(function(r){if(!r.ok&&r.error==='write_access'&&K.TG.requestWriteAccess){K.TG.requestWriteAccess(function(ok){if(ok)up().then(done);else done(r)});return}done(r)})
+ })}
+
+function blank(){return{key:'',title:'',hosts:'',date:'',time:'',venue:'',address:'',map_url:'',notes:'',dress:'',deadline:'',open_max:4,status:'draft',tz:PHONE_TZ,checkin_before:3}}
 function inviteText(e,link){return(K.lang()==='so'?'Waxaa lagugu martiqaaday: ':'You are invited: ')+e.title+'\n'+fmtWhen(e)+(e.venue?'\n'+e.venue:'')+'\n'+link}
+function staffKey(){return SKEY?SKEY.split('-')[0]:''}
+function doorKey(){return R.ev?R.ev.key:staffKey()}
+
+/* ---------- check-in result (door screen and scanned ticket) ---------- */
+function resultCard(r,e){if(!r)return'';var g=r.guest,tz=tzOf(e||r.event||{}),ev=r.event||e||{};
+ function pv(){return g?'<div class="pv"><b>'+esc(g.name)+(plus(g.party)?' <span class="pill ac">'+plus(g.party)+'</span>':'')+'</b><br>'+people(g.party)+'<br>'+esc(ev.title||'')+'<br>'+esc(fmtWhen(ev))+(ev.venue?'<br>'+esc(ev.venue):'')+'</div>':''}
+ if(r.ok&&r.result==='in')return'<div class="res in"><div class="ri">'+ic('check','l')+'</div><h2>'+esc(g.name)+(plus(g.party)?' '+plus(g.party):'')+'</h2><p class="m">'+t('ok_in')+' · '+people(g.party)+'</p><div class="fs">'+t('checked_at',{t:clockIn(g.checked_in_at,tz)})+'</div></div>';
+ if(r.ok&&r.result==='already')return'<div class="res warn"><div class="ri">'+ic('alert','l')+'</div><h2>'+esc(g.name)+'</h2><p class="m">'+t('already',{t:whenAt(g.checked_in_at,tz)})+'</p>'+pv()+'</div>';
+ if(r.ok&&r.result==='early')return'<div class="res early"><div class="ri">'+ic('clock','l')+'</div><h2>'+t('early')+'</h2><p class="m">'+t('early_sub',{t:whenAt(r.opens_at,tz),d:inTime(r.opens_at)})+'</p>'+pv()+
+  '<button class="btn sec2" style="margin-top:12px" data-a="force" data-code="'+esc(g.key)+'">'+ic('check','s')+t('force')+'</button></div>';
+ var msg=r.error==='not_attending'?t('not_attending'):r.error==='other_event'?t('other_event',{e:esc(r.other||'')}):r.error==='forbidden'?t('door_bad'):t('bad_code');
+ return'<div class="res bad"><div class="ri">'+ic('x','l')+'</div>'+(g?'<h2>'+esc(g.name)+'</h2>':'')+'<p class="m">'+msg+'</p></div>'}
+function doorCard(d){if(!d)return'';var pct=d.expected?Math.min(100,Math.round(d.arrived*100/d.expected)):0;
+ return'<div class="card door"><div class="row"><div class="grow"><div class="fs">'+t('arrived')+'</div><b class="n">'+d.arrived+'</b> <span class="m">/ '+t('of_people',{b:d.expected})+'</span></div><div class="pill ac">'+pct+'%</div></div><div class="bar"><i style="width:'+pct+'%"></i></div><div class="fs" style="margin-top:8px">'+(d.tickets===1?t('ticket_scanned1'):t('tickets_scanned',{n:d.tickets}))+'</div></div>'}
 
 K.app({
  icon:'calendar',freeLabel:'Free events (total)',
  defaults:{appName:'Invitations',freeAllowance:1,plans:[{id:'event1',label:'One event',days:0,credits:1,usd:5,stars:350,region:'ALL'},{id:'event5',label:'5 events',days:0,credits:5,usd:15,stars:1000,region:'ALL'},{id:'pro_m',label:'Unlimited · 1 month',days:30,credits:0,usd:15,stars:1000,region:'ALL'}]},
- startScreen:function(){return EKEY||GKEY?'invite':'home'},
+ startScreen:function(){return TKEY?'ticket':SKEY?'door':EKEY||GKEY?'invite':'home'},
  strings:{
  en:{appName:'Invitations',tagline:'Weddings and events, RSVPs and door check-in',my_events:'My events',create:'Create event',no_events:'No events yet. Create your first invitation in a minute.',
   draft:'Draft',live:'Published',title:'Event title',title_ph:'Wedding of Amina & Yusuf',hosts:'Hosted by',date:'Date',time:'Time',venue:'Venue',address:'Address',map:'Map link (optional)',
   notes:'Message to guests',dress:'Dress code (optional)',deadline:'Reply by (optional)',open_max:'Max people per open-link reply',save_draft:'Save draft',publish:'Publish',publish_hint:'Publishing uses 1 event credit.',
   attending:'Attending',declined:'Declined',pending:'No reply',checked:'Checked in',guests:'Guests',checkin:'Check-in',open_link:'Open invitation link',open_link_sub:'Anyone with this link can reply. For a guest list, add guests and send each one a personal link.',
   add_guests:'Add guests',add_guests_ph:'One guest per line, e.g.\nAmina Ali, 3\nYusuf Omar',add_guests_hint:'Optional: add a comma and the number of people allowed.',add:'Add',
-  personal:'Personal link',whatsapp:'WhatsApp',telegram:'Telegram',people:'{n} people',
+  personal:'Personal link',whatsapp:'WhatsApp',telegram:'Telegram',people:'{n} people',one_person:'1 person',
   scan:'Scan ticket QR',manual:'Or enter ticket code',check:'Check in',ok_in:'Welcome — checked in',already:'Already checked in at {t}',bad_code:'Ticket not found for this event.',not_attending:'This guest did not confirm attendance.',
   you_invited:'You are invited',reply:'Your reply',yes:'Attending',no:'Can\'t attend',maybe:'Maybe',party:'Number of people',your_name:'Your name',message:'Message to the hosts (optional)',send_reply:'Send reply',
-  thanks_yes:'Thank you. Your reply is saved. Show this ticket at the entrance.',thanks_no:'Thank you for letting the hosts know.',ticket:'Your ticket',code:'Ticket code',change:'Change reply',directions:'Directions',
-  not_found:'This invitation is not available.',reply_by:'Please reply by {d}',edit_event:'Edit event',delete_guest:'Remove',ins_pending:'<b>{n} guests have not replied.</b> Send them their personal link again.',ins_go:'Guests',guest_pdf:'Guest list PDF',name:'Name',reply_l:'Reply',people_l:'People',checked_l:'Checked in',message_l:'Message',total_people:'Total people attending'},
+  thanks_yes:'Thank you. Your reply is saved. Show this ticket at the entrance.',thanks_no:'Thank you for letting the hosts know.',ticket:'Your ticket',code:'Ticket code',directions:'Directions',
+  not_found:'This invitation is not available.',reply_by:'Please reply by {d}',edit_event:'Edit event',delete_guest:'Remove',ins_pending:'<b>{n} guests have not replied.</b> Send them their personal link again.',ins_go:'Guests',guest_pdf:'Guest list PDF',name:'Name',reply_l:'Reply',people_l:'People',checked_l:'Checked in',message_l:'Message',total_people:'Total people attending',
+  tz:'Time zone',tz_hint:'Event times are local times at the venue. Check-in times are shown in this zone.',checkin_open:'Check-in opens',cb_any:'Any time',cb_0:'At the start time',cb_m:'30 min before',cb_h:'{n} h before',
+  opens_at:'Check-in opens at {t}',started:'Started',in_days:'in {n} days',in_hm:'in {h} h {m} min',in_m:'in {n} min',venue_time:'{c} time',your_time:'{t} your time',
+  arrived:'Arrived',of_people:'{b} people',tickets_scanned:'{n} tickets scanned',ticket_scanned1:'1 ticket scanned',recent:'Latest arrivals',scan_next:'Scan next',
+  door_title:'Door helpers',door_sub:'Helpers open this link to scan tickets at the entrance. They cannot see or change your guest list.',door_make:'Create helper link',door_new:'New link (the old one stops)',door_bad:'This door link is not valid any more. Ask the host for a new one.',door_for:'Door check-in',
+  early:'Not open yet',early_sub:'Check-in opens at {t} ({d}).',force:'Check in anyway',checked_at:'Checked in at {t}',other_event:'This ticket is for another event: {e}',
+  ticket_for:'Personal ticket',ticket_note:'Check-in is done by the hosts at the entrance.',ticket_valid:'Valid ticket',ticket_used:'Used at {t}',not_valid:'This ticket is not valid.',
+  send_chat:'Send ticket to my Telegram chat',sent_again:'Sent to your chat — send again',ticket_sent:'Ticket sent to your Telegram chat',sending:'Sending…',save_img:'Save ticket picture',
+  final_note:'Your reply is final. If something changes, write to the hosts — they can reopen it.',msg_hosts:'Message to the hosts',send_msg:'Send message',msg_sent:'Message sent to the hosts.',
+  maybe_note:'You answered “maybe”. Tell the hosts your final answer.',closed:'Replies are closed for this event.',locked:'Your reply was already saved.',
+  reopen:'Reopen reply',reopened:'Reply reopened — the guest can answer again.',reopen_q:'Reopen the reply of {n}? Their ticket stops working until they answer again.',
+  t_invite:'INVITATION',t_ticket:'TICKET',t_show:'Show this at the entrance',t_code:'TICKET',e_date:'Choose a valid date.',checked_short:'In {t}'},
  so:{appName:'Casuumado',tagline:'Arooska iyo munaasabadaha, jawaabaha iyo hubinta albaabka',my_events:'Munaasabadahayga',create:'Samee munaasabad',no_events:'Weli munaasabad ma jirto. Samee casuumaddaada ugu horreysa hal daqiiqo gudaheed.',
   draft:'Qabyo',live:'La daabacay',title:'Magaca munaasabadda',title_ph:'Aroosga Aamina & Yuusuf',hosts:'Martigeliyayaasha',date:'Taariikhda',time:'Waqtiga',venue:'Goobta',address:'Cinwaanka',map:'Link khariidad (ikhtiyaari)',
   notes:'Fariin martida',dress:'Labiska (ikhtiyaari)',deadline:'Jawaab ka hor (ikhtiyaari)',open_max:'Tirada ugu badan ee dadka jawaabtii link-ga furan',save_draft:'Keydi qabyo',publish:'Daabac',publish_hint:'Daabacaaddu waxay isticmaashaa 1 dhibic munaasabad.',
   attending:'Imanaya',declined:'Diiday',pending:'Jawaab la\'aan',checked:'Soo galay',guests:'Martida',checkin:'Hubinta albaabka',open_link:'Link casuumad furan',open_link_sub:'Qof kasta oo haysta link-gan wuu jawaabi karaa. Liis martida, ku dar martida oo mid walba u dir link gaar ah.',
   add_guests:'Ku dar marti',add_guests_ph:'Marti kasta hal sadar, tusaale\nAamina Cali, 3\nYuusuf Cumar',add_guests_hint:'Ikhtiyaari: ku dar hakad iyo tirada dadka loo oggol yahay.',add:'Ku dar',
-  personal:'Link gaar ah',whatsapp:'WhatsApp',telegram:'Telegram',people:'{n} qof',
+  personal:'Link gaar ah',whatsapp:'WhatsApp',telegram:'Telegram',people:'{n} qof',one_person:'1 qof',
   scan:'Iskaan QR-ka tigidhka',manual:'Ama geli koodhka tigidhka',check:'Hubi',ok_in:'Soo dhawoow — waa la hubiyay',already:'Horey ayaa loo hubiyay {t}',bad_code:'Tigidhkan lagama helin munaasabaddan.',not_attending:'Martidan ma xaqiijin imaanshaha.',
   you_invited:'Waa lagu martiqaaday',reply:'Jawaabtaada',yes:'Waan imanayaa',no:'Ma imaan karo',maybe:'Laga yaabee',party:'Tirada dadka',your_name:'Magacaaga',message:'Fariin martigeliyayaasha (ikhtiyaari)',send_reply:'Dir jawaabta',
-  thanks_yes:'Mahadsanid. Jawaabtaada waa la keydiyay. Tigidhkan ku tus albaabka.',thanks_no:'Mahadsanid in aad ogeysiisay martigeliyayaasha.',ticket:'Tigidhkaaga',code:'Koodhka tigidhka',change:'Beddel jawaabta',directions:'Tilmaamaha',
-  not_found:'Casuumaddan lama heli karo.',reply_by:'Fadlan jawaab ka hor {d}',edit_event:'Wax ka beddel',delete_guest:'Ka saar',ins_pending:'<b>{n} marti weli ma jawaabin.</b> Mar kale u dir link-gooda gaarka ah.',ins_go:'Martida',guest_pdf:'Liiska martida PDF',name:'Magaca',reply_l:'Jawaab',people_l:'Dad',checked_l:'Soo galay',message_l:'Fariin',total_people:'Wadarta dadka imanaya'}},
+  thanks_yes:'Mahadsanid. Jawaabtaada waa la keydiyay. Tigidhkan ku tus albaabka.',thanks_no:'Mahadsanid in aad ogeysiisay martigeliyayaasha.',ticket:'Tigidhkaaga',code:'Koodhka tigidhka',directions:'Tilmaamaha',
+  not_found:'Casuumaddan lama heli karo.',reply_by:'Fadlan jawaab ka hor {d}',edit_event:'Wax ka beddel',delete_guest:'Ka saar',ins_pending:'<b>{n} marti weli ma jawaabin.</b> Mar kale u dir link-gooda gaarka ah.',ins_go:'Martida',guest_pdf:'Liiska martida PDF',name:'Magaca',reply_l:'Jawaab',people_l:'Dad',checked_l:'Soo galay',message_l:'Fariin',total_people:'Wadarta dadka imanaya',
+  tz:'Waqtiga aagga',tz_hint:'Waqtiyada munaasabaddu waa waqtiga goobta. Waqtiyada hubinta waxaa lagu muujiyaa aaggan.',checkin_open:'Hubintu way furantaa',cb_any:'Waqti kasta',cb_0:'Marka ay bilaabato',cb_m:'30 daqiiqo ka hor',cb_h:'{n} saac ka hor',
+  opens_at:'Hubintu waxay furantaa {t}',started:'Wuu bilaabmay',in_days:'{n} maalmood kadib',in_hm:'{h} saac {m} daqiiqo kadib',in_m:'{n} daqiiqo kadib',venue_time:'Waqtiga {c}',your_time:'{t} waqtigaaga',
+  arrived:'Yimid',of_people:'{b} qof',tickets_scanned:'{n} tigidh ayaa la iskaanay',ticket_scanned1:'1 tigidh ayaa la iskaanay',recent:'Kuwii ugu dambeeyay ee yimid',scan_next:'Iskaan ka xiga',
+  door_title:'Caawiyayaasha albaabka',door_sub:'Caawiyayaashu waxay furaan link-gan si ay albaabka ugu iskaanaan tigidhada. Ma arki karaan mana beddeli karaan liiska martida.',door_make:'Samee link caawiye',door_new:'Link cusub (kii hore wuu joogsanayaa)',door_bad:'Link-gan albaabka ma shaqeynayo. Martigeliyaha weydii mid cusub.',door_for:'Hubinta albaabka',
+  early:'Weli ma furna',early_sub:'Hubintu waxay furantaa {t} ({d}).',force:'Hubi si kastaba',checked_at:'Waxaa la hubiyay {t}',other_event:'Tigidhkan waa munaasabad kale: {e}',
+  ticket_for:'Tigidh shakhsi ah',ticket_note:'Hubinta waxaa sameeya martigeliyayaasha albaabka.',ticket_valid:'Tigidh sax ah',ticket_used:'La isticmaalay {t}',not_valid:'Tigidhkan ma shaqeynayo.',
+  send_chat:'Tigidhka u dir sheekadayda Telegram',sent_again:'Waa loo diray sheekadaada — mar kale dir',ticket_sent:'Tigidhka waxaa loo diray sheekadaada Telegram',sending:'Waa la dirayaa…',save_img:'Keydi sawirka tigidhka',
+  final_note:'Jawaabtaadu waa mid kama dambays ah. Haddii wax isbeddelaan, u qor martigeliyayaasha — way dib u furi karaan.',msg_hosts:'Fariin martigeliyayaasha',send_msg:'Dir fariinta',msg_sent:'Fariinta waxaa loo diray martigeliyayaasha.',
+  maybe_note:'Waxaad ku jawaabtay “laga yaabee”. U sheeg martigeliyayaasha jawaabtaada kama dambaysta ah.',closed:'Jawaabaha munaasabaddan waa la xiray.',locked:'Jawaabtaada horey ayaa loo keydiyay.',
+  reopen:'Dib u fur jawaabta',reopened:'Jawaabta waa la furay — martidu mar kale ayay jawaabi kartaa.',reopen_q:'Dib ma u furaysaa jawaabta {n}? Tigidhkooda ma shaqeynayo ilaa ay mar kale jawaabaan.',
+  t_invite:'CASUUMAD',t_ticket:'TIGIDH',t_show:'Ku tus albaabka',t_code:'TIGIDH',e_date:'Dooro taariikh sax ah.',checked_short:'Yimid {t}'}},
  enter:{
   home:function(){R.events=null;api('rsvMine').then(function(r){R.events=r.ok?r.events:[];K.render()})},
   event:function(){api('rsvEvent',{key:R.ev.key}).then(function(r){if(r.ok)R.ev=r.event;K.render()})},
-  invite:function(){R.inv=null;api('rsvInvite',{e:EKEY,g:GKEY}).then(function(r){R.inv=r;if(r.ok&&r.guest){R.reply={rsvp:r.guest.rsvp==='pending'?'yes':r.guest.rsvp,party:Math.max(1,+r.guest.party||1),name:r.guest.name||'',msg:r.guest.message||''}}
-    else if(r.ok)R.reply.name=(K.TGU&&[K.TGU.first_name,K.TGU.last_name].filter(Boolean).join(' '))||'';K.render()})}
+  invite:function(){loadInvite()},
+  ticket:function(){R.tk=null;R.scan=null;api('rsvTicket',{t:TKEY,staff:STAFF}).then(function(r){
+    if(r.ok&&r.role==='guest'){GKEY=r.guest.key;S.screen='invite';return loadInvite()}R.tk=r;K.render()})},
+  door:function(){R.door=null;var k=doorKey();if(!k)return;api('rsvDoor',{key:k,staff:STAFF}).then(function(r){R.door=r;K.render()})},
+  checkin:function(){R.door=null;api('rsvDoor',{key:R.ev.key}).then(function(r){R.door=r;K.render()})}
  },
  screens:{
   home:function(){var h=K.header(t('appName'),t('tagline'))+'<div class="row" style="margin:-4px 0 12px">'+K.planChip()+'</div>'+K.banners();
    if(!R.events)return h+K.spin();
    if(!R.events.length)h+=K.empty('calendar',t('no_events'));
-   R.events.forEach(function(e){h+='<button class="chrow" data-a="open" data-key="'+esc(e.key)+'"><div class="av">'+ic('calendar')+'</div><div class="grow"><div class="fn">'+esc(e.title)+'</div><div class="fs">'+esc(fmtWhen(e))+'</div><div>'+
-     '<span class="pill '+(e.status==='published'?'ok':'')+'">'+t(e.status==='published'?'live':'draft')+'</span><span class="pill">'+t('attending')+': '+(e.stats?e.stats.yesPeople:0)+'</span></div></div></button>'});
+   R.events.forEach(function(e){var soon=e.starts_at&&new Date(e.starts_at)>Date.now()?inTime(e.starts_at):'';
+    h+='<button class="chrow" data-a="open" data-key="'+esc(e.key)+'"><div class="av">'+ic('calendar')+'</div><div class="grow"><div class="fn">'+esc(e.title)+'</div><div class="fs">'+esc(fmtWhen(e))+'</div><div>'+
+     '<span class="pill '+(e.status==='published'?'ok':'')+'">'+t(e.status==='published'?'live':'draft')+'</span><span class="pill">'+t('attending')+': '+(e.stats?e.stats.yesPeople:0)+'</span>'+(soon?'<span class="pill ac">'+esc(soon)+'</span>':'')+'</div></div></button>'});
    return h+'<button class="btn" data-a="new">'+ic('plus')+t('create')+'</button>'},
   editor:function(){var e=R.edit,h=K.header(e.key?t('edit_event'):t('create'),'');
-   function f(k,ty,ph){return'<label class="f">'+t(k)+'</label><input class="t" data-f="'+k+'" type="'+(ty||'text')+'" value="'+esc(e[k])+'" placeholder="'+esc(ph||'')+'">'}
-   h+='<div class="card">'+f('title','text',t('title_ph'))+f('hosts')+'<div class="g2"><div>'+f('date','date')+'</div><div>'+f('time','time')+'</div></div>'+f('venue')+f('address')+f('map_url','url','https://maps.google.com/…').replace('>'+t('map_url')+'<','>'+t('map')+'<')+
-     '<label class="f">'+t('notes')+'</label><textarea class="t" data-f="notes" maxlength="600">'+esc(e.notes)+'</textarea>'+f('dress')+'<div class="g2"><div>'+f('deadline','date')+'</div><div>'+f('open_max','number')+'</div></div></div>';
+   function f(k,ty,ph,lbl){return'<label class="f">'+(lbl||t(k))+'</label><input class="t" data-f="'+k+'" type="'+(ty||'text')+'" value="'+esc(e[k])+'" placeholder="'+esc(ph||'')+'">'}
+   var zs=ZONES.slice();[PHONE_TZ,e.tz].forEach(function(z){if(z&&zs.indexOf(z)<0)zs.unshift(z)});var cur=tzOk(e.tz)?e.tz:PHONE_TZ,cb=e.checkin_before===undefined||e.checkin_before===''?3:+e.checkin_before;
+   h+='<div class="card">'+f('title','text',t('title_ph'))+f('hosts')+'<div class="g2"><div>'+f('date','date')+'</div><div>'+f('time','time')+'</div></div>'+
+     '<label class="f">'+t('tz')+'</label><select class="t" data-f="tz">'+zs.map(function(z){return'<option value="'+esc(z)+'" '+(z===cur?'selected':'')+'>'+esc(tzLabel(z))+'</option>'}).join('')+'</select><div class="fs" style="margin-top:6px">'+t('tz_hint')+'</div>'+
+     f('venue')+f('address')+f('map_url','url','https://maps.google.com/…',t('map'))+
+     '<label class="f">'+t('notes')+'</label><textarea class="t" data-f="notes" maxlength="600">'+esc(e.notes)+'</textarea>'+f('dress')+'<div class="g2"><div>'+f('deadline','date')+'</div><div>'+f('open_max','number')+'</div></div>'+
+     '<label class="f">'+t('checkin_open')+'</label><select class="t" data-f="checkin_before">'+[0.5,1,2,3,4,6,12,24,0,999].map(function(n){return'<option value="'+n+'" '+(n===cb?'selected':'')+'>'+esc(cbLabel(n))+'</option>'}).join('')+'</select></div>';
    h+='<button class="btn sec2" data-a="savedraft">'+ic('check')+t('save_draft')+'</button>';
    if(e.status!=='published')h+='<button class="btn" data-a="publish">'+ic('send')+t('publish')+'</button><div class="fs center" style="margin-top:6px">'+t('publish_hint')+'</div>';
    return h+K.errBox()},
   event:function(){var e=R.ev,s=e.stats||{},link=K.appLink('e_'+e.key),h=K.header(e.title,fmtWhen(e))+K.errBox();
    if(e.status==='published'&&s.pending)h+=K.insight('users',t('ins_pending',{n:s.pending}),t('ins_go'),'guests');
    h+='<div class="card stat"><div><b>'+(s.yesPeople||0)+'</b><span>'+t('attending')+' ('+t('people',{n:s.yes||0}).replace(/^\d+ /,'')+')</span></div><div><b>'+(s.no||0)+'</b><span>'+t('declined')+'</span></div><div><b>'+(s.pending||0)+'</b><span>'+t('pending')+'</span></div><div><b>'+(s.checked||0)+'</b><span>'+t('checked')+'</span></div></div>';
+   h+='<div class="row" style="gap:6px;flex-wrap:wrap;margin:-2px 0 12px">'+(e.starts_at&&new Date(e.starts_at)>Date.now()?'<span class="pill ac">'+ic('clock','s')+' '+esc(inTime(e.starts_at))+'</span>':'')+
+    (e.checkin_opens_at?'<span class="pill">'+ic('scan','s')+' '+esc(opensLine(e))+'</span>':'')+'<span class="pill">'+ic('globe','s')+' '+esc(city(tzOf(e)))+'</span></div>';
    if(e.status!=='published')h+='<div class="banner">'+ic('info','s')+'<span>'+t('draft')+' — '+t('publish_hint')+'</span></div><button class="btn" data-a="publish">'+ic('send')+t('publish')+'</button>';
-   else h+='<div class="sec">'+t('open_link')+'</div><div class="card">'+K.kv(t('open_link'),link,true)+'<p class="m">'+t('open_link_sub')+'</p><div class="g2" style="margin-top:10px"><button class="btn sm sec2" data-a="sharetg" data-link="'+esc(link)+'">'+ic('send','s')+t('telegram')+'</button><button class="btn sm sec2" data-a="sharewa" data-link="'+esc(link)+'">'+ic('message','s')+t('whatsapp')+'</button></div></div>';
+   else{h+='<div class="sec">'+t('open_link')+'</div><div class="card">'+K.kv(t('open_link'),link,true)+'<p class="m">'+t('open_link_sub')+'</p><div class="g2" style="margin-top:10px"><button class="btn sm sec2" data-a="sharetg" data-link="'+esc(link)+'">'+ic('send','s')+t('telegram')+'</button><button class="btn sm sec2" data-a="sharewa" data-link="'+esc(link)+'">'+ic('message','s')+t('whatsapp')+'</button></div></div>';
+    var sl=e.staff?K.appLink('s_'+e.staff):'';
+    h+='<div class="sec">'+t('door_title')+'</div><div class="card"><p class="m" style="margin-top:0">'+t('door_sub')+'</p>'+(sl?K.kv(t('door_title'),sl,true)+'<div class="g2" style="margin-top:10px"><button class="btn sm sec2" data-a="sharetg" data-link="'+esc(sl)+'" data-door="1">'+ic('send','s')+t('telegram')+'</button><button class="btn sm sec2" data-a="sharewa" data-link="'+esc(sl)+'" data-door="1">'+ic('message','s')+t('whatsapp')+'</button></div><button class="btn sm ghost" style="margin-top:8px" data-a="staffnew">'+ic('refresh','s')+t('door_new')+'</button>'
+     :'<button class="btn sm sec2" style="margin-top:10px" data-a="staffmake">'+ic('link','s')+t('door_make')+'</button>')+'</div>'}
    h+='<div class="g2"><button class="btn" data-a="guests">'+ic('users')+t('guests')+'</button><button class="btn" data-a="checkin">'+ic('scan')+t('checkin')+'</button></div>'+(e.status==='published'?'<button class="btn sec2" data-a="guestpdf">'+ic('file')+t('guest_pdf')+'</button>':'')+'<button class="btn ghost" data-a="edit">'+ic('edit')+t('edit_event')+'</button>';
    return h},
-  guests:function(){var e=R.ev,h=K.header(t('guests'),e.title);
+  guests:function(){var e=R.ev,tz=tzOf(e),h=K.header(t('guests'),e.title)+K.errBox();
    h+='<div class="card"><label class="f">'+t('add_guests')+'</label><textarea class="t" id="bulk" placeholder="'+esc(t('add_guests_ph'))+'"></textarea><div class="fs" style="margin:6px 0 10px">'+t('add_guests_hint')+'</div><button class="btn sm" data-a="addguests">'+ic('plus','s')+t('add')+'</button></div>';
    (e.guests||[]).forEach(function(g){var link=K.appLink('g_'+g.key),cls=g.rsvp==='yes'?'ok':g.rsvp==='no'?'bad':'';
-     h+='<div class="card" style="padding:12px"><div class="row"><div class="grow"><div class="fn">'+esc(g.name)+'</div><div><span class="pill '+cls+'">'+t(g.rsvp==='pending'?'pending':g.rsvp==='yes'?'attending':g.rsvp==='no'?'declined':'maybe')+(g.rsvp==='yes'?' · '+t('people',{n:g.party}):'')+'</span>'+(g.checked_in_at?'<span class="pill ac">'+t('checked')+'</span>':'')+'</div>'+(g.message?'<div class="fs">“'+esc(g.message)+'”</div>':'')+'</div>'+
-       '<button class="mini" data-copy="'+esc(link)+'">'+ic('copy')+'</button><button class="mini" data-a="sharetg" data-link="'+esc(link)+'">'+ic('send')+'</button><button class="mini" data-a="sharewa" data-link="'+esc(link)+'">'+ic('message')+'</button><button class="mini" data-a="delguest" data-key="'+esc(g.key)+'">'+ic('trash')+'</button></div></div>'});
+     h+='<div class="card" style="padding:12px"><div class="row"><div class="grow"><div class="fn">'+esc(g.name)+(g.rsvp==='yes'&&plus(g.party)?' <span class="pill ac">'+plus(g.party)+'</span>':'')+'</div><div><span class="pill '+cls+'">'+t(g.rsvp==='pending'?'pending':g.rsvp==='yes'?'attending':g.rsvp==='no'?'declined':'maybe')+(g.rsvp==='yes'?' · '+people(g.party):'')+'</span>'+(g.checked_in_at?'<span class="pill ac">'+t('checked_short',{t:clockIn(g.checked_in_at,tz)})+'</span>':'')+'</div>'+(g.message?'<div class="fs">“'+esc(g.message)+'”</div>':'')+'</div>'+
+       '<button class="mini" data-copy="'+esc(link)+'">'+ic('copy')+'</button><button class="mini" data-a="sharetg" data-link="'+esc(link)+'">'+ic('send')+'</button><button class="mini" data-a="sharewa" data-link="'+esc(link)+'">'+ic('message')+'</button><button class="mini" data-a="delguest" data-key="'+esc(g.key)+'">'+ic('trash')+'</button></div>'+
+       ((g.rsvp==='yes'||g.rsvp==='no')&&!g.checked_in_at?'<button class="btn sm ghost" style="margin-top:8px" data-a="reopen" data-key="'+esc(g.key)+'" data-name="'+esc(g.name)+'">'+ic('refresh','s')+t('reopen')+'</button>':'')+'</div>'});
    return h},
-  checkin:function(){var h=K.header(t('checkin'),R.ev.title),r=R.scan;
-   h+='<button class="btn" data-a="scan" style="padding:18px">'+ic('scan','l')+t('scan')+'</button><div class="card" style="margin-top:12px"><label class="f">'+t('manual')+'</label><div class="row"><input class="t" id="code" autocomplete="off" style="text-transform:uppercase"><button class="btn sm" data-a="manual">'+t('check')+'</button></div></div>';
-   if(r){var ok=r.ok&&r.result==='in',warn=r.ok&&r.result==='already';
-     h+='<div class="card center"><div class="big '+(ok?'good':'')+'" style="'+(ok||warn?'':'color:var(--danger)')+'">'+ic(ok?'check':'alert','l')+'</div><h2>'+esc(r.guest?r.guest.name:'')+'</h2><p class="m">'+
-       (ok?t('ok_in')+' · '+t('people',{n:r.guest.party}):warn?t('already',{t:new Date(r.guest.checked_in_at).toLocaleTimeString()}):r.error==='not_attending'?t('not_attending'):t('bad_code'))+'</p></div>'}
-   return h},
+  checkin:function(){return doorScreen(R.ev,'host')},
+  door:function(){var d=R.door;if(!d)return K.header(t('door_for'),'')+K.spin();if(!d.ok)return K.header(t('door_for'),'')+resultCard({ok:false,error:'forbidden'});return doorScreen(d.event,d.role)},
+  ticket:function(){var v=R.tk;if(!v)return K.header(t('ticket_for'),'')+K.spin();if(!v.ok)return K.header(t('ticket_for'),'')+K.empty('alert',t('not_valid'));
+   var e=v.event,g=v.guest,tz=tzOf(e),h=K.header(v.role==='viewer'?t('ticket_for'):t('checkin'),e.title);
+   if(v.role==='host'||v.role==='staff'){h+=doorCard(R.scan&&R.scan.door||v.door);
+    if(R.scan)return h+resultCard(R.scan,e)+'<button class="btn" data-a="scan" style="padding:16px">'+ic('scan','l')+t('scan_next')+'</button>';
+    var early=e.checkin_opens_at&&new Date(e.checkin_opens_at)>Date.now();
+    if(g.checked_in_at)return h+resultCard({ok:true,result:'already',guest:g,event:e},e);
+    if(g.rsvp!=='yes')return h+resultCard({ok:false,error:'not_attending',guest:g},e);
+    return h+'<div class="res '+(early?'early':'')+'"><div class="ri">'+ic(early?'clock':'qr','l')+'</div><h2>'+esc(g.name)+(plus(g.party)?' '+plus(g.party):'')+'</h2><p class="m">'+people(g.party)+'</p>'+(early?'<p class="m">'+t('early_sub',{t:whenAt(e.checkin_opens_at,tz),d:inTime(e.checkin_opens_at)})+'</p>':'')+'</div>'+
+     '<button class="btn" data-a="tkcheck" data-force="'+(early?1:'')+'">'+ic('check')+t(early?'force':'check')+'</button>'}
+   h+='<div class="tkt"><div class="top"><div class="ey">'+t('ticket_for')+'</div><h3>'+esc(e.title)+'</h3><div class="sub">'+esc(fmtWhen(e))+'</div>'+(e.venue?'<div class="sub">'+esc(e.venue)+(e.address?' · '+esc(e.address):'')+'</div>':'')+'</div><div class="cut"></div><div class="bot">'+
+    '<div class="who" style="margin-top:0">'+esc(g.name)+(plus(g.party)?'<span class="plus">'+plus(g.party)+'</span>':'')+'</div><div class="op">'+people(g.party)+'</div>'+
+    '<div class="op" style="margin-top:12px">'+(g.rsvp!=='yes'?esc(t('not_valid')):g.checked_in_at?esc(t('ticket_used',{t:whenAt(g.checked_in_at,tz)})):esc(t('ticket_valid'))+(e.checkin_opens_at?' · '+esc(opensLine(e)):''))+'</div></div></div>';
+   return h+'<div class="note">'+ic('info','s')+'<span>'+t('ticket_note')+'</span></div>'},
   invite:function(){var v=R.inv;if(!v)return K.header(t('you_invited'),'')+K.spin();
    if(!v.ok)return K.header(t('you_invited'),'')+K.empty('alert',t('not_found'));
-   var e=v.event,g=v.guest,h=K.header(t('you_invited'),'')+(K.DEMO?K.banners():'');
+   var e=v.event,g=v.guest,tz=tzOf(e),yt=yourTime(e),h=K.header(t('you_invited'),'')+(K.DEMO?K.banners():'');
    h+='<div class="inv"><div class="eyebrow">'+t('you_invited')+'</div><h2>'+esc(e.title)+'</h2>'+(e.hosts?'<div class="m">'+esc(e.hosts)+'</div>':'')+'<div class="line"></div>'+
-     '<div style="font-weight:600">'+esc(fmtWhen(e))+'</div>'+(e.venue?'<div class="m" style="margin-top:4px">'+esc(e.venue)+(e.address?' · '+esc(e.address):'')+'</div>':'')+
+     '<div style="font-weight:600">'+esc(fmtWhen(e))+'</div>'+(yt?'<div class="tz2">'+esc(yt)+'</div>':'')+(e.venue?'<div class="m" style="margin-top:4px">'+esc(e.venue)+(e.address?' · '+esc(e.address):'')+'</div>':'')+
+     (e.starts_at&&new Date(e.starts_at)>Date.now()?'<div class="cd">'+ic('clock','s')+esc(inTime(e.starts_at))+'</div>':'')+
      (e.notes?'<p class="m" style="margin-top:14px;white-space:pre-line">'+esc(e.notes)+'</p>':'')+(e.dress?'<div class="pill ac" style="margin-top:10px">'+esc(e.dress)+'</div>':'')+
      (e.map_url?'<div style="margin-top:14px"><button class="btn sm ghost" data-open="'+esc(e.map_url)+'">'+ic('pin','s')+t('directions')+'</button></div>':'')+'</div>';
-   if(g&&g.rsvp!=='pending'&&!R.changing){
-     if(g.rsvp==='yes')h+='<div class="card center"><div class="sec" style="margin-top:0">'+t('ticket')+'</div><div class="qrbox">'+qrSvg('RSVP:'+g.key)+'</div><p class="m" style="margin-top:10px">'+t('thanks_yes')+'</p>'+K.kv(t('code'),g.key.toUpperCase())+'<div class="fs">'+esc(g.name)+' · '+t('people',{n:g.party})+'</div></div>';
-     else h+='<div class="card center"><p class="m">'+(g.rsvp==='no'?t('thanks_no'):t('maybe'))+'</p></div>';
-     return h+'<button class="btn ghost" data-a="change">'+ic('edit')+t('change')+'</button>'}
+   if(g&&(g.rsvp==='yes'||g.rsvp==='no')){
+     if(g.rsvp==='yes')h+='<div class="tkt"><div class="top"><div class="ey">'+t('ticket')+'</div><h3>'+esc(e.title)+'</h3><div class="sub">'+esc(fmtWhen(e))+'</div>'+(e.venue?'<div class="sub">'+esc(e.venue)+'</div>':'')+'</div><div class="cut"></div><div class="bot">'+
+       '<div class="qrbox">'+qrSvg(ticketUrl(g.key))+'</div><div class="who">'+esc(g.name)+(plus(g.party)?'<span class="plus">'+plus(g.party)+'</span>':'')+'</div><div class="op" style="margin-top:2px">'+people(g.party)+'</div><div class="code">'+esc(String(g.key).toUpperCase())+'</div>'+
+       (g.checked_in_at?'<div class="op">'+esc(t('ticket_used',{t:whenAt(g.checked_in_at,tz)}))+'</div>':e.checkin_opens_at?'<div class="op">'+esc(opensLine(e))+'</div>':'')+'</div></div>'+
+       '<button class="btn" data-a="sendticket" '+(R.sending?'disabled':'')+'>'+ic(R.sending?'refresh':'send')+(R.sending?t('sending'):g.ticket_sent?t('sent_again'):K.IN_TG&&K.CFG.fileUrl?t('send_chat'):t('save_img'))+'</button>';
+     else h+='<div class="card center"><div class="big">'+ic('check','l')+'</div><p class="m">'+t('thanks_no')+'</p></div>';
+     h+='<div class="sec">'+t('msg_hosts')+'</div><div class="card">'+(R.msgOk?'<div class="okmsg" style="margin:0 0 10px">'+ic('check','s')+'<span>'+t('msg_sent')+'</span></div>':'')+'<textarea class="t" id="gmsg2" maxlength="300" placeholder="'+esc(t('msg_hosts'))+'"></textarea><button class="btn sm" style="margin-top:10px" data-a="sendmsg">'+ic('message','s')+t('send_msg')+'</button></div>'+
+       '<div class="note">'+ic('lock','s')+'<span>'+t('final_note')+'</span></div>';
+     return h+K.errBox()}
+   if(e.replies_closed)return h+'<div class="card center"><div class="big">'+ic('lock','l')+'</div><p class="m">'+t('closed')+'</p></div>';
    var rp=R.reply,max=g?Math.max(1,+g.max_party||1):Math.max(1,+e.open_max||1);
+   if(g&&g.rsvp==='maybe')h+='<div class="banner">'+ic('info','s')+'<span>'+t('maybe_note')+'</span></div>';
    h+='<div class="sec">'+t('reply')+(e.deadline?' · '+t('reply_by',{d:e.deadline}):'')+'</div><div class="card">'+K.seg('rsvp',rp.rsvp,[['yes',t('yes')],['maybe',t('maybe')],['no',t('no')]])+
      (g?'':'<label class="f">'+t('your_name')+'</label><input class="t" id="gname" value="'+esc(rp.name)+'">')+
      (rp.rsvp!=='no'?'<label class="f">'+t('party')+'</label><div class="stepper"><button data-a="minus">−</button><b>'+rp.party+'</b><button data-a="plus" '+(rp.party>=max?'disabled':'')+'>+</button><span class="fs">max '+max+'</span></div>':'')+
-     '<label class="f">'+t('message')+'</label><textarea class="t" id="gmsg" maxlength="300">'+esc(rp.msg)+'</textarea></div><button class="btn" data-a="reply">'+ic('send')+t('send_reply')+'</button>';
+     '<label class="f">'+t('message')+'</label><textarea class="t" id="gmsg" maxlength="300">'+esc(rp.msg)+'</textarea></div><button class="btn" data-a="reply">'+ic('send')+t('send_reply')+'</button>'+
+     '<div class="note">'+ic('lock','s')+'<span>'+t('final_note')+'</span></div>';
    return h+K.errBox()}
  },
  onSeg:function(n,v){if(n==='rsvp'){keepForm();R.reply.rsvp=v;K.render()}},
@@ -117,33 +268,41 @@ K.app({
   savedraft:function(){save(false)},
   publish:function(){if(S.screen==='editor')save(true);else publish(R.ev.key)},
   guests:function(){K.go('guests')},
-  guestpdf:function(){var e=R.ev,s=e.stats||{},order={yes:0,maybe:1,pending:2,no:3};var gs=(e.guests||[]).slice().sort(function(a,b){return order[a.rsvp]-order[b.rsvp]||a.name.localeCompare(b.name)});
-   K.showReport({brand:t('appName'),title:e.title,subtitle:fmtWhen(e)+(e.venue?' · '+e.venue:''),meta:e.hosts?[[t('hosts'),e.hosts]]:[],
+  guestpdf:function(){var e=R.ev,s=e.stats||{},tz=tzOf(e),order={yes:0,maybe:1,pending:2,no:3};var gs=(e.guests||[]).slice().sort(function(a,b){return order[a.rsvp]-order[b.rsvp]||a.name.localeCompare(b.name)});
+   K.showReport({brand:t('appName'),title:e.title,subtitle:fmtWhen(e)+(e.venue?' · '+e.venue:''),meta:(e.hosts?[[t('hosts'),e.hosts]]:[]).concat([[t('tz'),tzLabel(tz)]]),
     blocks:[{kpis:[[t('attending'),s.yesPeople||0,'good'],[t('declined'),s.no||0],[t('pending'),s.pending||0],[t('checked'),s.checked||0]]},{h:t('guests')+' ('+gs.length+')'},
      {table:{cols:[{label:t('name'),w:2.2},{label:t('reply_l'),w:1.3},{label:t('people_l'),w:0.8,align:'right'},{label:t('checked_l'),w:1.1},{label:t('message_l'),w:2.6}],
-      rows:gs.map(function(g){return[g.name,{v:t(g.rsvp==='pending'?'pending':g.rsvp==='yes'?'attending':g.rsvp==='no'?'declined':'maybe'),tone:g.rsvp==='yes'?'good':g.rsvp==='no'?'bad':null},g.rsvp==='yes'?g.party:'',g.checked_in_at?new Date(g.checked_in_at).toISOString().slice(11,16):'',g.message||'']}),
+      rows:gs.map(function(g){return[g.name,{v:t(g.rsvp==='pending'?'pending':g.rsvp==='yes'?'attending':g.rsvp==='no'?'declined':'maybe'),tone:g.rsvp==='yes'?'good':g.rsvp==='no'?'bad':null},g.rsvp==='yes'?g.party:'',g.checked_in_at?clockIn(g.checked_in_at,tz):'',g.message||'']}),
       total:[t('total_people'),'',s.yesPeople||0,'','']}}]},(e.title.replace(/[^\w\- ]+/g,'')||'event')+' guests.pdf')},
   checkin:function(){R.scan=null;K.go('checkin')},
   addguests:function(){var lines=document.getElementById('bulk').value.split('\n').map(function(l){var p=l.split(',');return{name:p[0].trim(),max:Math.max(1,parseInt(p[1],10)||1)}}).filter(function(x){return x.name});
    if(!lines.length)return;api('rsvGuestAdd',{key:R.ev.key,guests:lines}).then(function(r){if(r.ok){R.ev=r.event;K.render()}else K.toast(t('e_gen'))})},
   delguest:function(el,d){api('rsvGuestDel',{key:R.ev.key,guest:d.key}).then(function(r){if(r.ok){R.ev=r.event;K.render()}})},
-  sharetg:function(el,d){K.shareTg(d.link,inviteText(R.ev,'').trim())},
-  sharewa:function(el,d){K.openLink('https://wa.me/?text='+encodeURIComponent(inviteText(R.ev,d.link)))},
-  scan:function(){if(K.IN_TG&&K.TG.showScanQrPopup){K.TG.showScanQrPopup({text:t('scan')},function(txt){var m=/^RSVP:(\w+)$/.exec(txt||'');if(m){checkin(m[1]);return true}});return}
-   var c=prompt(t('manual'));if(c)checkin(c.trim())},
-  manual:function(){var c=document.getElementById('code').value.trim();if(c)checkin(c)},
+  reopen:function(el,d){confirmBox(t('reopen_q',{n:d.name}),function(){api('rsvGuestReset',{key:R.ev.key,guest:d.key}).then(function(r){if(r.ok){R.ev=r.event;S.msg=t('reopened');S.err=''}else S.err=t('e_gen');K.render()})})},
+  staffmake:function(){api('rsvStaffLink',{key:R.ev.key}).then(function(r){if(r.ok){R.ev=r.event;K.haptic('ok')}K.render()})},
+  staffnew:function(){api('rsvStaffLink',{key:R.ev.key,renew:true}).then(function(r){if(r.ok){R.ev=r.event;K.toast(t('door_new'));K.haptic('ok')}K.render()})},
+  sharetg:function(el,d){K.shareTg(d.link,d.door?t('door_for')+': '+R.ev.title:inviteText(R.ev,'').trim())},
+  sharewa:function(el,d){K.openLink('https://wa.me/?text='+encodeURIComponent(d.door?t('door_for')+': '+R.ev.title+'\n'+d.link:inviteText(R.ev,d.link)))},
+  scan:function(){if(K.IN_TG&&K.TG.showScanQrPopup){K.TG.showScanQrPopup({text:t('scan')},function(txt){checkin(parseCode(txt));return true});return}
+   var c=prompt(t('manual'));if(c)checkin(parseCode(c))},
+  manual:function(){var c=document.getElementById('code').value.trim();if(c)checkin(parseCode(c))},
+  force:function(el,d){checkin(d.code,true)},
+  tkcheck:function(el,d){var v=R.tk;api('rsvCheckin',{key:v.event.key,code:v.guest.key,staff:STAFF,force:!!d.force}).then(function(r){R.scan=r;K.haptic(r.ok&&r.result==='in'?'ok':'');K.render()})},
   minus:function(){keepForm();R.reply.party=Math.max(1,R.reply.party-1);K.render()},
   plus:function(){keepForm();R.reply.party++;K.render()},
-  change:function(){R.changing=true;K.render()},
+  sendticket:function(){sendTicket(false)},
+  sendmsg:function(){var m=document.getElementById('gmsg2'),tx=m?m.value.trim():'';if(!tx)return;
+   api('rsvMessage',{e:EKEY,g:GKEY||(R.inv.guest&&R.inv.guest.key),text:tx}).then(function(r){if(r.ok){R.msgOk=true;S.err='';K.haptic('ok')}else S.err=r.error==='rate_limited'?t('e_rate'):t('e_gen');K.render()})},
   reply:function(){keepForm();var rp=R.reply;if(!R.inv.guest&&!rp.name){S.err=t('your_name');return K.render()}
    api('rsvReply',{e:EKEY,g:GKEY||(R.inv.guest&&R.inv.guest.key),rsvp:rp.rsvp,party:rp.rsvp==='no'?0:rp.party,name:rp.name,message:rp.msg}).then(function(r){
-    if(r.ok){R.changing=false;R.inv.guest=r.guest;if(!GKEY)GKEY=r.guest.key;K.haptic('ok');S.err=''}else S.err=t('e_gen');K.render()})}
+    if(r.ok){R.inv.guest=r.guest;if(r.event)R.inv.event=r.event;if(!GKEY)GKEY=r.guest.key;K.haptic('ok');S.err='';K.render();if(r.guest.rsvp==='yes'&&K.IN_TG&&K.CFG.fileUrl)sendTicket(true);return}
+    if(r.error==='locked'&&r.guest){R.inv.guest=r.guest;S.err='';K.toast(t('locked'))}else S.err=r.error==='closed'?t('closed'):t('e_gen');K.render()})}
  },
- demoSeed:function(){var d=new Date(Date.now()+20*864e5).toISOString().slice(0,10);
-  return{events:[{key:'demoev',owner:'me',title:'Wedding of Amina & Yusuf',hosts:'The Ali and Omar families',date:d,time:'18:00',venue:'Grand Hall',address:'Main Road',map_url:'',notes:'We would be honoured to celebrate this day with you.',dress:'Formal',deadline:'',open_max:4,status:'published',
-   guests:[{key:'g7k2m9',name:'Hodan Ahmed',max_party:2,rsvp:'yes',party:2,message:'Congratulations!',checked_in_at:''},{key:'g3p8x1',name:'Abdi Hassan',max_party:3,rsvp:'pending',party:0,message:'',checked_in_at:''}]}]}},
+ demoSeed:function(){var d=new Date(Date.now()+20*864e5).toISOString().slice(0,10),now=new Date(Date.now()-60*6e4).toISOString();
+  return{events:[{key:'demoev',owner:'me',title:'Wedding of Amina & Yusuf',hosts:'The Ali and Omar families',date:d,time:'18:00',venue:'Grand Hall',address:'Main Road',map_url:'',notes:'We would be honoured to celebrate this day with you.',dress:'Formal',deadline:'',open_max:4,status:'published',tz:DEF_TZ,checkin_before:3,staff:'',
+   guests:[{key:'g7k2m9',name:'Hodan Ahmed',max_party:2,rsvp:'yes',party:2,message:'Congratulations!',checked_in_at:''},{key:'g3p8x1',name:'Abdi Hassan',max_party:3,rsvp:'pending',party:0,message:'',checked_in_at:''},{key:'g5q1w4',name:'Faisal Omar',max_party:3,rsvp:'yes',party:3,message:'',checked_in_at:now}]}]}},
  demo:{
-  rsvMine:function(d,s){return{ok:true,events:s.app.events.map(function(e){return Object.assign({},e,{stats:stats(e)})})}},
+  rsvMine:function(d,s){return{ok:true,events:s.app.events.map(function(e){return full(e)})}},
   rsvSave:function(d,s){var e=d.event,ex=s.app.events.filter(function(x){return x.key===e.key})[0];if(ex){Object.assign(ex,e)}else{e.key='e'+K.uid().slice(-6);e.guests=[];e.status='draft';s.app.events.unshift(e);ex=e}return{ok:true,event:full(ex)}},
   rsvPublish:function(d,s){var e=find(s,d.key),a=K.S.me.access;if(!a.entitled)return{ok:true,allowed:false};
    var acc=s.settings.testMode&&!d.simulateFree?'test':(s.freeUsed<s.settings.freeAllowance?'free':s.credits>0?'credits':s.sub&&new Date(s.sub.expiry)>new Date()?'sub':'');
@@ -151,27 +310,48 @@ K.app({
   rsvEvent:function(d,s){return{ok:true,event:full(find(s,d.key))}},
   rsvGuestAdd:function(d,s){var e=find(s,d.key);d.guests.forEach(function(g){e.guests.push({key:'g'+K.uid().slice(-5),name:g.name,max_party:g.max,rsvp:'pending',party:0,message:'',checked_in_at:''})});return{ok:true,event:full(e)}},
   rsvGuestDel:function(d,s){var e=find(s,d.key);e.guests=e.guests.filter(function(g){return g.key!==d.guest});return{ok:true,event:full(e)}},
-  rsvInvite:function(d,s){var e,g;if(d.g){s.app.events.forEach(function(x){x.guests.forEach(function(y){if(y.key===d.g){e=x;g=y}})})}else e=find(s,d.e);
-   if(!e||e.status!=='published')return{ok:false,error:'not_found'};var pub=Object.assign({},e);delete pub.guests;return{ok:true,event:pub,guest:g||null}},
-  rsvReply:function(d,s){var e,g;s.app.events.forEach(function(x){x.guests.forEach(function(y){if(d.g&&y.key===d.g){e=x;g=y}})});
-   if(!g){e=find(s,d.e);g={key:'g'+K.uid().slice(-5),name:d.name,max_party:e.open_max,rsvp:'pending',party:0,message:'',checked_in_at:''};e.guests.push(g)}
-   g.rsvp=d.rsvp;g.party=Math.min(+d.party||0,+g.max_party||1);g.message=d.message||'';if(d.name&&!d.g)g.name=d.name;return{ok:true,guest:g}},
-  rsvCheckin:function(d,s){var e=find(s,d.key),code=String(d.code).toLowerCase(),g=e.guests.filter(function(x){return x.key===code})[0];
-   if(!g)return{ok:false,error:'not_found'};if(g.rsvp!=='yes')return{ok:false,error:'not_attending',guest:g};if(g.checked_in_at)return{ok:true,result:'already',guest:g};
-   g.checked_in_at=new Date().toISOString();return{ok:true,result:'in',guest:g}}
+  rsvGuestReset:function(d,s){var e=find(s,d.key),g=e.guests.filter(function(x){return x.key===d.guest})[0];if(!g||g.checked_in_at)return{ok:false};g.rsvp='pending';g.party=0;return{ok:true,event:full(e)}},
+  rsvStaffLink:function(d,s){var e=find(s,d.key);if(!e.staff||d.renew)e.staff=e.key+'-'+K.uid().slice(-8);return{ok:true,event:full(e)}},
+  rsvInvite:function(d,s){var x=byGuest(s,d.g),e=x?x.e:find(s,d.e);if(!e||e.status!=='published')return{ok:false,error:'not_found'};return{ok:true,event:pub(e),guest:x?x.g:null}},
+  rsvReply:function(d,s){var x=byGuest(s,d.g),e,g;if(x){e=x.e;g=x.g}else{e=find(s,d.e);g={key:'g'+K.uid().slice(-5),name:d.name,max_party:e.open_max,rsvp:'pending',party:0,message:'',checked_in_at:''};e.guests.push(g)}
+   if(g.rsvp==='yes'||g.rsvp==='no')return{ok:false,error:'locked',guest:g};g.rsvp=d.rsvp;g.party=Math.min(+d.party||0,+g.max_party||1);g.message=d.message||'';return{ok:true,guest:g,event:pub(e)}},
+  rsvMessage:function(d,s){var x=byGuest(s,d.g);if(!x)return{ok:false};x.g.message=d.text;return{ok:true,guest:x.g}},
+  rsvTicket:function(d,s){var x=byGuest(s,parseCode(d.t));if(!x)return{ok:false,error:'not_found'};return{ok:true,role:'host',event:pub(x.e),guest:x.g,door:counts(x.e)}},
+  rsvDoor:function(d,s){var e=find(s,d.key)||find(s,String(d.key).split('-')[0]);if(!e)return{ok:false,error:'forbidden'};
+   return{ok:true,role:'host',event:pub(e),door:counts(e),recent:e.guests.filter(function(g){return g.checked_in_at}).map(function(g){return{name:g.name,party:g.party,at:g.checked_in_at}})}},
+  rsvCheckin:function(d,s){var e=find(s,d.key),code=String(parseCode(d.code)).toLowerCase(),g=e.guests.filter(function(x){return x.key===code})[0],base={event:pub(e)};
+   if(!g)return{ok:false,error:'not_found'};if(g.rsvp!=='yes')return Object.assign(base,{ok:false,error:'not_attending',guest:g});if(g.checked_in_at)return Object.assign(base,{ok:true,result:'already',guest:g,door:counts(e)});
+   var p=pub(e);if(p.checkin_opens_at&&new Date(p.checkin_opens_at)>Date.now()&&!d.force)return Object.assign(base,{ok:true,result:'early',guest:g,opens_at:p.checkin_opens_at,door:counts(e)});
+   g.checked_in_at=new Date().toISOString();return Object.assign(base,{ok:true,result:'in',guest:g,door:counts(e)})}
  }
 });
+function loadInvite(){R.inv=null;R.msgOk=false;K.render();api('rsvInvite',{e:EKEY,g:GKEY}).then(function(r){R.inv=r;if(r.ok&&r.guest){R.reply={rsvp:r.guest.rsvp==='pending'||r.guest.rsvp==='maybe'?'yes':r.guest.rsvp,party:Math.max(1,+r.guest.party||1),name:r.guest.name||'',msg:''}}
+  else if(r.ok)R.reply.name=(K.TGU&&[K.TGU.first_name,K.TGU.last_name].filter(Boolean).join(' '))||'';K.render()})}
+function doorScreen(e,role){var d=R.door,h=K.header(role==='staff'?t('door_for'):t('checkin'),e.title);
+ h+=doorCard(R.scan&&R.scan.door||(d&&d.door));
+ if(e.checkin_opens_at&&new Date(e.checkin_opens_at)>Date.now())h+='<div class="banner">'+ic('clock','s')+'<span>'+esc(opensLine(e))+' · '+esc(inTime(e.checkin_opens_at))+'</span></div>';
+ h+=resultCard(R.scan,e);
+ h+='<button class="btn" data-a="scan" style="padding:18px">'+ic('scan','l')+(R.scan?t('scan_next'):t('scan'))+'</button><div class="card" style="margin-top:12px"><label class="f">'+t('manual')+'</label><div class="row"><input class="t" id="code" autocomplete="off" style="text-transform:uppercase"><button class="btn sm" data-a="manual">'+t('check')+'</button></div></div>';
+ var rec=d&&d.recent||[],tz=tzOf(e);if(rec.length)h+='<div class="sec">'+t('recent')+'</div><div class="card"><ul class="lst">'+rec.map(function(x){return'<li><span>'+esc(x.name)+(plus(x.party)?' <span class="pill ac">'+plus(x.party)+'</span>':'')+'</span><span class="fs">'+clockIn(x.at,tz)+'</span></li>'}).join('')+'</ul></div>';
+ return h}
+function confirmBox(msg,cb){if(K.IN_TG&&K.TG.showConfirm)K.TG.showConfirm(msg,function(ok){if(ok)cb()});else if(confirm(msg))cb()}
 function find(s,k){return s.app.events.filter(function(e){return e.key===k})[0]}
+function byGuest(s,k){var out=null;if(!k)return null;s.app.events.forEach(function(e){e.guests.forEach(function(g){if(g.key===k)out={e:e,g:g}})});return out}
+function pub(e){var o=Object.assign({},e);delete o.guests;delete o.staff;var tz=tzOf(e),st=zoned(e.date,e.time,tz),b=e.checkin_before===undefined||e.checkin_before===''?3:+e.checkin_before;
+ o.tz=tz;o.checkin_before=b;o.starts_at=st?st.toISOString():'';o.checkin_opens_at=st&&b<999?new Date(st.getTime()-b*36e5).toISOString():'';o.replies_closed=false;return o}
+function counts(e){var r={expected:0,arrived:0,tickets:0};(e.guests||[]).forEach(function(g){if(g.rsvp==='yes')r.expected+=+g.party||0;if(g.checked_in_at){r.arrived+=+g.party||1;r.tickets++}});return r}
 function stats(e){var r={yes:0,yesPeople:0,no:0,maybe:0,pending:0,checked:0};(e.guests||[]).forEach(function(g){r[g.rsvp]=(r[g.rsvp]||0)+1;if(g.rsvp==='yes')r.yesPeople+=+g.party||0;if(g.checked_in_at)r.checked+=+g.party||1});return r}
-function full(e){return Object.assign({},e,{stats:stats(e)})}
+function full(e){return Object.assign(pub(e),{guests:e.guests,stats:stats(e),staff:e.staff||''})}
 function keepForm(){var n=document.getElementById('gname'),m=document.getElementById('gmsg');if(n)R.reply.name=n.value.trim();if(m)R.reply.msg=m.value.trim()}
-function readEditor(){document.querySelectorAll('[data-f]').forEach(function(el){R.edit[el.dataset.f]=el.type==='number'?+el.value:el.value.trim()})}
+function readEditor(){document.querySelectorAll('[data-f]').forEach(function(el){R.edit[el.dataset.f]=el.type==='number'||el.dataset.f==='checkin_before'?+el.value:el.value.trim()})}
 function save(andPublish){readEditor();var e=R.edit;if(!e.title||!e.date){S.err=t('title')+' · '+t('date');return K.render()}
- api('rsvSave',{event:e}).then(function(r){if(!r.ok){S.err=t('e_gen');return K.render()}R.ev=r.event;R.edit.key=r.event.key;if(andPublish)publish(r.event.key,true);else{S.stack.pop();S.screen='event';S.msg=t('saved');K.render()}})}
+ api('rsvSave',{event:e}).then(function(r){if(!r.ok){S.err=r.error==='date'?t('e_date'):t('e_gen');return K.render()}R.ev=r.event;R.edit.key=r.event.key;if(andPublish)publish(r.event.key,true);else{S.stack.pop();S.screen='event';S.msg=t('saved');K.render()}})}
 function publish(key,fromEditor){api('rsvPublish',{key:key}).then(function(r){
  if(r.ok&&!r.allowed)return K.paywall({title:t('publish'),text:t('publish_hint'),icon:'calendar',features:[t('guests'),t('checkin'),'QR'],after:function(){K.S.stack=['home'];K.S.screen='event';K.render()}});
  if(!r.ok){S.err=t('e_gen');return K.render()}R.ev=r.event;if(r.access)S.me.access=r.access;K.refreshMe();if(fromEditor)S.stack.pop();S.screen='event';S.msg=t('live');K.haptic('ok');K.render()})}
-function checkin(code){api('rsvCheckin',{key:R.ev.key,code:code}).then(function(r){R.scan=r;K.haptic(r.ok&&r.result==='in'?'ok':'');K.render()})}
+function checkin(code,force){var key=doorKey()||(R.tk&&R.tk.event&&R.tk.event.key);api('rsvCheckin',{key:key,code:code,staff:STAFF,force:!!force}).then(function(r){R.scan=r;
+ if(r.ok&&r.result==='in'&&R.door&&R.door.ok!==false){R.door.recent=[{name:r.guest.name,party:r.guest.party,at:r.guest.checked_in_at}].concat(R.door.recent||[]).slice(0,8)}
+ K.haptic(r.ok&&r.result==='in'?'ok':'');K.render()})}
 })();
 </script>
 </body>

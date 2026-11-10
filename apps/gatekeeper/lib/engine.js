@@ -316,9 +316,21 @@ export function createApp(MOD) {
   }
   /* Files to the user's Telegram chat. kind 'file' = a converted file (needs the delivery token from consume, 45 MB);
      kind 'report' = a PDF report made in the app (PDF only, 8 MB, 30 a day). Raw bytes arrive through /api/file. */
-  async function deliver(E, token, uid, kind, bytes, name, mime, dl) {
+  async function deliver(E, token, uid, kind, bytes, name, mime, dl, ref) {
     if (!token) return { ok: false, error: 'bot_not_configured' };
     let k = '', n = 0;
+    if (kind === 'photo') {   // a picture made on the phone (e.g. a ticket); the module decides if it may be sent, with which caption and buttons
+      const meta = MOD.photo ? await MOD.photo(String(ref || ''), uid, API, E) : null; if (!meta) return { ok: false, error: 'forbidden' };
+      k = 'ph_' + uid + '_' + dayOf(new Date()); n = Number(await kvGet(E, k) || 0); if (n >= 30) return { ok: false, error: 'limit' };
+      if (bytes.length > 5 * 1024 * 1024) return { ok: false, error: 'too_large' };
+      const jpg = bytes[0] === 0xff && bytes[1] === 0xd8, png = bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4e && bytes[3] === 0x47; if (!jpg && !png) return { ok: false, error: 'not_image' };
+      const r = await tgCall(token, 'sendPhoto', Object.assign({ chat_id: uid }, meta.caption ? { caption: String(meta.caption).slice(0, 1024) } : {}, meta.reply_markup ? { reply_markup: meta.reply_markup } : {}),
+        { field: 'photo', bytes, mime: jpg ? 'image/jpeg' : 'image/png', name: jpg ? 'photo.jpg' : 'photo.png' });
+      if (!r.ok) return { ok: false, error: r.error_code === 403 ? 'write_access' : 'telegram_' + r.error_code };
+      await kvPut(E, k, n + 1, 86400);
+      const ph = r.result && r.result.photo; if (meta.onSent && ph && ph.length) { try { await meta.onSent(ph[ph.length - 1].file_id); } catch (e) {} }
+      return { ok: true };
+    }
     if (kind === 'report') {
       k = 'rep_' + uid + '_' + dayOf(new Date()); n = Number(await kvGet(E, k) || 0); if (n >= 30) return { ok: false, error: 'limit' };
       if (bytes.length > 8 * 1024 * 1024) return { ok: false, error: 'too_large' };
@@ -897,13 +909,13 @@ export function createApp(MOD) {
       const E = await open(context.env), job = new URL(context.request.url).searchParams.get('job') || '5min';
       try { return json(Object.assign({ ok: true }, await cron(E, job))); } catch (e) { await log(E, '', 'cron_error', String(e && e.stack || e).slice(0, 400)); return json({ ok: false, error: String(e) }); }
     },
-    async file(context) {   // POST /api/file?kind=file|report&name=&mime=&token= — raw bytes, Telegram login in header x-tg-init
+    async file(context) {   // POST /api/file?kind=file|report|photo&name=&mime=&token=&ref= — raw bytes, Telegram login in header x-tg-init
       let E; try { E = await open(context.env); } catch (e) { return json({ ok: false, error: 'not_configured' }); }
       if (context.request.method === 'GET') return fileGet(E, new URL(context.request.url));   // GET /api/file?get=&exp=&sig= — a private picture (signed link)
       const u = new URL(context.request.url), token = await botToken(E), auth = await verifyInitData(context.request.headers.get('x-tg-init') || '', token);
       if (!auth) return json({ ok: false, error: 'unauthorized' });
-      const kind = u.searchParams.get('kind') === 'report' ? 'report' : 'file', bytes = new Uint8Array(await context.request.arrayBuffer());
-      try { return json(await deliver(E, token, String(auth.user.id), kind, bytes, u.searchParams.get('name'), u.searchParams.get('mime'), u.searchParams.get('token'))); }
+      const kind = ['report', 'photo'].indexOf(u.searchParams.get('kind')) >= 0 ? u.searchParams.get('kind') : 'file', bytes = new Uint8Array(await context.request.arrayBuffer());
+      try { return json(await deliver(E, token, String(auth.user.id), kind, bytes, u.searchParams.get('name'), u.searchParams.get('mime'), u.searchParams.get('token'), u.searchParams.get('ref'))); }
       catch (e) { await log(E, auth.user.id, 'exception', 'file ' + String(e && e.message || e).slice(0, 300)); return json({ ok: false, error: 'server_error' }); }
     },
     async migrate(context) { const E = await open(context.env), body = await context.request.text(); return json(await migrate(E, body, context.request.headers.get('x-sig'))); },

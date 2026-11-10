@@ -12,14 +12,16 @@ export function makeD1() {
     bind: (...a) => stmt(sql, a),
     async first(col) { S.trips++; const r = db.prepare(sql).get(...args); return r === undefined ? null : col ? r[col] : { ...r }; },
     async all() { S.trips++; return { results: db.prepare(sql).all(...args).map((r) => ({ ...r })), success: true, meta: {} }; },
-    async run() { S.trips++; const r = db.prepare(sql).run(...args); return { success: true, meta: { changes: Number(r.changes), last_row_id: Number(r.lastInsertRowid) } }; }
+    async run() { S.trips++; const r = db.prepare(sql).run(...args); return { success: true, meta: { changes: Number(r.changes), last_row_id: Number(r.lastInsertRowid) } }; },
+    _now() { if (/^\s*(SELECT|PRAGMA|WITH)/i.test(sql)) return { results: db.prepare(sql).all(...args).map((r) => ({ ...r })), success: true, meta: {} };
+      const r = db.prepare(sql).run(...args); return { success: true, meta: { changes: Number(r.changes), last_row_id: Number(r.lastInsertRowid) } }; }
   });
   return {
     prepare: (sql) => stmt(sql),
-    async batch(list) {   // like D1: one round trip, in one transaction; SELECTs return rows
-      const out = [], t0 = S.trips; db.exec('BEGIN');
-      try { for (const s of list) out.push(/^\s*(SELECT|PRAGMA|WITH)/i.test(s._sql) ? await s.all() : await s.run()); db.exec('COMMIT'); } catch (e) { db.exec('ROLLBACK'); throw e; }
-      S.trips = t0 + 1; return out;
+    async batch(list) {   // like D1: one round trip, one transaction, nothing else runs in between; SELECTs return rows
+      const out = []; db.exec('BEGIN');
+      try { for (const s of list) out.push(s._now()); db.exec('COMMIT'); } catch (e) { db.exec('ROLLBACK'); throw e; }
+      S.trips++; return out;
     },
     _db: db, _stats: S
   };

@@ -196,26 +196,95 @@ ok('PDF report as raw bytes', (await S.file(U, 'report', pdf, { name: 'Report' }
 ok('report must be a PDF', (await S.file(U, 'report', new TextEncoder().encode('hello'), { name: 'r.pdf' })).error === 'not_pdf');
 ok('old JSON sendReport still works', (await S.call(U, 'sendReport', { name: 'r.pdf', data: Buffer.from('%PDF-1.4 test').toString('base64') })).ok);
 
-section('Invitations on D1');
-S = await makeSim(rsvpMod); await S.setSettings({ testMode: false });
-r = await S.call(U, 'rsvSave', { event: { title: 'Wedding', date: '2026-12-24', time: '18:00', open_max: 3 } }); ok('event saved', r.ok && r.event.status === 'draft', r);
-const ek = r.event.key; ok('date and time kept as text', r.event.date === '2026-12-24' && r.event.time === '18:00', r.event);
-ok('publish uses the free one', (await S.call(U, 'rsvPublish', { key: ek })).allowed === true);
-const ek2 = (await S.call(U, 'rsvSave', { event: { title: 'Second', date: '2026-12-25' } })).event.key;
-ok('2nd publish blocked', (await S.call(U, 'rsvPublish', { key: ek2 })).allowed === false);
-ok('stranger cannot edit', (await S.call(V, 'rsvSave', { event: { key: ek, title: 'Hacked', date: '2026-01-01' } })).error === 'forbidden');
-r = await S.call(U, 'rsvGuestAdd', { key: ek, guests: [{ name: 'Ali', max: 2 }, { name: 'Hawa', max: 1 }, { name: '' }] }); const gk = r.event.guests[0].key; ok('guests added (empty names skipped)', !!gk && r.event.guests.length === 2, r.event.guests);
-r = await S.call(V, 'rsvReply', { g: gk, rsvp: 'yes', party: 5 }); ok('party capped at max 2', r.ok && r.guest.party === 2, r);
-r = await S.call({ id: 5005, first_name: 'O' }, 'rsvReply', { e: ek, rsvp: 'yes', party: 2, name: 'Open guest' }); ok('open link reply', r.ok && r.guest.name === 'Open guest', r);
-r = await S.call({ id: 5005, first_name: 'O' }, 'rsvReply', { e: ek, rsvp: 'maybe', party: 1 }); ok('same person answers again: one guest row', r.ok && S.rows('Guests').filter((g) => g.tg_user === '5005').length === 1);
-ok('invite page shows my reply', (await S.call({ id: 5005, first_name: 'O' }, 'rsvInvite', { e: ek })).guest.rsvp === 'maybe');
-ok('host notified', S.sent.some((x) => /RSVP for Wedding/.test((x.payload || {}).text || '')));
-ok('draft event not public', (await S.call(V, 'rsvInvite', { e: ek2 })).error === 'not_found');
-r = await S.call(U, 'rsvCheckin', { key: ek, code: gk.toUpperCase() }); ok('check-in', r.result === 'in', r);
-ok('second scan = already', (await S.call(U, 'rsvCheckin', { key: ek, code: 'RSVP:' + gk })).result === 'already');
-ok('stranger cannot check in', (await S.call(V, 'rsvCheckin', { key: ek, code: gk })).error === 'forbidden');
-r = await S.call(U, 'rsvMine'); ok('my events with guests and numbers', r.events.length === 2 && r.events.find((e) => e.key === ek).stats.yesPeople === 2 && r.events.find((e) => e.key === ek).stats.checked === 2, r.events.map((e) => e.stats));
-ok('delete a guest', (await S.call(U, 'rsvGuestDel', { key: ek, guest: r.events.find((e) => e.key === ek).guests[1].key })).event.guests.length === 2);
+section('Invitations on D1: locked replies, tickets, time zones, door');
+{
+  const S = await makeSim(rsvpMod); await S.setSettings({ testMode: false });
+  const TZ = 'Africa/Mogadishu', O = { id: 5005, first_name: 'O' }, H2 = { id: 6006, first_name: 'Helper' };
+  const local = (ms) => { const d = new Date(Date.now() + ms), f = new Intl.DateTimeFormat('en-CA', { timeZone: TZ, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }), p = {};
+    f.formatToParts(d).forEach((x) => { p[x.type] = x.value; }); return { date: p.year + '-' + p.month + '-' + p.day, time: p.hour + ':' + p.minute }; };
+  r = await S.call(U, 'rsvSave', { event: { title: 'Wedding', date: '2026-12-24', time: '18:00', open_max: 3, tz: TZ, venue: 'Grand Hall', map_url: 'https://maps.example/x' } }); ok('event saved', r.ok && r.event.status === 'draft', r);
+  const ek = r.event.key; ok('date and time kept as text', r.event.date === '2026-12-24' && r.event.time === '18:00', r.event);
+  ok('venue time zone: 18:00 in Mogadishu = 15:00 UTC; check-in opens 3 h before by default', r.event.tz === TZ && r.event.starts_at === '2026-12-24T15:00:00.000Z' && r.event.checkin_opens_at === '2026-12-24T12:00:00.000Z' && r.event.checkin_before === 3, r.event);
+  ok('a wrong time zone falls back to East Africa', (await S.call(U, 'rsvSave', { event: { key: ek, title: 'Wedding', date: '2026-12-24', time: '18:00', open_max: 3, tz: 'Mars/Base', venue: 'Grand Hall', map_url: 'https://maps.example/x' } })).event.tz === TZ);
+  ok('publish uses the free one', (await S.call(U, 'rsvPublish', { key: ek })).allowed === true);
+  const ek2 = (await S.call(U, 'rsvSave', { event: { title: 'Second', date: '2026-12-25' } })).event.key;
+  ok('2nd publish blocked', (await S.call(U, 'rsvPublish', { key: ek2 })).allowed === false);
+  ok('stranger cannot edit', (await S.call(V, 'rsvSave', { event: { key: ek, title: 'Hacked', date: '2026-01-01' } })).error === 'forbidden');
+  r = await S.call(U, 'rsvGuestAdd', { key: ek, guests: [{ name: 'Ali', max: 2 }, { name: 'Hawa', max: 1 }, { name: '' }] }); const gk = r.event.guests[0].key, gk2 = r.event.guests[1].key; ok('guests added (empty names skipped)', !!gk && r.event.guests.length === 2, r.event.guests);
+  ok('a message before replying is refused', (await S.call(V, 'rsvMessage', { g: gk, text: 'hi' })).error === 'reply_first');
+  r = await S.call(V, 'rsvReply', { g: gk, rsvp: 'yes', party: 5 }); ok('party capped at max 2', r.ok && r.guest.party === 2 && !!r.guest.replied_at, r);
+  // the answer is final: no change of reply or party after Yes / No
+  r = await S.call(V, 'rsvReply', { g: gk, rsvp: 'no' }); ok('after Yes the reply cannot be changed', r.error === 'locked' && r.guest.rsvp === 'yes' && S.rows('Guests').find((g) => g.guest_key === gk).rsvp === 'yes', r);
+  ok('…not even the number of people', (await S.call(V, 'rsvReply', { g: gk, rsvp: 'yes', party: 1 })).error === 'locked' && S.rows('Guests').find((g) => g.guest_key === gk).party === 2);
+  const [x1, x2] = await Promise.all([S.call(H2, 'rsvReply', { g: gk2, rsvp: 'yes', party: 1 }), S.call(H2, 'rsvReply', { g: gk2, rsvp: 'no' })]);
+  ok('two answers at the same moment: only one is kept', [x1, x2].filter((x) => x.ok).length === 1 && [x1, x2].some((x) => x.error === 'locked'), [x1, x2]);
+  r = await S.call(O, 'rsvReply', { e: ek, rsvp: 'maybe', party: 1, name: 'Open guest' }); ok('open link reply (maybe)', r.ok && r.guest.name === 'Open guest' && r.guest.rsvp === 'maybe', r);
+  r = await S.call(O, 'rsvReply', { e: ek, rsvp: 'yes', party: 3 }); ok('"maybe" can still become a final answer; one guest row per person', r.ok && r.guest.rsvp === 'yes' && r.guest.party === 3 && S.rows('Guests').filter((g) => g.tg_user === '5005').length === 1, r);
+  ok('invite page shows my ticket', (await S.call(O, 'rsvInvite', { e: ek })).guest.rsvp === 'yes');
+  ok('host notified', S.sent.some((x) => /RSVP for Wedding/.test((x.payload || {}).text || '')));
+  r = await S.call(V, 'rsvMessage', { g: gk, text: 'We will come early to help' }); ok('after replying, the guest can still message the hosts', r.ok && S.sent.some((x) => /Message from Ali \(Wedding\): "We will come early to help"/.test((x.payload || {}).text || '')));
+  ok('draft event not public', (await S.call(V, 'rsvInvite', { e: ek2 })).error === 'not_found');
+  // the ticket picture goes to the guest's own chat with event details in the venue time zone
+  const jpg = new Uint8Array([0xff, 0xd8, 0xff, 0xe0, 1, 2, 3, 0xff, 0xd9]);
+  S.reply = (url) => (/\/sendPhoto$/.test(url) ? { ok: true, result: { photo: [{ file_id: 'small' }, { file_id: 'TICKET1' }] } } : null);
+  r = await S.file(V, 'photo', jpg, { ref: gk }); const sp = S.fetches.filter((f) => /sendPhoto$/.test(f.url)).pop();
+  ok('ticket picture sent to the guest\'s chat', r.ok && sp && sp.o.body.get('chat_id') === '3003', r);
+  ok('caption: name, party, venue time and check-in opening (15:00 Mogadishu time)', /Your ticket\nWedding\nAli · 2 people\n2026-12-24 · 18:00\nGrand Hall\nCheck-in opens at 15:00 \(2026-12-24\)\./.test(sp.o.body.get('caption')), sp.o.body.get('caption'));
+  ok('…with Open ticket and Directions buttons', /\?g=g\w+/.test(sp.o.body.get('reply_markup')) && /maps\.example/.test(sp.o.body.get('reply_markup')));
+  ok('Telegram keeps the picture for the reminder', S.rows('Guests').find((g) => g.guest_key === gk).ticket_file === 'TICKET1' && (await S.call(V, 'rsvInvite', { g: gk })).guest.ticket_sent === true);
+  ok('someone else cannot send this ticket', (await S.file(O, 'photo', jpg, { ref: gk })).error === 'forbidden');
+  ok('only pictures', (await S.file(V, 'photo', new TextEncoder().encode('%PDF-1.4'), { ref: gk })).error === 'not_image');
+  S.reply = null;
+  // who opens a ticket link decides what they can do
+  r = await S.call(U, 'rsvTicket', { t: 'https://t.me/InvBot?start=t_' + gk }); ok('host opening a ticket link: can check in, sees numbers', r.ok && r.role === 'host' && r.guest.key === gk && r.door.expected === 6, r);
+  r = await S.call(W, 'rsvTicket', { t: gk }); ok('anyone else: sees the ticket (name, +people, event) but not the code', r.ok && r.role === 'viewer' && r.guest.name === 'Ali' && r.guest.party === 2 && !r.guest.key && !r.door && r.event.title === 'Wedding', r);
+  ok('the guest: their own ticket', (await S.call(V, 'rsvTicket', { t: gk })).role === 'guest');
+  ok('unknown ticket', (await S.call(W, 'rsvTicket', { t: 'gnothing' })).error === 'not_found');
+  // check-in opens N hours before the start; an early scan shows the ticket instead
+  r = await S.call(U, 'rsvCheckin', { key: ek, code: gk.toUpperCase() }); ok('early scan: not checked in, shows when check-in opens', r.ok && r.result === 'early' && r.opens_at === '2026-12-24T12:00:00.000Z' && r.guest.name === 'Ali' && !S.rows('Guests').find((g) => g.guest_key === gk).checked_in_at, r);
+  r = await S.call(U, 'rsvCheckin', { key: ek, code: 'RSVP:' + gk, force: true }); ok('host can check in anyway', r.ok && r.result === 'in' && /Z$/.test(r.guest.checked_in_at) && r.door.arrived === 2, r);
+  ok('second scan = already (with the time)', (await S.call(U, 'rsvCheckin', { key: ek, code: 'https://t.me/InvBot?start=t_' + gk })).result === 'already');
+  ok('stranger cannot check in', (await S.call(V, 'rsvCheckin', { key: ek, code: gk })).error === 'forbidden');
+  const soon = local(2 * 36e5), later = local(5 * 36e5);
+  const ek3 = (await S.call(U, 'rsvSave', { event: { title: 'Dinner', date: soon.date, time: soon.time, tz: TZ, checkin_before: 3 } })).event.key, ek4 = (await S.call(U, 'rsvSave', { event: { title: 'Lunch', date: later.date, time: later.time, tz: TZ, checkin_before: 3 } })).event.key;
+  await S.setSettings({ testMode: true }); await S.call(U, 'rsvPublish', { key: ek3 }); await S.call(U, 'rsvPublish', { key: ek4 }); await S.setSettings({ testMode: false });
+  const d3 = (await S.call(U, 'rsvGuestAdd', { key: ek3, guests: [{ name: 'Nur', max: 4 }] })).event.guests[0].key, d4 = (await S.call(U, 'rsvGuestAdd', { key: ek4, guests: [{ name: 'Sahra', max: 1 }] })).event.guests[0].key;
+  await S.call(W, 'rsvReply', { g: d3, rsvp: 'yes', party: 4 }); await S.call(H2, 'rsvReply', { g: d4, rsvp: 'yes', party: 1 });
+  ok('event in 2 h, check-in 3 h before: open now', (await S.call(U, 'rsvCheckin', { key: ek3, code: d3 })).result === 'in');
+  ok('event in 5 h: early', (await S.call(U, 'rsvCheckin', { key: ek4, code: d4 })).result === 'early');
+  r = await S.call(U, 'rsvCheckin', { key: ek4, code: d3 }); ok('ticket of another event of the same host: says which', r.error === 'other_event' && r.other === 'Dinner', r);
+  const ek5 = (await S.call(U, 'rsvSave', { event: { title: 'Any', date: later.date, time: later.time, tz: TZ, checkin_before: 999 } })).event; ok('"any time" check-in has no opening time', ek5.checkin_opens_at === '' && ek5.checkin_before === 999, ek5);
+  // door helpers: a link to scan tickets, nothing else
+  r = await S.call(U, 'rsvStaffLink', { key: ek4 }); const staff = r.event.staff; ok('helper link made', /^e\w+-\w{10}$/.test(staff));
+  ok('helper: door screen with numbers', (await S.call(H2, 'rsvDoor', { key: ek4, staff: [staff] })).role === 'staff');
+  ok('helper cannot open the guest list', (await S.call(H2, 'rsvEvent', { key: ek4 })).error === 'forbidden' && (await S.call(H2, 'rsvMine')).events.length === 0);
+  ok('helper can check in (and force when early)', (await S.call(H2, 'rsvCheckin', { key: ek4, code: d4, staff: [staff], force: true })).result === 'in');
+  ok('helper opening a ticket link: may check in', (await S.call(H2, 'rsvTicket', { t: d4, staff: ['x', staff] })).role === 'staff');
+  await S.call(U, 'rsvStaffLink', { key: ek4, renew: true }); ok('a new link stops the old one', (await S.call(H2, 'rsvDoor', { key: ek4, staff: [staff] })).error === 'forbidden');
+  r = await S.call(U, 'rsvDoor', { key: ek3 }); ok('door: arrived / expected and latest arrivals', r.ok && r.door.arrived === 4 && r.door.expected === 4 && r.recent[0].name === 'Nur', r);
+  // the host can reopen a reply (not after check-in)
+  ok('checked-in guest cannot be reopened', (await S.call(U, 'rsvGuestReset', { key: ek3, guest: d3 })).error === 'checked_in');
+  const hw = (await S.call(U, 'rsvEvent', { key: ek })).event.guests.find((g) => g.name === 'Hawa').key;
+  r = await S.call(U, 'rsvGuestReset', { key: ek, guest: hw }); ok('host reopens a reply', r.ok && r.event.guests.find((g) => g.key === hw).rsvp === 'pending' && S.sent.some((x) => /reopened your reply/.test((x.payload || {}).text || '')));
+  ok('the guest can answer again', (await S.call(H2, 'rsvReply', { g: hw, rsvp: 'yes', party: 1 })).ok);
+  ok('stranger cannot reopen', (await S.call(V, 'rsvGuestReset', { key: ek, guest: hw })).error === 'forbidden');
+  // replies close after the reply-by date (end of that day, venue time)
+  await S.call(U, 'rsvSave', { event: { key: ek4, title: 'Lunch', date: later.date, time: later.time, tz: TZ, checkin_before: 3, deadline: '2026-01-01' } });
+  ok('after the reply-by date: replies closed', (await S.call(W, 'rsvReply', { e: ek4, rsvp: 'yes', name: 'Late' })).error === 'closed' && (await S.call(W, 'rsvInvite', { e: ek4 })).event.replies_closed === true);
+  // reminder with the ticket in the 24 hours before (once)
+  S.env.DB._db.prepare("UPDATE Guests SET ticket_file = 'TICKET9' WHERE guest_key = ?").run(d4);
+  let n0 = S.sent.length; await S.cron('hourly');
+  const rem = S.sent.slice(n0).filter((s) => /^Reminder: /.test((s.payload || {}).text || (s.payload || {}).caption || ''));
+  ok('reminder: the ticket picture again (or a message), for events within 24 h', rem.some((s) => s.method === 'sendPhoto' && s.payload.photo === 'TICKET9' && /Reminder: Lunch is (today|tomorrow) at \d\d:\d\d/.test(s.payload.caption)) && rem.some((s) => s.method === 'sendMessage' && /Reminder: Dinner/.test(s.payload.text)) && !rem.some((s) => /Wedding/.test(JSON.stringify(s.payload))), rem.map((s) => s.payload));
+  n0 = S.sent.length; await S.cron('hourly'); ok('reminder sent once', !S.sent.slice(n0).some((s) => /^Reminder: /.test((s.payload || {}).text || (s.payload || {}).caption || '')));
+  // a ticket QR scanned with the phone camera opens the bot
+  n0 = S.sent.length; await S.tg(tgMsg(4004, { text: '/start t_' + gk }));
+  let m = S.sent.slice(n0).find((s) => s.method === 'sendMessage'); ok('camera scan by a guest: ticket summary in the chat, check-in by the hosts', m && /^Ticket\nWedding\nAli · 2 people/.test(m.payload.text) && /hosts at the entrance/.test(m.payload.text) && /\?t=g/.test(JSON.stringify(m.payload.reply_markup)), m && m.payload);
+  n0 = S.sent.length; await S.tg(tgMsg(2002, { text: '/start t_' + gk })); m = S.sent.slice(n0).find((s) => s.method === 'sendMessage');
+  ok('camera scan by the host: tap to check in', m && /Tap below to check in/.test(m.payload.text), m && m.payload);
+  r = await S.call(U, 'rsvMine'); ok('my events with guests and numbers', r.events.length === 5 && r.events.find((e) => e.key === ek).stats.yesPeople === 6 && r.events.find((e) => e.key === ek).stats.checked === 2, r.events.map((e) => e.stats));
+  ok('delete a guest', (await S.call(U, 'rsvGuestDel', { key: ek, guest: hw })).event.guests.length === 2);
+}
 
 section('Control Center on D1: central numbers from several apps');
 {
