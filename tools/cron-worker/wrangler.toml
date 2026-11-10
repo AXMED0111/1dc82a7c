@@ -1,0 +1,10 @@
+name = "axm-cron"
+main = "worker.js"
+compatibility_date = "2024-09-23"
+workers_dev = false
+
+[triggers]
+crons = ["*/5 * * * *"]
+
+[vars]
+APPS = "https://axm-01.pages.dev,https://axm-02.pages.dev,https://axm-03.pages.dev,https://axm-04.pages.dev,https://axm-05.pages.dev,https://axm-06.pages.dev,https://axm-07.pages.dev,https://axm-08.pages.dev,https://axm-09.pages.dev"
