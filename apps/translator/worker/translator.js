@@ -5,7 +5,7 @@ const LANG = { en: 'English', ar: 'Arabic', so: 'Somali' }, NAME = { en: 'Englis
 const DOC = { birth: 'birth certificate', passport: 'passport or national ID card', diploma: 'diploma or certificate', transcript: 'academic transcript', marriage: 'marriage certificate', other: 'official document' };
 function prompt(doc, to) {
   const L = LANG[to] || 'English';
-  return 'You are a professional document translator. The images show one ' + (DOC[doc] || DOC.other) + ' (possibly several pages).\n' +
+  return 'You are a professional document translator. The images or PDF show one ' + (DOC[doc] || DOC.other) + ' (possibly several pages).\n' +
     'Read every piece of text (printed, stamped or handwritten) and translate it into ' + L + '.\n' +
     'Return ONLY JSON: {"source_language": string (in English, e.g. "Somali"), "title": string (document title in ' + L + '),\n' +
     ' "fields": [{"label": string in ' + L + ', "value": string}] for every labelled item in reading order (names, dates, numbers, places, issuing authority, signatures/stamps described in brackets),\n' +
@@ -31,7 +31,7 @@ export default {
       const pages = (req.pages || []).slice(0, 3), to = LANG[req.to] ? req.to : 'en', doc = DOC[req.doc] ? req.doc : 'other';
       if (!pages.length) return { ok: false, error: 'pages' };
       const parts = [{ text: prompt(doc, to) }]; let total = 0;
-      pages.forEach((p) => { const d = String(p.data || ''); total += d.length; parts.push({ inline_data: { mime_type: /^image\/(jpeg|png|webp)$/.test(p.mime) ? p.mime : 'image/jpeg', data: d } }); });
+      pages.forEach((p) => { const d = String(p.data || ''); total += d.length; parts.push({ inline_data: { mime_type: /^(image\/(jpeg|png|webp)|application\/pdf)$/.test(p.mime) ? p.mime : 'image/jpeg', data: d } }); });
       if (total > 15 * 1024 * 1024) return { ok: false, error: 'too_large' };
       let res; try { res = await A.aiCall(ctx, parts); } catch (e) { return { ok: false, error: /^ai_(budget|user_cap)$/.test(e.message) ? e.message : 'ai_failed' }; }
       const c = await A.consume(ctx, { tool: 'document' }); if (!c.allowed) return { ok: true, allowed: false, access: c.access };

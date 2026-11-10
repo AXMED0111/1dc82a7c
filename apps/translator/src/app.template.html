@@ -11,18 +11,21 @@
 %%STYLE%%
 %%EXTRA%%
 <style>.pages{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}.pages .pg{position:relative;border-radius:10px;overflow:hidden;aspect-ratio:3/4;background:var(--bg)}.pages img{width:100%;height:100%;object-fit:cover}.pages .mini{position:absolute;top:4px;right:4px;background:rgba(0,0,0,.55);color:#fff}
+.drop{position:relative;overflow:hidden;border:1.5px dashed var(--sep);border-radius:var(--r);padding:22px 16px;text-align:center;cursor:pointer;background:var(--card);display:flex;flex-direction:column;align-items:center;gap:6px;width:100%;transition:border-color .15s,background .15s}
+.drop .ic{width:46px;height:46px;border-radius:14px;background:var(--soft);color:var(--accent);display:grid;place-items:center}.drop small{color:var(--hint)}.drop.over{border-color:var(--accent);background:var(--soft)}
+.pickin{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer;font-size:0}.pages .pdf{display:grid;place-items:center;height:100%;color:var(--accent);font-weight:700;font-size:13px;text-align:center;padding:6px;word-break:break-all}
 .fld{display:grid;grid-template-columns:1fr 1.4fr;gap:6px;margin-bottom:6px}.fld input{padding:8px 10px;font-size:13px}[dir=rtl] input,[dir=rtl] textarea{text-align:right}</style>
 </head>
 <body>
 %%ICONS%%
 <div class="wrap" id="app"></div>
-<input type="file" id="pick" accept="image/*" class="hide">
 <input type="file" id="cam" accept="image/*" capture="environment" class="hide">
 %%KIT%%
 <script>
 (function(){
 var t=K.t,esc=K.esc,ic=K.ic,S=K.S,api=K.api;
 var DOCS=['birth','passport','diploma','transcript','marriage','other'],LANGS=[['en','English'],['ar','العربية'],['so','Soomaali']];
+var IS_PC=!(/Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent));
 var T={doc:'birth',to:'en',pages:[],res:null,history:null,busy:false,token:''};
 function loadScript(src){return new Promise(function(r,j){var s=document.createElement('script');s.src=src;s.onload=r;s.onerror=j;document.head.appendChild(s)})}
 /* Render the translation to A4 canvases (the browser shapes Arabic correctly), then wrap them into a PDF with pdf-lib. */
@@ -51,12 +54,12 @@ K.app({
  extraSecrets:{GEMINI_KEY:'Gemini API key (reading + translation)'},
  strings:{
  en:{appName:'Document Translator',tagline:'Certificates and IDs into English, Arabic or Somali',new_t:'New translation',doc_type:'Document type',d_birth:'Birth certificate',d_passport:'Passport / ID card',d_diploma:'Diploma / certificate',d_transcript:'Transcript',d_marriage:'Marriage certificate',d_other:'Other document',
-  to:'Translate into',photos:'Photos of the document (up to 3 pages)',camera:'Take photo',gallery:'Choose photo',translate:'Translate',working:'Reading and translating… about 20 seconds.',tips:'Flat surface, good light, whole page visible, no glare.',
+  to:'Translate into',photos:'Photos of the document (up to 3 pages)',camera:'Take photo',gallery:'Choose photo',drop:'Choose photos or a PDF',drop_pc:'Drag photos or a PDF here, paste with Ctrl+V, or click to choose',drop_ph:'JPG, PNG or PDF · up to 3',e_type:'Only photos (JPG, PNG) or PDF files.',e_big:'This file is too large (max 10 MB).',translate:'Translate',working:'Reading and translating… about 20 seconds.',tips:'Flat surface, good light, whole page visible, no glare.',
   result:'Translation',review:'Check and correct the details before you download.',title_l:'Title',field:'Field',value:'Value',text:'Full text',download:'Download PDF',send:'Send to my Telegram chat',copy_t:'Copy text',again:'Translate another document',
   history:'Recent translations',disclaimer:'This is an unofficial translation made with automated tools. For official use, have it checked or certified by a sworn translator.',e_pages:'Add at least one photo.',ai_fail:'Translation is not available right now. You were not charged.',ai_budget:'Translation is very busy today. Please try again tomorrow — you were not charged.',ai_user_cap:'You reached today\'s translation limit. Come back tomorrow — you were not charged.',
   demo_fb:'Demo result — no AI connected yet. Real reading and translation start when the server and AI key are set.',sent:'Sent to your chat'},
  so:{appName:'Turjumaha Dukumentiyada',tagline:'Shahaadooyinka iyo aqoonsiga u turjun Ingiriisi, Carabi ama Soomaali',new_t:'Turjumaad cusub',doc_type:'Nooca dukumentiga',d_birth:'Shahaadada dhalashada',d_passport:'Baasaboor / kaarka aqoonsiga',d_diploma:'Diblooma / shahaado',d_transcript:'Natiijada (transcript)',d_marriage:'Shahaadada guurka',d_other:'Dukumenti kale',
-  to:'U turjun',photos:'Sawirrada dukumentiga (ilaa 3 bog)',camera:'Sawir qaad',gallery:'Dooro sawir',translate:'Turjun',working:'Waa la akhrinayaa oo la turjumayaa… qiyaastii 20 ilbiriqsi.',tips:'Meel siman, iftiin wanaagsan, bogga oo dhan muuqda, iftiin dib u soo noqonaya ma jiro.',
+  to:'U turjun',photos:'Sawirrada dukumentiga (ilaa 3 bog)',camera:'Sawir qaad',gallery:'Dooro sawir',drop:'Dooro sawirro ama PDF',drop_pc:'Halkan soo jiid sawirro ama PDF, ku dheji Ctrl+V, ama guji si aad u doorato',drop_ph:'JPG, PNG ama PDF · ilaa 3',e_type:'Kaliya sawirro (JPG, PNG) ama faylal PDF.',e_big:'Faylkani aad buu u weyn yahay (ugu badnaan 10 MB).',translate:'Turjun',working:'Waa la akhrinayaa oo la turjumayaa… qiyaastii 20 ilbiriqsi.',tips:'Meel siman, iftiin wanaagsan, bogga oo dhan muuqda, iftiin dib u soo noqonaya ma jiro.',
   result:'Turjumaadda',review:'Hubi oo sax faahfaahinta ka hor intaadan soo dejin.',title_l:'Cinwaanka',field:'Qaybta',value:'Qiimaha',text:'Qoraalka oo dhan',download:'Soo deji PDF',send:'U dir sheekadayda Telegram',copy_t:'Koobi qoraalka',again:'Turjun dukumenti kale',
   history:'Turjumaadihii ugu dambeeyay',disclaimer:'Kani waa turjumaad aan rasmi ahayn oo lagu sameeyay qalab toos ah. Isticmaal rasmi ah, ha hubiyo turjubaan la shahaadeeyay.',e_pages:'Ku dar ugu yaraan hal sawir.',ai_fail:'Turjumaaddu hadda ma shaqaynayso. Lacag lagaama jarin.',ai_budget:'Maanta aad bay u mashquul tahay. Fadlan isku day berri — lacag lagaama jarin.',ai_user_cap:'Waxaad gaartay xadka maanta. Berri soo noqo — lacag lagaama jarin.',
   demo_fb:'Natiijo demo ah — AI weli lama xirin. Akhrinta iyo turjumaadda dhabta ah waxay bilaabanayaan marka server-ka iyo furaha AI la dejiyo.',sent:'Waa loo diray sheekadaada'}},
@@ -65,8 +68,9 @@ K.app({
   home:function(){var h=K.header(t('appName'),t('tagline'))+'<div class="row" style="margin:-4px 0 12px">'+K.planChip()+'</div>'+K.banners();
    h+='<div class="card"><label class="f">'+t('doc_type')+'</label><select class="t" id="doc">'+DOCS.map(function(d){return'<option value="'+d+'" '+(T.doc===d?'selected':'')+'>'+t('d_'+d)+'</option>'}).join('')+'</select>'+
     '<label class="f">'+t('to')+'</label>'+K.seg('to',T.to,LANGS)+'<label class="f">'+t('photos')+'</label>';
-   if(T.pages.length)h+='<div class="pages" style="margin-bottom:10px">'+T.pages.map(function(p,i){return'<div class="pg"><img src="'+p.dataUrl+'" alt=""><button class="mini" data-a="rmpage" data-i="'+i+'">'+ic('x','s')+'</button></div>'}).join('')+'</div>';
-   if(T.pages.length<3)h+='<div class="g2"><label for="cam" role="button" class="btn sm sec2" data-a="cam">'+ic('camera','s')+t('camera')+'</label><label for="pick" role="button" class="btn sm ghost" data-a="gallery">'+ic('images','s')+t('gallery')+'</label></div>';
+   if(T.pages.length)h+='<div class="pages" style="margin-bottom:10px">'+T.pages.map(function(p,i){return'<div class="pg">'+(p.dataUrl?'<img src="'+p.dataUrl+'" alt="">':'<div class="pdf">'+ic('file','l')+'<span>'+esc(p.name||'PDF')+'</span></div>')+'<button class="mini" data-a="rmpage" data-i="'+i+'">'+ic('x','s')+'</button></div>'}).join('')+'</div>';
+   if(T.pages.length<3){h+='<label class="drop" data-dropzone><div class="ic">'+ic('upload','l')+'</div><b>'+t('drop')+'</b><small>'+(IS_PC?t('drop_pc'):t('drop_ph'))+'</small><input type="file" class="pickin" data-pickin multiple accept="image/*,application/pdf" aria-label="'+esc(t('drop'))+'"></label>';
+    if(!IS_PC)h+='<label for="cam" role="button" class="btn sm sec2" data-a="cam" style="margin-top:8px">'+ic('camera','s')+t('camera')+'</label>'}
    h+='<div class="note" style="margin-top:10px;padding:0">'+ic('info','s')+'<span>'+t('tips')+'</span></div></div>';
    if(T.busy)h+='<div class="card center"><div class="spin" style="margin:6px auto 10px;color:var(--accent)"></div><p class="m">'+t('working')+'</p></div>';
    else h+='<button class="btn" data-a="translate" '+(T.pages.length?'':'disabled')+'>'+ic('translate')+t('translate')+'</button>';
@@ -84,7 +88,6 @@ K.app({
  onSeg:function(n,v){if(n==='to'){T.doc=document.getElementById('doc').value;T.to=v;K.render()}},
  actions:{
   cam:function(){T.doc=document.getElementById('doc').value},     // <label for=cam/pick> opens the chooser itself (works in Telegram for PC)
-  gallery:function(){T.doc=document.getElementById('doc').value},
   rmpage:function(el,d){T.pages.splice(+d.i,1);K.render()},
   translate:function(){T.doc=document.getElementById('doc').value;if(!T.pages.length){S.err=t('e_pages');return K.render()}
    if(!S.me.access.entitled)return K.paywall({title:t('appName'),text:t('tagline'),icon:'translate',features:['PDF','English · العربية · Soomaali',t('send')],after:function(){K.home()}});
@@ -111,9 +114,21 @@ K.app({
    s.app.history.unshift({doc:d.doc,title:res.title,from:'Somali',to:names[d.to],created:new Date().toISOString()});return{ok:true,allowed:true,result:res,token:'demo'}}
  }
 });
-function onPick(e){var fs=[].slice.call(e.target.files||[]).slice(0,3-T.pages.length);e.target.value='';
- Promise.all(fs.map(function(f){return K.fileB64(f,1800,0.85)})).then(function(list){T.pages=T.pages.concat(list);S.err='';K.render()}).catch(function(){S.err=t('e_gen');K.render()})}
-document.getElementById('pick').addEventListener('change',onPick);document.getElementById('cam').addEventListener('change',onPick);
+function addFiles(list){var d=document.getElementById('doc');if(d)T.doc=d.value;
+ var fs=[].slice.call(list||[]).filter(function(f){return /^image\//.test(f.type)||f.type==='application/pdf'||/\.pdf$/i.test(f.name||'')});
+ if(!fs.length){if(list&&list.length){S.err=t('e_type');K.render()}return}
+ if(fs.some(function(f){return f.size>10*1024*1024})){S.err=t('e_big');return K.render()}
+ fs=fs.slice(0,3-T.pages.length);if(!fs.length)return;
+ Promise.all(fs.map(function(f){return /^image\//.test(f.type)?K.fileB64(f,1800,0.85):K.fileB64(f).then(function(r){r.mime='application/pdf';r.name=f.name;return r})}))
+  .then(function(got){T.pages=T.pages.concat(got);S.err='';K.haptic();K.render()}).catch(function(){S.err=t('e_gen');K.render()})}
+document.getElementById('cam').addEventListener('change',function(e){addFiles(e.target.files);e.target.value=''});
+document.addEventListener('change',function(e){if(e.target&&e.target.hasAttribute&&e.target.hasAttribute('data-pickin')){addFiles(e.target.files);e.target.value=''}});
+// PC: drag photos/PDFs from a folder onto the app, or paste a screenshot with Ctrl+V
+function onUpload(){return S.screen==='home'&&!T.busy&&T.pages.length<3}
+['dragenter','dragover'].forEach(function(n){document.addEventListener(n,function(e){if(!onUpload())return;e.preventDefault();var z=document.querySelector('[data-dropzone]');if(z)z.classList.add('over')})});
+document.addEventListener('dragleave',function(e){var z=document.querySelector('[data-dropzone]');if(z&&!e.relatedTarget)z.classList.remove('over')});
+document.addEventListener('drop',function(e){if(!onUpload())return;e.preventDefault();var z=document.querySelector('[data-dropzone]');if(z)z.classList.remove('over');if(e.dataTransfer&&e.dataTransfer.files&&e.dataTransfer.files.length)addFiles(e.dataTransfer.files)});
+document.addEventListener('paste',function(e){if(!onUpload()||!e.clipboardData)return;var f=[].slice.call(e.clipboardData.files||[]);if(f.length){e.preventDefault();addFiles(f)}});
 })();
 </script>
 </body>
