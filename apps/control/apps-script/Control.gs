@@ -173,6 +173,87 @@ APP_HOOKS.control = {
   botText: function (req) { return { ok: true, text: 'Control Center: open the app below. Support messages from users arrive in the Inbox.' }; }
 };
 
+/* ======================= NIGHTLY BACKUP: Cloudflare D1 -> Google Drive (JSON) + Google Sheets (readable copy) =======================
+   Every night (installBackups() once): for each app in the central directory, every table is read from <site>/api/export
+   (signed with this project's webhook secret) and saved as ONE JSON file: Drive / "Mini Apps backups" / <app> / <YYYY-MM-DD>.json.
+   The central data (Apps, Stats, Admins, Tickets, TicketMsgs, Outbox) goes to "Mini Apps backups/central". The newest 30 days are kept.
+   Then each app's own Google Sheet is overwritten with the same data, and the central sheet with the central tables.
+   If anything fails, the admins get a Telegram message from the Control Center bot. */
+var BACKUP_ROOT = 'Mini Apps backups', BACKUP_KEEP = 30, BACKUP_MAX_MS = 5 * 60 * 1000;
+function bkQuery(table, after) {
+  var ts = String(Date.now()), sec = prop('WEBHOOK_SECRET_control'); if (!sec) throw new Error('Run connectTelegram() first (webhook secret missing).');
+  return 'table=' + encodeURIComponent(table) + '&after=' + after + '&ts=' + ts + '&sig=' + hmacHexGs(sec, table + '|' + after + '|' + ts);
+}
+function bkParse(r, table) {
+  var o = {}; try { o = JSON.parse(r.getContentText()); } catch (e) {}
+  if (!o.ok) throw new Error(table + ': ' + (o.error || ('http_' + r.getResponseCode())));
+  return o;
+}
+function bkGet(url, table, after) { return bkParse(UrlFetchApp.fetch(url + '/api/export?' + bkQuery(table, after), { muteHttpExceptions: true }), table); }
+/* every table of one site: first pages side by side, then the rest page by page (1000 rows per page) */
+function bkTables(url, names) {
+  var first = UrlFetchApp.fetchAll(names.map(function (t) { return { url: url + '/api/export?' + bkQuery(t, 0), muteHttpExceptions: true }; })), out = {};
+  names.forEach(function (t, i) {
+    var o = bkParse(first[i], t), rowsOut = o.rows, n = 0;
+    while (o.next && n++ < 500) { o = bkGet(url, t, o.next); rowsOut = rowsOut.concat(o.rows); }
+    out[t] = { cols: o.cols || [], rows: rowsOut.map(function (r) { delete r._id; return r; }) };
+  });
+  return out;
+}
+function bkFolder(parent, name) { var it = parent ? parent.getFoldersByName(name) : DriveApp.getFoldersByName(name); return it.hasNext() ? it.next() : (parent ? parent.createFolder(name) : DriveApp.createFolder(name)); }
+function bkSave(folder, day, data) {
+  var name = day + '.json', old = folder.getFilesByName(name); while (old.hasNext()) old.next().setTrashed(true);   // run twice on one day: the newer copy wins
+  folder.createFile(name, JSON.stringify(data), 'application/json');
+  var files = [], fi = folder.getFiles(); while (fi.hasNext()) { var f = fi.next(); if (/^\d{4}-\d{2}-\d{2}\.json$/.test(f.getName())) files.push(f); }
+  files.sort(function (a, b) { return a.getName() < b.getName() ? 1 : -1; }).slice(BACKUP_KEEP).forEach(function (f) { f.setTrashed(true); });
+}
+function bkCell(v) {
+  if (v === null || v === undefined) return '';
+  if (typeof v === 'object') v = JSON.stringify(v);
+  if (typeof v === 'string') { if (v.length > 49000) v = v.slice(0, 49000); if (/^[=+\-@]/.test(v)) return "'" + v; }   // text stays text (phones like +252…)
+  return v;
+}
+function bkMirror(sheetId, tables) {   // a readable copy: each tab overwritten with the data that lives in Cloudflare
+  var book = SpreadsheetApp.openById(sheetId);
+  Object.keys(tables).forEach(function (name) {
+    var t = tables[name], cols = t.cols.length ? t.cols : (t.rows[0] ? Object.keys(t.rows[0]) : []); if (!cols.length) return;
+    var s = book.getSheetByName(name) || book.insertSheet(name); s.clearContents();
+    var values = [cols].concat(t.rows.map(function (r) { return cols.map(function (c) { return bkCell(r[c]); }); }));
+    s.getRange(1, 1, values.length, cols.length).setValues(values); s.setFrozenRows(1);
+  });
+}
+function bkCount(tables) { return Object.keys(tables).reduce(function (a, k) { return a + tables[k].rows.length; }, 0); }
+function bkPlain(tables) { var o = {}; Object.keys(tables).forEach(function (k) { o[k] = tables[k].rows; }); return o; }
+function nightlyBackup() {
+  var started = Date.now(), now = new Date(), day = Utilities.formatDate(now, 'UTC', 'yyyy-MM-dd'), root = bkFolder(null, BACKUP_ROOT), report = [], failed = [];
+  var me = THIS_APP.url, list = bkGet(me, '_tables', 0), central = bkTables(me, list.central);
+  bkSave(bkFolder(root, 'central'), day, { app: 'central', saved_at: now.toISOString(), tables: bkPlain(central) });
+  report.push('central: ' + bkCount(central) + ' rows');
+  try { if (prop('CENTRAL_SHEET_ID')) bkMirror(prop('CENTRAL_SHEET_ID'), central); } catch (e) { failed.push('central sheet: ' + e.message); }
+  (central.Apps ? central.Apps.rows : []).forEach(function (a) {
+    if (!a.url || !/^https:\/\//.test(a.url)) return;
+    if (Date.now() - started > BACKUP_MAX_MS) { failed.push(a.app + ': not reached (time limit), next night'); return; }
+    try {
+      var l = bkGet(a.url, '_tables', 0), data = bkTables(a.url, l.tables);
+      bkSave(bkFolder(root, a.app), day, { app: a.app, saved_at: now.toISOString(), tables: bkPlain(data) });
+      if (a.sheet_id) { try { bkMirror(a.sheet_id, data); } catch (e) { failed.push(a.app + ' sheet: ' + e.message); } }
+      bkGet(a.url, '_done', 0);
+      report.push(a.app + ': ' + l.tables.length + ' tables, ' + bkCount(data) + ' rows');
+    } catch (e) { failed.push(a.app + ': ' + e.message); }
+  });
+  setProp('LAST_NIGHTLY_BACKUP', now.toISOString());
+  Logger.log('Backup ' + day + ' — ' + report.join(' · ') + (failed.length ? ' — PROBLEMS: ' + failed.join(' · ') : ' — all good') + ' (' + Math.round((Date.now() - started) / 1000) + ' s)');
+  if (failed.length) notifyAdmins('control', 'Nightly backup ' + day + ': ' + failed.length + ' problem(s).\n' + failed.join('\n').slice(0, 3500));
+  return { ok: !failed.length, report: report, failed: failed };
+}
+/* Run once: the nightly backup at about 2 AM (this project's time zone), and the first copy right now. */
+function installBackups() {
+  ScriptApp.getProjectTriggers().forEach(function (t) { if (t.getHandlerFunction() === 'nightlyBackup') ScriptApp.deleteTrigger(t); });
+  ScriptApp.newTrigger('nightlyBackup').timeBased().everyDays(1).atHour(2).create();
+  var r = nightlyBackup();
+  Logger.log('Done. Every night about 2 AM a copy of every app is saved in Google Drive, folder "' + BACKUP_ROOT + '" (newest ' + BACKUP_KEEP + ' days kept), and the Google Sheets are refreshed.' + (r.ok ? '' : ' Some parts had problems — see above.'));
+}
+
 /* ABOUT — generated by tools/build.py from shared/about.json (bot description shown before Start) */
 var APP_ABOUT = {"short": "Admin control center for all mini apps: income, subscribers, support inbox, app health and an AI assistant.", "long": "Control Center — for the owner and authorised admins only.\n\n• Live dashboard: income per app, subscribers, forecast, trends\n• One support inbox for questions, ideas and problems from every app\n• Health of every app with clear fixes\n• AI assistant (read-only) that answers questions and diagnoses problems\n• Executive PDF reports and admin roles per app\n\nTap Start, then open the Control Center."};
 /* END ABOUT */

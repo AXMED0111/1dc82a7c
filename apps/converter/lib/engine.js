@@ -879,9 +879,12 @@ export function createApp(MOD) {
     const msg = name + '|' + after + '|' + ts, ok = Math.abs(Date.now() - Number(ts)) < 600000;
     let good = false; for (const k of [ctl && ctl.whsec, own].filter(Boolean)) if ((await hmacHex(k, msg)) === sig) good = true;
     if (!ok || !good) return { ok: false, error: 'forbidden' };
-    if (!E.db.cols(name) || name === 'Secrets' || name === 'Kv' || (MOD.noExport || []).indexOf(name) >= 0) return { ok: false, error: 'table' };
-    const rows = await E.db.sel(name, CENTRAL_SCHEMA[name] ? { app: APP } : {}, { where: 'rowid > ?', args: [Number(after) || 0], limit: 1000 });
-    return { ok: true, table: name, rows, next: rows.length === 1000 ? rows[rows.length - 1]._id : null };
+    const kept = (t) => t !== 'Secrets' && t !== 'Kv' && (MOD.noExport || []).indexOf(t) < 0;
+    if (name === '_tables') return { ok: true, app: APP, tables: Object.keys(E.db.schema).filter(kept), central: APP === 'control' ? Object.keys(CENTRAL_SCHEMA) : [] };   // what the backup should read
+    if (name === '_done') { await E.db.run('Apps', 'UPDATE "Apps" SET "last_backup" = ? WHERE "app" = ?', iso(new Date()), APP); return { ok: true }; }   // the nightly copy of this app is saved
+    if (!E.db.cols(name) || !kept(name) || (CENTRAL_SCHEMA[name] && APP !== 'control')) return { ok: false, error: 'table' };   // the central tables are read whole through Control Center
+    const rows = await E.db.sel(name, {}, { where: 'rowid > ?', args: [Number(after) || 0], limit: 1000 });
+    return { ok: true, table: name, cols: E.db.cols(name), rows, next: rows.length === 1000 ? rows[rows.length - 1]._id : null };
   }
 
   /* ---------- HTTP entry points ---------- */

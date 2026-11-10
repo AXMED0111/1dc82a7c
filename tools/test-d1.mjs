@@ -1,5 +1,5 @@
 /* Tests for the D1 engine (shared/worker/engine.js) and the D1 app modules.   node tools/test-d1.mjs */
-import { makeSim, makeD1, WHSEC } from './d1-sim.mjs';
+import { makeSim, makeD1, WHSEC, CONTROL_WHSEC } from './d1-sim.mjs';
 import debt from '../apps/debt/worker/debt.js';
 import converterMod from '../apps/converter/worker/converter.js';
 import rsvpMod from '../apps/rsvp/worker/rsvp.js';
@@ -552,6 +552,55 @@ section('Channel Pass on D1');
   ok('no last chance: removed right away and told how to renew', S.sent.filter((s) => s.method === 'banChatMember').length === b0 + 1 && (await S.call(V, 'gkChannel', { key })).member === null && S.sent.some((s) => /has ended and you were removed/.test((s.payload || {}).text || '') && /Renew/.test(JSON.stringify(s.payload.reply_markup))));
   await S.tg(botAdmin('left')); ok('bot removed: channel marked removed', S.rows('Channels')[0].status === 'removed' && (await S.call(U, 'gkMine')).channels.length === 0);
   await S.tg(botAdmin('administrator')); ok('bot added again: paused, same channel', S.rows('Channels').length === 1 && S.rows('Channels')[0].status === 'paused');
+}
+
+section('nightly backup: Cloudflare -> Google Drive JSON + Google Sheets');
+{
+  const { createRequire } = await import('node:module'); const require = createRequire(import.meta.url); const { makeEnv } = require('./gas-sim.js'); const nc = await import('node:crypto');
+  const CEN = makeD1(), C = await makeSim(controlMod, { central: CEN }), D = await makeSim(debt, { central: CEN }), Rv = await makeSim(rsvpMod, { central: CEN });
+  await D.call(U, 'dbSaveShop', { shop: { name: 'Hodan Shop', currency: 'USD' } }); await D.call(U, 'dbSaveCustomer', { name: 'Faarax', phone: '+252615550001' });
+  await D.call(U, 'ticketCreate', { type: 'question', text: 'How do I add an expense?' });
+  await Rv.setSettings({ testMode: true }); const bek = (await Rv.call(U, 'rsvSave', { event: { title: 'Wedding', date: '2026-12-24' } })).event.key; await Rv.call(U, 'rsvPublish', { key: bek }); await Rv.call(U, 'rsvGuestAdd', { key: bek, guests: [{ name: 'Ali', max: 2 }] });
+  const G = makeEnv('control'); Object.assign(G.props, { WEBHOOK_SECRET_control: CONTROL_WHSEC, ADMIN_IDS: '1001', BOT_TOKEN_control: 'x' });
+  const sheetOf = (n) => G.run("SpreadsheetApp.create('" + n + "').getId()"), ids = { control: sheetOf('Control data'), debt: sheetOf('Debt data'), rsvp: sheetOf('Invitations data') };
+  G.props.CENTRAL_SHEET_ID = sheetOf('Mini Apps central');
+  const sites = { control: ['https://axm-09.pages.dev', C], debt: ['https://debt.test', D], rsvp: ['https://rsvp.test', Rv] };
+  for (const [app, [url]] of Object.entries(sites)) CEN._db.prepare('INSERT OR REPLACE INTO Apps (app, url, sheet_id) VALUES (?, ?, ?)').run(app, url, ids[app]);
+  const replies = {};   // the Cloudflare answers, made by the real engine (Apps Script calls are synchronous)
+  for (const [, [url, S]] of Object.entries(sites)) {
+    const l = await S.export('_tables'); replies[url + '|_tables|0'] = l;
+    for (const tb of l.tables.concat(l.central)) replies[url + '|' + tb + '|0'] = await S.export(tb);
+    replies[url + '|_done|0'] = await S.export('_done');
+  }
+  ok('apps list their tables (no secrets); only Control Center lists the central ones', !replies['https://debt.test|_tables|0'].tables.includes('Secrets') && replies['https://debt.test|_tables|0'].central.length === 0 && replies['https://axm-09.pages.dev|_tables|0'].central.includes('Tickets'));
+  ok('an app alone cannot read the central tables', (await D.export('Tickets')).error === 'table');
+  ok('export gives the column names (an empty table still gets its header)', replies['https://rsvp.test|Payments|0'].cols.includes('order_id') && replies['https://rsvp.test|Payments|0'].rows.length === 0);
+  let badSig = 0;
+  G.ctx.__fetchReply = (url) => {
+    const m = /^(https:\/\/[^/]+)\/api\/export\?table=([^&]+)&after=(\d+)&ts=(\d+)&sig=(\w+)$/.exec(url); if (!m) return { ok: true, result: {} };
+    const tb = decodeURIComponent(m[2]); if (nc.createHmac('sha256', CONTROL_WHSEC).update(tb + '|' + m[3] + '|' + m[4]).digest('hex') !== m[5]) { badSig++; return { ok: false, error: 'forbidden' }; }
+    return replies[m[1] + '|' + tb + '|' + m[3]] || { ok: false, error: 'table' };
+  };
+  G.run("var r0 = DriveApp.createFolder('Mini Apps backups'), d0 = r0.createFolder('debt'); for (var i = 1; i <= 32; i++) d0.createFile('2026-09-' + ('0' + i).slice(-2) + '.json', '{}', 'application/json'); d0.createFile('notes.txt', 'keep me', 'text/plain');");
+  G.run('installBackups()');
+  const root = G.ctx.DriveApp.folders['Mini Apps backups'], day = new Date().toISOString().slice(0, 10), file = (a) => root.sub[a] && root.sub[a].files.find((f) => f.name === day + '.json' && !f.trashed);
+  ok('every Apps Script request was signed correctly', badSig === 0);
+  ok('installed: every night about 2 AM', G.triggers.some((x) => x.fn === 'nightlyBackup' && x.every === 'day@2'));
+  ok('one JSON file per app + one for the central data', ['central', 'control', 'debt', 'rsvp'].every((a) => file(a)), Object.keys(root.sub));
+  const dj = JSON.parse(file('debt').content);
+  ok('Debt Book file: shop and customer (phone kept as text), no secrets, no internal ids', dj.app === 'debt' && dj.tables.Customers[0].name === 'Faarax' && dj.tables.Customers[0].phone === '+252615550001' && dj.tables.Shops[0].name === 'Hodan Shop' && !dj.tables.Secrets && !dj.tables.Kv && !('_id' in dj.tables.Customers[0]), Object.keys(dj.tables));
+  ok('Invitations file: event and guest', JSON.parse(file('rsvp').content).tables.Guests[0].name === 'Ali');
+  const cj = JSON.parse(file('central').content); ok('central file: app directory and support tickets', cj.tables.Apps.length === 3 && cj.tables.Tickets.some((x) => x.app === 'debt') && cj.tables.TicketMsgs.length === 1);
+  const dated = root.sub.debt.files.filter((f) => !f.trashed && /^\d{4}-\d\d-\d\d\.json$/.test(f.name));
+  ok('newest 30 days kept; oldest go to the bin; other files untouched', dated.length === 30 && root.sub.debt.files.find((f) => f.name === '2026-09-01.json').trashed && root.sub.debt.files.some((f) => f.name === 'notes.txt' && !f.trashed));
+  const cust = G.book(ids.debt).tabs.Customers.data;
+  ok('Debt Book sheet refreshed: header + customer row', cust[0].includes('name') && cust[1][cust[0].indexOf('name')] === 'Faarax' && cust[1][cust[0].indexOf('phone')] === '+252615550001', cust);
+  ok('empty table: header only', G.book(ids.rsvp).tabs.Payments.data.length === 1 && G.book(ids.rsvp).tabs.Payments.data[0].includes('order_id'));
+  ok('central sheet refreshed', G.book(G.props.CENTRAL_SHEET_ID).tabs.Tickets.data.length === 2);
+  ok('Control Center shows when each app was last backed up', CEN._db.prepare("SELECT COUNT(*) n FROM Apps WHERE last_backup IS NOT NULL AND last_backup != ''").get().n === 3);
+  G.run('nightlyBackup()'); ok('second run the same day: still one file for today', root.sub.debt.files.filter((f) => f.name === day + '.json' && !f.trashed).length === 1);
+  replies['https://rsvp.test|_tables|0'] = { ok: false, error: 'not_configured' }; const n0 = G.sent.length, r2 = G.run('nightlyBackup()');
+  ok('an app that fails is reported to the admins; the others are still saved', r2.ok === false && r2.failed.some((f) => /^rsvp: _tables: not_configured/.test(f)) && r2.report.some((x) => /^debt: /.test(x)) && G.sent.slice(n0).some((x) => /Nightly backup .*1 problem/.test(String(x.payload))), r2);
 }
 
 section('migration from the real Apps Script (Debt Book)');
