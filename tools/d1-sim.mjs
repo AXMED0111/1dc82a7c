@@ -6,16 +6,22 @@ import { createApp } from '../shared/worker/engine.js';
 
 export function makeD1() {
   const db = new DatabaseSync(':memory:');
+  const S = { trips: 0 };   // round trips to the database (what makes a request slow on a real network)
   const stmt = (sql, args = []) => ({
+    _sql: sql,
     bind: (...a) => stmt(sql, a),
-    async first(col) { const r = db.prepare(sql).get(...args); return r === undefined ? null : col ? r[col] : { ...r }; },
-    async all() { return { results: db.prepare(sql).all(...args).map((r) => ({ ...r })), success: true, meta: {} }; },
-    async run() { const r = db.prepare(sql).run(...args); return { success: true, meta: { changes: Number(r.changes), last_row_id: Number(r.lastInsertRowid) } }; }
+    async first(col) { S.trips++; const r = db.prepare(sql).get(...args); return r === undefined ? null : col ? r[col] : { ...r }; },
+    async all() { S.trips++; return { results: db.prepare(sql).all(...args).map((r) => ({ ...r })), success: true, meta: {} }; },
+    async run() { S.trips++; const r = db.prepare(sql).run(...args); return { success: true, meta: { changes: Number(r.changes), last_row_id: Number(r.lastInsertRowid) } }; }
   });
   return {
     prepare: (sql) => stmt(sql),
-    async batch(list) { const out = []; db.exec('BEGIN'); try { for (const s of list) out.push(await s.run()); db.exec('COMMIT'); } catch (e) { db.exec('ROLLBACK'); throw e; } return out; },
-    _db: db
+    async batch(list) {   // like D1: one round trip, in one transaction; SELECTs return rows
+      const out = [], t0 = S.trips; db.exec('BEGIN');
+      try { for (const s of list) out.push(/^\s*(SELECT|PRAGMA|WITH)/i.test(s._sql) ? await s.all() : await s.run()); db.exec('COMMIT'); } catch (e) { db.exec('ROLLBACK'); throw e; }
+      S.trips = t0 + 1; return out;
+    },
+    _db: db, _stats: S
   };
 }
 

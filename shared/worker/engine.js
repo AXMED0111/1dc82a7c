@@ -103,13 +103,13 @@ export class Store {
   async one(name, w, o = {}) { return (await this.sel(name, w, Object.assign({ limit: 1 }, o)))[0] || null; }
   async count(name, w, o = {}) { const W = this.where(w); const r = await this.d(name).prepare(`SELECT COUNT(*) AS n FROM ${q(name)}${W.sql}${o.where ? (W.sql ? ' AND ' : ' WHERE ') + o.where : ''}`).bind(...W.args, ...(o.args || [])).first(); return r ? r.n : 0; }
   insStmt(name, obj, mode) { const cols = this.cols(name).filter((c) => obj[c] !== undefined); return this.d(name).prepare(`INSERT ${mode ? 'OR ' + mode + ' ' : ''}INTO ${q(name)} (${cols.map(q).join(', ')}) VALUES (${cols.map(() => '?').join(', ')})`).bind(...cols.map((c) => val(obj[c]))); }
-  async ins(name, obj) { const r = await this.insStmt(name, obj).run(); return Object.assign({ _id: r.meta && r.meta.last_row_id }, obj); }
+  async ins(name, obj) { this.onWrite && this.onWrite(name); const r = await this.insStmt(name, obj).run(); return Object.assign({ _id: r.meta && r.meta.last_row_id }, obj); }
   async upd(name, row, patch) {
-    const cols = Object.keys(patch).filter((c) => this.cols(name).indexOf(c) >= 0); if (!cols.length) return row;
+    const cols = Object.keys(patch).filter((c) => this.cols(name).indexOf(c) >= 0); if (!cols.length) return row; this.onWrite && this.onWrite(name);
     await this.d(name).prepare(`UPDATE ${q(name)} SET ${cols.map((c) => q(c) + ' = ?').join(', ')} WHERE rowid = ?`).bind(...cols.map((c) => val(patch[c])), row._id).run();
     cols.forEach((c) => { row[c] = patch[c]; }); return row;
   }
-  async del(name, row) { await this.d(name).prepare(`DELETE FROM ${q(name)} WHERE rowid = ?`).bind(row._id).run(); }
+  async del(name, row) { this.onWrite && this.onWrite(name); await this.d(name).prepare(`DELETE FROM ${q(name)} WHERE rowid = ?`).bind(row._id).run(); }
   async run(name, sql, ...args) { return this.d(name).prepare(sql).bind(...args).run(); }
   async all(name, sql, ...args) { const r = await this.d(name).prepare(sql).bind(...args).all(); return r.results || []; }
 }
@@ -126,14 +126,14 @@ export function createApp(MOD) {
     if (!env.DB) throw new Error('no_db');
     const db = new Store(env, MOD), c = cacheFor(env.DB);
     if (!c.ensured) { await db.ensure(); c.ensured = true; }
-    return { env, db, c, mod: MOD, app: APP };
+    return { env, db, c, mod: MOD, app: APP, pre: null, defer: (p) => p };
   }
 
   /* ---------- secrets (AES-GCM, key = SHA-256(MASTER_KEY)) ---------- */
   async function aesKey(env) { if (!env.MASTER_KEY) throw new Error('no_master_key'); return crypto.subtle.importKey('raw', await crypto.subtle.digest('SHA-256', enc.encode(env.MASTER_KEY)), 'AES-GCM', false, ['encrypt', 'decrypt']); }
   async function secret(E, name) {
     const hit = E.c.secrets.get(name); if (hit && hit.t > Date.now()) return hit.v;
-    const r = await E.db.one('Secrets', { name }); let v = '';
+    const r = E.pre && E.pre.secrets ? E.pre.secrets.find((x) => x.name === name) || null : await E.db.one('Secrets', { name }); let v = '';
     if (r && r.val) { try { const raw = unb64(r.val), pt = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: raw.slice(0, 12) }, await aesKey(E.env), raw.slice(12)); v = new TextDecoder().decode(pt); } catch (e) { v = ''; } }
     E.c.secrets.set(name, { v, t: Date.now() + 300000 }); return v;
   }
@@ -160,7 +160,7 @@ export function createApp(MOD) {
   }
   async function getSettings(E) {
     const hit = E.c.settings; if (hit && hit.t > Date.now()) return JSON.parse(hit.v);
-    const r = await E.db.one('Settings', { app: APP }); let st = defaultSettings();
+    const r = E.pre && E.pre.settings !== undefined ? E.pre.settings : await E.db.one('Settings', { app: APP }); let st = defaultSettings();
     if (r && r.json) { st = Object.assign(st, JSON.parse(r.json)); st.methods = Object.assign(defaultSettings().methods, st.methods || {}); }
     E.c.settings = { v: JSON.stringify(st), t: Date.now() + 60000 }; return st;
   }
@@ -224,7 +224,7 @@ export function createApp(MOD) {
   }
   async function roleFor(E, uid) {
     uid = String(uid); if ((await adminIds(E)).indexOf(uid) >= 0) return { super: true, perms: PERMS.slice(), apps: ['*'] };
-    const rs = (await E.db.sel('Admins', { user_id: uid })).filter((r) => truthy(r.active)).map((r) => ({ role: r.role, apps: String(r.apps || ''), perms: String(r.perms || '') }));
+    const rs = (E.pre && E.pre.uid === uid ? E.pre.admins : await E.db.sel('Admins', { user_id: uid })).filter((r) => truthy(r.active)).map((r) => ({ role: r.role, apps: String(r.apps || ''), perms: String(r.perms || '') }));
     let out = null;
     rs.forEach((r) => {
       if (out && out.super) return;
@@ -240,8 +240,11 @@ export function createApp(MOD) {
 
   /* ---------- users & access ---------- */
   async function upsertUser(E, u, edition, startParam) {
-    const r = await E.db.one('Users', { user_id: String(u.id), app: APP }), now = new Date();
-    if (r) { await E.db.upd('Users', r, { last_seen: now, username: u.username || '', first_name: u.first_name || '' }); return r; }
+    const r = pre(E, 'Users', u.id) !== undefined ? pre(E, 'Users', u.id) : await E.db.one('Users', { user_id: String(u.id), app: APP }), now = new Date();
+    if (r) {   // seen recently: no write at all; otherwise update quietly after the answer is sent
+      if (now - new Date(r.last_seen || 0) > 600000 || (u.first_name || '') !== (r.first_name || '')) E.defer(E.db.upd('Users', r, { last_seen: now, username: u.username || '', first_name: u.first_name || '' }));
+      return r;
+    }
     const o = { user_id: String(u.id), app: APP, username: u.username || '', first_name: u.first_name || '', language: u.language_code || '', region: /^local/i.test(startParam || '') ? 'LOCAL' : 'GLOBAL',
       phone: '', phone_verified: false, start_param: startParam || '', edition: edition || 'global', created_at: now, last_seen: now, referred_by: '' };
     const ref = /(?:^|_)r(\d{3,15})(?:_|$)/.exec(startParam || '');
@@ -251,12 +254,12 @@ export function createApp(MOD) {
     try { return await E.db.ins('Users', o); } catch (e) { return await E.db.one('Users', { user_id: String(u.id), app: APP }); }   // two first requests at once: unique index keeps one row
   }
   async function activeSub(E, uid) {
-    const now = new Date(); let best = null;
-    (await E.db.sel('Subscriptions', { user_id: String(uid), app: APP, status: 'active' })).forEach((s) => { if (new Date(s.expiry_date) > now && (!best || new Date(s.expiry_date) > new Date(best.expiry_date))) best = s; });
+    const now = new Date(); let best = null, list = pre(E, 'Subscriptions', uid);
+    (list !== undefined ? list : await E.db.sel('Subscriptions', { user_id: String(uid), app: APP, status: 'active' })).forEach((s) => { if (new Date(s.expiry_date) > now && (!best || new Date(s.expiry_date) > new Date(best.expiry_date))) best = s; });
     return best;
   }
   async function usageRow(E, uid) {
-    let r = await E.db.one('Usage', { user_id: String(uid), app: APP }); if (r) return r;
+    let r = pre(E, 'Usage', uid); if (r === undefined) r = await E.db.one('Usage', { user_id: String(uid), app: APP }); if (r) return r;
     try { r = await E.db.ins('Usage', { user_id: String(uid), app: APP, free_used: 0, total_used: 0, credits: 0 }); } catch (e) { r = await E.db.one('Usage', { user_id: String(uid), app: APP }); }
     return r;
   }
@@ -345,7 +348,7 @@ export function createApp(MOD) {
   }
   async function refFirstPct(ctx) {
     if (!refOn(ctx.st) || !ctx.urow || !ctx.urow.referred_by) return 0;
-    const paid = await ctx.E.db.one('Payments', { user_id: ctx.uid, app: APP, status: 'paid' });
+    const pp = pre(ctx.E, 'Payments', ctx.uid), paid = pp !== undefined ? pp : await ctx.E.db.one('Payments', { user_id: ctx.uid, app: APP, status: 'paid' });
     return paid ? 0 : Math.max(0, Math.min(90, Number(ctx.st.x_refNewPct) || 0));
   }
   async function priceFor(ctx, plan, code) {
@@ -549,8 +552,31 @@ export function createApp(MOD) {
   const API = { truthy, iso, dayOf, uuid, consume, accessFor, isPro, activeSub, usageRow, computeAccess, getSettings, saveSettings, log, notify, notifyAdmins, queueMsg, tgCall, botToken, secret, adminIds,
     rateLimit, kvGet, kvPut, kvIncr, markPaid, priceFor, findCode, codeSave, codeToggle, codeOut, aiCall, aiJson, plansFor, tkAdd, notifyControl, metric, APP_URL: MOD.url };
 
+  /* ---------- prefetch: everything a request usually needs, in ONE database trip (+ the central one in parallel) ----------
+     The user id is read from initData before the signature check; the rows are only used after the check passes.
+     A table written during the request is not taken from the prefetch again (Store.onWrite). */
+  function pre(E, table, uid) {
+    const P = E.pre; if (!P || P.uid !== String(uid) || P.dirty.has(table)) return undefined;
+    return { Users: P.user, Usage: P.usage, Subscriptions: P.subs, Payments: P.paid }[table];
+  }
+  async function prefetch(E, req) {
+    let uid = ''; try { uid = String(JSON.parse(new URLSearchParams(String(req.initData || '')).get('user') || '{}').id || ''); } catch (e) {}
+    const a = E.db.app, list = [
+      a.prepare('SELECT rowid AS _id, * FROM "Settings" WHERE "app" = ? LIMIT 1').bind(APP),
+      a.prepare('SELECT "name", "val" FROM "Secrets"'),
+      a.prepare('SELECT rowid AS _id, * FROM "Users" WHERE "user_id" = ? AND "app" = ? LIMIT 1').bind(uid, APP),
+      a.prepare('SELECT rowid AS _id, * FROM "Usage" WHERE "user_id" = ? AND "app" = ? LIMIT 1').bind(uid, APP),
+      a.prepare('SELECT rowid AS _id, * FROM "Subscriptions" WHERE "user_id" = ? AND "app" = ? AND "status" = ?').bind(uid, APP, 'active'),
+      a.prepare('SELECT rowid AS _id, * FROM "Payments" WHERE "user_id" = ? AND "app" = ? AND "status" = ? LIMIT 1').bind(uid, APP, 'paid')];
+    const [r, adm] = await Promise.all([a.batch(list), uid ? E.db.cen.prepare('SELECT rowid AS _id, * FROM "Admins" WHERE "user_id" = ?').bind(uid).all() : Promise.resolve({ results: [] })]);
+    const one = (i) => (r[i].results || [])[0] || null;
+    E.pre = { uid, settings: one(0), secrets: r[1].results || [], user: one(2), usage: one(3), subs: r[4].results || [], paid: one(5), admins: adm.results || [], dirty: new Set() };
+    E.db.onWrite = (n) => E.pre.dirty.add(n);
+  }
+
   /* ---------- client router (/api/app) ---------- */
   async function route(E, req) {
+    await prefetch(E, req);
     const st = await getSettings(E), token = await botToken(E);
     let auth = await verifyInitData(req.initData, token); const verified = !!auth;
     if (!auth) { if (!(st.testMode && !token)) return { ok: false, error: 'unauthorized' }; auth = { user: { id: 'preview', first_name: 'Preview' }, start_param: req.start || '' }; }
@@ -620,7 +646,7 @@ export function createApp(MOD) {
       default: res = MOD.routes && MOD.routes[a] ? await MOD.routes[a](ctx, req, API) : { ok: false, error: 'unknown_action' };
     }
     metric(E, Date.now() - t0, false);
-    if (rkey && res && res.ok !== false) { const js = JSON.stringify(res); if (js.length < 90000) await kvPut(E, rkey, js, 900); }
+    if (rkey && res && res.ok !== false) { const js = JSON.stringify(res); if (js.length < 90000) E.defer(kvPut(E, rkey, js, 900)); }
     return res;
   }
   async function revenueAllApps(ctx) {   // every app: from the central numbers (Stats)
@@ -823,6 +849,7 @@ export function createApp(MOD) {
     async app(context) {   // POST /api/app
       let E; try { E = await open(context.env); } catch (e) { return json({ ok: false, error: 'not_configured' }); }
       let req; try { req = JSON.parse(await context.request.text()); } catch (e) { return json({ ok: false, error: 'bad_request' }); }
+      E.defer = (p) => { const q2 = Promise.resolve(p).catch(() => {}); if (context.waitUntil) context.waitUntil(q2); return q2; };   // work that need not delay the answer
       let res;
       try { res = await route(E, req); } catch (e) { metric(E, 0, true); await log(E, '', 'exception', String(req.action || '') + ' rid=' + String(req.rid || '') + ' ' + String(e && e.stack || e).slice(0, 400)); res = { ok: false, error: 'server_error' }; }
       if (context.waitUntil) context.waitUntil(flushMetrics(E, false).catch(() => {})); else await flushMetrics(E, false).catch(() => {});

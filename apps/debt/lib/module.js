@@ -33,11 +33,11 @@ function period(p) {
   return { from: f(new Date(Date.UTC(y, m, 1))), to: f(n) };
 }
 async function buildReport(E, uid, per, onlyCust, iso) {
-  const P = period(per), shop = await shopOf(E, uid), all = await E.db.sel('Entries', { owner_id: String(uid) }), byCust = {}, cat = {}, meth = {}, inP = (d) => d >= P.from && d <= P.to;
+  const P = period(per), [shop, all, custRows] = await Promise.all([shopOf(E, uid), E.db.sel('Entries', { owner_id: String(uid) }), E.db.sel('Customers', { owner_id: String(uid) })]), byCust = {}, cat = {}, meth = {}, inP = (d) => d >= P.from && d <= P.to;
   all.forEach((e) => { if (e.cust_id) (byCust[e.cust_id] = byCust[e.cust_id] || []).push(e); });
   const out = { shop: { name: shop.name, currency: shop.currency }, period: per, from: P.from, to: P.to,
     totals: { credit: 0, paid: 0, outstanding: 0, overdueCount: 0, overdueAmount: 0, customers: 0, income: 0, expense: 0, sales: 0, profit: 0, cashIn: 0, net: 0 }, customers: [], entries: [], byCategory: [], byMethod: [] };
-  for (const c of await E.db.sel('Customers', { owner_id: String(uid) })) {
+  for (const c of custRows) {
     if (c.status === 'deleted' || (onlyCust && c.cust_id !== onlyCust)) continue;
     const sm = sum(c, byCust[c.cust_id] || [], iso); let credit = 0, paid = 0;
     sm.entries.forEach((e) => { if (!inP(e.date)) return; if (e.type === 'debt') credit += e.amount; else { paid += e.amount; if (e.method) meth[e.method] = (meth[e.method] || 0) + e.amount; }
@@ -74,40 +74,47 @@ export default {
   },
   indexes: { Shops: [[['owner_id'], true]], Customers: [[['cust_id'], true], [['owner_id']], [['token']], [['tg_chat']]], Entries: [[['entry_id'], true], [['owner_id']], [['cust_id']]] },
   routes: {
-    async dbBook(ctx, req, A) {
-      const E = ctx.E, shop = await shopOf(E, ctx.uid), ents = await E.db.sel('Entries', { owner_id: ctx.uid }), by = {}; delete shop._r;
+    async dbBook(ctx, req, A) {   // shop, entries, customers and plan read side by side (one round trip)
+      const E = ctx.E, [shop, ents, custRows, t] = await Promise.all([shopOf(E, ctx.uid), E.db.sel('Entries', { owner_id: ctx.uid }), E.db.sel('Customers', { owner_id: ctx.uid }), tier(ctx, A)]), by = {}; delete shop._r;
       ents.forEach((e) => { if (e.cust_id) (by[e.cust_id] = by[e.cust_id] || []).push(e); });
-      const custs = (await E.db.sel('Customers', { owner_id: ctx.uid })).filter((c) => c.status !== 'deleted').map((c) => sum(c, by[c.cust_id] || [], A.iso));
-      return { ok: true, shop, tier: await tier(ctx, A), customers: custs, cash: ents.filter((e) => !e.cust_id).map(entryOut) };
+      const custs = custRows.filter((c) => c.status !== 'deleted').map((c) => sum(c, by[c.cust_id] || [], A.iso));
+      return { ok: true, shop, tier: t, customers: custs, cash: ents.filter((e) => !e.cust_id).map(entryOut) };
     },
-    async dbCustomer(ctx, req, A) { const c = await ownCust(ctx, req.id); return c ? { ok: true, customer: await custOut(ctx.E, c, A.iso) } : { ok: false, error: 'not_found' }; },
+    async dbCustomer(ctx, req, A) {   // customer and its entries together; ownership checked before answering
+      const [c, ents] = await Promise.all([ownCust(ctx, req.id), ctx.E.db.sel('Entries', { cust_id: String(req.id || '') })]);
+      return c ? { ok: true, customer: sum(c, ents, A.iso) } : { ok: false, error: 'not_found' };
+    },
     async dbSaveCustomer(ctx, req, A) {
       const E = ctx.E, name = String(req.name || '').trim().slice(0, 80), phone = String(req.phone || '').replace(/[^\d+]/g, '').replace(/(?!^)\+/g, '').slice(0, 20);
       if (!name) return { ok: false, error: 'name' };
       if (req.id) { const c = await ownCust(ctx, req.id); if (!c) return { ok: false, error: 'not_found' }; await E.db.upd('Customers', c, { name, phone }); return { ok: true, customer: await custOut(E, c, A.iso) }; }
+      // Same customer sent twice (double tap, retry) within 2 minutes: answer with the first one, use no free slot.
+      const twin = (await E.db.sel('Customers', { owner_id: ctx.uid, name }, { where: '"created_at" >= ?', args: [new Date(Date.now() - 120000).toISOString()] })).find((c) => c.status !== 'deleted' && (c.phone || '') === phone);
+      if (twin) return { ok: true, allowed: true, duplicate: true, access: await A.accessFor(ctx), customer: sum(twin, await E.db.sel('Entries', { cust_id: twin.cust_id }), A.iso) };
       const k = await A.consume(ctx, { tool: 'customer' }); if (!k.allowed) return { ok: true, allowed: false, access: k.access };
       const c = await E.db.ins('Customers', { cust_id: id('c'), owner_id: ctx.uid, name, phone, token: id('t'), status: 'active', created_at: new Date() });
       return { ok: true, allowed: true, access: k.access, customer: sum(c, [], A.iso) };
     },
     async dbDeleteCustomer(ctx, req) { const c = await ownCust(ctx, req.id); if (c) await ctx.E.db.upd('Customers', c, { status: 'deleted' }); return { ok: true }; },
-    async dbAddEntry(ctx, req, A) {
-      const E = ctx.E, type = TYPES.indexOf(req.type) >= 0 ? req.type : 'debt', c = req.id ? await ownCust(ctx, req.id) : null;
+    async dbAddEntry(ctx, req, A) {   // round 1: customer + its entries + duplicate check side by side; round 2: insert
+      const E = ctx.E, type = TYPES.indexOf(req.type) >= 0 ? req.type : 'debt';
+      const eid0 = /^e[a-z0-9]{6,24}$/.test(String(req.entry || '')) ? String(req.entry) : '';
+      const [c, ents0, dup0] = await Promise.all([req.id ? ownCust(ctx, req.id) : null, req.id ? E.db.sel('Entries', { cust_id: String(req.id) }) : [], eid0 ? E.db.one('Entries', { entry_id: eid0 }) : null]);
       if ((type === 'debt' || type === 'payment' || req.id) && !c) return { ok: false, error: 'not_found' };
       const amt = Math.round(Number(req.amount) * 100) / 100; if (!(amt > 0) || amt > 1e12) return { ok: false, error: 'amount' };
-      const eid = /^e[a-z0-9]{6,24}$/.test(String(req.entry || '')) ? String(req.entry) : id('e');   // phone-made id: a retried save is stored once
-      const dup = await E.db.one('Entries', { entry_id: eid });
-      if (dup) return String(dup.owner_id) === ctx.uid ? { ok: true, duplicate: true, entry: entryOut(dup), customer: c ? await custOut(E, c, A.iso) : null } : { ok: false, error: 'entry_id' };
+      const eid = eid0 || id('e'), dup = dup0;   // phone-made id: a retried save is stored once
+      if (dup) return String(dup.owner_id) === ctx.uid ? { ok: true, duplicate: true, entry: entryOut(dup), customer: c ? sum(c, ents0, A.iso) : null } : { ok: false, error: 'entry_id' };
       const dayv = /^\d{4}-\d{2}-\d{2}$/.test(String(req.date || '')) ? String(req.date) : day(new Date());
       const row = { entry_id: eid, cust_id: c ? c.cust_id : '', owner_id: ctx.uid, type, amount: amt, date: dayv, due: type === 'debt' ? String(req.due || '').slice(0, 10) : '',
         note: String(req.note || '').slice(0, 120), created_at: new Date(), category: String(req.category || '').replace(/[^\w &\-]/g, '').slice(0, 30), method: METHODS.indexOf(req.method) >= 0 ? req.method : '' };
-      try { await E.db.ins('Entries', row); } catch (e) { const again = await E.db.one('Entries', { entry_id: eid }); if (!again) throw e; }   // same save arriving twice at once
-      return { ok: true, entry: entryOut(row), customer: c ? await custOut(E, c, A.iso) : null };
+      try { await E.db.ins('Entries', row); } catch (e) { const again = await E.db.one('Entries', { entry_id: eid }); if (!again) throw e; return { ok: true, duplicate: true, entry: entryOut(again), customer: c ? await custOut(E, c, A.iso) : null }; }   // same save arriving twice at once
+      return { ok: true, entry: entryOut(row), customer: c ? sum(c, ents0.concat([row]), A.iso) : null };
     },
     async dbDeleteEntry(ctx, req, A) {
-      const E = ctx.E, c = req.id ? await ownCust(ctx, req.id) : null; if (req.id && !c) return { ok: false, error: 'not_found' };
-      const e = await E.db.one('Entries', { entry_id: String(req.entry || ''), owner_id: ctx.uid });
-      if (e && (c ? e.cust_id === c.cust_id : !e.cust_id)) await E.db.del('Entries', e);
-      return { ok: true, customer: c ? await custOut(E, c, A.iso) : null };
+      const E = ctx.E, [c, e, ents] = await Promise.all([req.id ? ownCust(ctx, req.id) : null, E.db.one('Entries', { entry_id: String(req.entry || ''), owner_id: ctx.uid }), req.id ? E.db.sel('Entries', { cust_id: String(req.id) }) : []]);
+      if (req.id && !c) return { ok: false, error: 'not_found' };
+      const gone = e && (c ? e.cust_id === c.cust_id : !e.cust_id); if (gone) await E.db.del('Entries', e);
+      return { ok: true, customer: c ? sum(c, gone ? ents.filter((x) => x.entry_id !== e.entry_id) : ents, A.iso) : null };
     },
     async dbRemindAction(ctx, req, A) {
       const E = ctx.E, c = await ownCust(ctx, req.id); if (!c) return { ok: false, error: 'not_found' };

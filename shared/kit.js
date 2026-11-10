@@ -336,7 +336,11 @@ function cacheSet(k, v) { memCache[k] = { t: Date.now(), v: v }; cachePersist();
 function cachePersist() { var keep = {}, keys = Object.keys(memCache).sort(function (a, b) { return memCache[b].t - memCache[a].t; }).slice(0, 25);
   keys.forEach(function (x) { var js = JSON.stringify(memCache[x]); if (js.length < 100000) keep[x] = memCache[x]; }); lsSet(lsCacheKey(), keep); }
 function cacheClear() { memCache = {}; lsSet(lsCacheKey(), {}); }
-function cacheStale() { Object.keys(memCache).forEach(function (k) { memCache[k].stale = true; }); cachePersist(); }
+var wgen = 0, recentSaved = [];   // wgen: counts saves; a read started before the latest save is never trusted as final
+function cacheStale() { wgen++; inflight = {}; Object.keys(memCache).forEach(function (k) { memCache[k].stale = true; }); cachePersist(); }
+/* Saves still on their way (queue) + saves confirmed in the last 30 s: apps lay them over server data, so a saved
+   record never disappears from the screen while an older answer is still being shown. */
+function pendingAll() { var now = Date.now(); recentSaved = recentSaved.filter(function (x) { return now - x.at < 30000; }); return recentSaved.concat(qList()); }
 var bypassUntil = 0, PF_KEY = function () { return 'pf_' + CFG.appId + '_' + (TGU ? TGU.id : '0'); };
 function pfNote(action, data) {   // remember which screens this person uses (for the background refresh on open)
   if (/^(admin|cc)/.test(action)) return;
@@ -360,10 +364,12 @@ function api(action, data, opts) {
   if (inflight[k]) return hit ? Promise.resolve(hit.v) : inflight[k];   // same request already on its way: never send it twice
   var bypass = Date.now() < bypassUntil;
   function load(fresh) {
+    var g = wgen;
     return callServer(action, fresh ? Object.assign({ fresh: 1 }, data) : data).then(function (res) {
       if (res && res.ok) {
         var cur = memCache[k], changed = !cur || JSON.stringify(cur.v) !== JSON.stringify(res); cacheSet(k, res);
-        if (cur && changed && !opts.quiet) { if (action === 'init') { S.me = res; if (canAutoRefresh()) render(); } else if (S.screen === screenAt) scheduleRefresh(); }   // background refresh updates the screen
+        if (g !== wgen) { memCache[k].stale = true; cachePersist(); if (!opts.quiet && S.screen === screenAt) scheduleRefresh(); }   // started before a save: check again
+        else if (cur && changed && !opts.quiet) { if (action === 'init') { S.me = res; if (canAutoRefresh()) render(); } else if (S.screen === screenAt) scheduleRefresh(); }   // background refresh updates the screen
       }
       return res;
     });
@@ -422,7 +428,7 @@ function qRun() {
     qBusy = false;
     if (!res || (res.ok === false && Q_TRANSIENT.test(res.error || ''))) { qTimer = setTimeout(qRun, qWait); qWait = Math.min(qWait * 2, 60000); qPaint(); return; }
     var l2 = qList(); if (l2.length && l2[0].data.rid === it.data.rid) l2.shift(); lsSet(QKEY, l2); qWait = 2000;
-    if (res.ok !== false) { cacheStale(); bypassUntil = Date.now() + 60000; } else toast(t('q_fail'));
+    if (res.ok !== false) { recentSaved.push({ action: it.action, data: it.data, at: Date.now() }); cacheStale(); bypassUntil = Date.now() + 60000; } else toast(t('q_fail'));
     var h = qHandlers[it.action]; if (h) try { h(res, it.data); } catch (e) {}
     if (!qList().length && canAutoRefresh()) enter();   // all saved: re-read the screen from the server
     qRun();
@@ -482,8 +488,39 @@ function seg(name, val, opts) { return '<div class="seg">' + opts.map(function (
 function render() {
   if (IN_TG) { if (S.stack.length) TG.BackButton.show(); else TG.BackButton.hide(); }
   if (!S.me) { $app.innerHTML = '<div class="center" style="padding:80px 0"><div class="spin" style="margin:0 auto;color:var(--accent)"></div></div>'; return; }
-  var f = APP.screens[S.screen] || BUILTIN[S.screen] || APP.screens.home;
-  $app.innerHTML = f();
+  var f = APP.screens[S.screen] || BUILTIN[S.screen] || APP.screens.home, html = f(), changed = S.screen !== lastScreen || !$app.firstElementChild;
+  lastScreen = S.screen;
+  if (changed) { $app.classList.remove('enter'); $app.innerHTML = html; void $app.offsetWidth; $app.classList.add('enter'); }   // new screen: gentle fade-in
+  else morph($app, html);   // same screen: update only what changed (no blinking, inputs keep focus, keyboard stays open)
+}
+var lastScreen = null;
+/* In-place update: walk the new HTML next to the current page and touch only nodes that differ. */
+function morph(el, html) { var tpl = document.createElement('template'); tpl.innerHTML = html; patchKids(el, tpl.content); }
+function patchKids(a, b) {
+  var ac = a.childNodes, bc = b.childNodes, i;
+  for (i = 0; i < bc.length; i++) {
+    var nb = bc[i], na = ac[i];
+    if (!na) { a.appendChild(nb.cloneNode(true)); continue; }
+    if (na.nodeType !== nb.nodeType || na.nodeName !== nb.nodeName || (na.nodeType === 1 && (na.id || '') !== (nb.id || ''))) { a.replaceChild(nb.cloneNode(true), na); continue; }
+    if (na.nodeType !== 1) { if (na.nodeValue !== nb.nodeValue) na.nodeValue = nb.nodeValue; continue; }
+    patchAttrs(na, nb);
+    var tag = na.nodeName;
+    if (tag === 'INPUT') { patchValue(na, nb); continue; }
+    if (tag === 'TEXTAREA') { if (na !== document.activeElement && na.value !== nb.textContent) na.value = nb.textContent; continue; }
+    patchKids(na, nb);
+    if (tag === 'SELECT' && na !== document.activeElement) { var so = nb.querySelector('option[selected]'); na.value = so ? (so.getAttribute('value') !== null ? so.getAttribute('value') : so.textContent) : (nb.options && nb.options[0] ? nb.options[0].value : ''); }
+  }
+  while (ac.length > bc.length) a.removeChild(a.lastChild);
+}
+function patchAttrs(a, b) {
+  var i, n;
+  for (i = a.attributes.length - 1; i >= 0; i--) { n = a.attributes[i].name; if (!b.hasAttribute(n) && n !== 'value') a.removeAttribute(n); }
+  for (i = 0; i < b.attributes.length; i++) { n = b.attributes[i]; if (a.getAttribute(n.name) !== n.value) a.setAttribute(n.name, n.value); }
+}
+function patchValue(a, b) {
+  if (a.type === 'checkbox' || a.type === 'radio') { a.checked = b.hasAttribute('checked'); return; }
+  if (a.type === 'file' || a === document.activeElement) return;   // never fight the user's typing
+  var v = b.getAttribute('value'); v = v === null ? '' : v; if (a.value !== v) a.value = v;
 }
 
 /* ---------------- payments UI ---------------- */
@@ -770,6 +807,6 @@ function app(def) {
 
 return { app: app, insight: insight, codesBlock: codesBlock, dCode: dCode, dCodeSave: dCodeSave, reloadCodes: reloadCodes, report: report, showReport: showReport, saveBlob: saveBlob, loadScript: loadScript, isPro: function () { return S.me && /^(sub|test)$/.test(S.me.access.reason); }, CFG: CFG, TG: TG, IN_TG: IN_TG, TGU: TGU, QS: QS, START: START, EDITION: EDITION, DEMO: DEMO, MB: MB, S: S,
   t: t, esc: esc, ic: ic, fmtDate: fmtDate, money: money, uid: uid, toast: toast, copy: copy, openLink: openLink, shareTg: shareTg, haptic: haptic, appLink: appLink, param: param, fileB64: fileB64,
-  lsGet: lsGet, lsSet: lsSet, api: api, queueSave: queueSave, onSaved: onSaved, pending: function () { return qList(); }, refreshMe: refreshMe, go: go, back: back, home: home, render: render, header: header, banners: banners, planChip: planChip, spin: spin, errBox: errBox, empty: empty, kv: kv, seg: seg,
+  lsGet: lsGet, lsSet: lsSet, api: api, queueSave: queueSave, onSaved: onSaved, pending: pendingAll, refreshMe: refreshMe, go: go, back: back, home: home, render: render, header: header, banners: banners, planChip: planChip, spin: spin, errBox: errBox, empty: empty, kv: kv, seg: seg,
   paywall: paywall, needAccess: needAccess, consume: consume, lang: function () { return LANG; } };
 })();

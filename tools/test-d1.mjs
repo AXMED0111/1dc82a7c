@@ -142,6 +142,8 @@ section('debt book on D1');
 S = await makeSim(debt); await S.setSettings({ testMode: false, freeAllowance: 2 });
 r = await S.call(U, 'dbSaveShop', { shop: { name: 'Hodan Store', currency: 'USD', freq: 'weekly', lang: 'so', country: 'SO' } }); ok('shop saved', r.ok);
 r = await S.call(U, 'dbSaveCustomer', { name: 'Abdi', phone: '+252 61 000 0001' }); ok('customer added', r.allowed && r.customer.id && r.customer.phone === '+252610000001', r);
+const twin = await S.call(U, 'dbSaveCustomer', { name: 'Abdi', phone: '+252 61 000 0001' });
+ok('double tap on Save: one customer, no extra free slot used', twin.duplicate && twin.customer.id === r.customer.id && S.rows('Customers').length === 1 && (await S.call(U, 'init')).access.freeUsed === 1, twin);
 const cid = r.customer.id, tok = r.customer.token;
 await S.call(U, 'dbAddEntry', { id: cid, type: 'debt', amount: 45, date: '2026-10-01', due: '2026-10-20' }); r = await S.call(U, 'dbAddEntry', { id: cid, type: 'payment', amount: 15, method: 'mobile' });
 ok('balance 30 + overdue', r.customer.balance === 30 && r.customer.overdue === true, r.customer);

@@ -29,8 +29,8 @@ table.tb{width:100%;border-collapse:collapse;font-size:13px}table.tb td{padding:
 
 /* ---- v2 visual layer: motion, skeletons, insights, health ---- */
 @keyframes fadeUp{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
-#app>*{animation:fadeUp .24s cubic-bezier(.2,.7,.2,1) both}
-#app>*:nth-child(2){animation-delay:.03s}#app>*:nth-child(3){animation-delay:.06s}#app>*:nth-child(4){animation-delay:.09s}#app>*:nth-child(5){animation-delay:.12s}#app>*:nth-child(n+6){animation-delay:.15s}
+#app.enter>*{animation:fadeUp .24s cubic-bezier(.2,.7,.2,1) both}   /* only when moving to another screen */
+#app.enter>*:nth-child(2){animation-delay:.03s}#app.enter>*:nth-child(3){animation-delay:.06s}#app.enter>*:nth-child(4){animation-delay:.09s}#app.enter>*:nth-child(5){animation-delay:.12s}#app.enter>*:nth-child(n+6){animation-delay:.15s}
 .top .logo{background:linear-gradient(135deg,var(--accent),color-mix(in srgb,var(--accent) 55%,#7c3aed));box-shadow:0 6px 16px -8px var(--accent)}
 .card,.chrow,.tool,.radio{box-shadow:0 1px 2px rgba(16,24,40,.04)}
 .btn,.chrow,.tool,.radio,.mini,.ibtn{transition:transform .08s ease,box-shadow .15s ease,background-color .15s ease}
@@ -55,5 +55,5 @@ details summary{cursor:pointer}
 .intro{border-color:color-mix(in srgb,var(--accent) 30%,var(--sep));background:linear-gradient(160deg,color-mix(in srgb,var(--accent) 10%,var(--card)),var(--card) 60%)}
 .intro .ii{width:36px;height:36px;border-radius:10px;display:grid;place-items:center;background:var(--accent);color:var(--accent-text);flex:none}
 .faq summary{list-style:none}.faq summary::-webkit-details-marker{display:none}.faq summary:after{content:'+';float:right;color:var(--hint);font-weight:700}.faq[open] summary:after{content:'–'}
-@media (prefers-reduced-motion:reduce){#app>*,.sk{animation:none}.btn,.chrow,.tool{transition:none}}
+@media (prefers-reduced-motion:reduce){#app.enter>*,.sk{animation:none}.btn,.chrow,.tool{transition:none}}
 </style>
