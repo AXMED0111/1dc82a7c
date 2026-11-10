@@ -1,9 +1,11 @@
 /* Public config only — NEVER put secrets here. Written by tools/connect.py.
-   apiUrl '/api/app' = Cloudflare edge copy (fast); directUrl = this app's Apps Script Web App (fallback, big uploads). */
+   apiUrl '/api/app' = Cloudflare edge copy (fast); directUrl = this app's Apps Script Web App (fallback, big uploads).
+   This app runs on Cloudflare D1 (BACKEND=d1): no Google fallback, so no save can land in the old sheet. */
 window.APP_CONFIG = {
   appId: 'translator',
   apiUrl: '/api/app',
-  directUrl: 'https://script.google.com/macros/s/AKfycbxz_dwjwAbuESMEK3wWWfpYFVjX1X8gG3BAn6_LUhgLfX8qtRhh7Y-QjKfChu51g1Iy/exec',
+  fileUrl: '/api/file',
+  directUrl: '',
   botUsername: 'DocTranslator0_bot',
   appShortName: '',
   defaultLang: 'en',

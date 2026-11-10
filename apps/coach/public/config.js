@@ -1,9 +1,11 @@
 /* Public config only — NEVER put secrets here. Written by tools/connect.py.
-   apiUrl '/api/app' = Cloudflare edge copy (fast); directUrl = this app's Apps Script Web App (fallback, big uploads). */
+   apiUrl '/api/app' = Cloudflare edge copy (fast); directUrl = this app's Apps Script Web App (fallback, big uploads).
+   This app runs on Cloudflare D1 (BACKEND=d1): no Google fallback, so no save can land in the old sheet. */
 window.APP_CONFIG = {
   appId: 'coach',
   apiUrl: '/api/app',
-  directUrl: 'https://script.google.com/macros/s/AKfycbyg_JsG7088QvR8HoipQu1IeNrhMAWLBssbMkZLS04jYuYp35Kqd91SbS9E-XP-3zHjMw/exec',
+  fileUrl: '/api/file',
+  directUrl: '',
   botUsername: 'InterviewCoach0_bot',
   appShortName: '',
   defaultLang: 'en',

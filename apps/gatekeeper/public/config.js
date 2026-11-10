@@ -1,9 +1,11 @@
 /* Public config only — NEVER put secrets here. Written by tools/connect.py.
-   apiUrl '/api/app' = Cloudflare edge copy (fast); directUrl = this app's Apps Script Web App (fallback, big uploads). */
+   apiUrl '/api/app' = Cloudflare edge copy (fast); directUrl = this app's Apps Script Web App (fallback, big uploads).
+   This app runs on Cloudflare D1 (BACKEND=d1): no Google fallback, so no save can land in the old sheet. */
 window.APP_CONFIG = {
   appId: 'gatekeeper',
   apiUrl: '/api/app',
-  directUrl: 'https://script.google.com/macros/s/AKfycbzaeeN73kALm7qR6HB9wNVrtKVhOBFsAIhdAgEfiNHGthVJw4GlHsD9TM1fPOjqGTXM7A/exec',
+  fileUrl: '/api/file',
+  directUrl: '',
   botUsername: 'ChannelPass0_bot',
   appShortName: '',
   defaultLang: 'en',
