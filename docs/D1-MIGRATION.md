@@ -52,6 +52,14 @@ Apps Script keeps only one small job per Google account: nightly export → Driv
 **C. Nightly backup job** (Control Center Apps Script): for each app `/api/export` (secret) → JSON file in Drive
 + overwrite the app sheet's tabs; central numbers → central sheet. Keep 30 days.
 
+## Status
+- Phase A done and live (2026-11-10).
+- B1 engine `shared/worker/engine.js` + Debt Book module `apps/debt/worker/debt.js`; test bench `tools/d1-sim.mjs`,
+  tests `node tools/test-d1.mjs` (107 checks). Measured 0.6–3.3 ms per request (40 customers / 400 entries).
+- Decision: build and test ALL apps on D1 first, then one migration day for all (central data never split between
+  Google and D1). Each app can switch back (`BACKEND=gas`). New apps (Scholarship Finder, Field Tasks) start on D1.
+- Follow-up: very large shops (thousands of entries) → page the ledger in dbBook (CPU limit on the free plan).
+
 ## Owner steps (only these)
 - Phase A: none.
 - Phase B per app: paste the new `PASTE-THIS.gs` once, run `migrateToCloudflare`, check the app, say "done".
