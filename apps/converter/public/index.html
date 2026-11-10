@@ -706,7 +706,9 @@ function runTool(){var a=S.me.access,k=S.tool;var pg=document.getElementById('pa
   .catch(function(e){console.error(e);S.busy=false;S.err=errMsg(e);render()})}
 function sendResults(idx){var list=idx==null?S.results:[S.results[idx]],i=0;toast(t('sending'));
   function next(){if(i>=list.length){toast(t('sent'));haptic('ok');return}var r=list[i++];
-    return blobB64(r.blob).then(function(b64){return api('sendFile',{token:S.deliveryToken,name:r.name,mime:r.blob.type,data:b64})}).then(function(res){
+    var up=CFG.fileUrl?fetch(CFG.fileUrl+'?kind=file&token='+encodeURIComponent(S.deliveryToken)+'&name='+encodeURIComponent(r.name)+'&mime='+encodeURIComponent(r.blob.type||''),{method:'POST',headers:{'x-tg-init':IN_TG?TG.initData:''},body:r.blob}).then(function(x){return x.json()}).catch(function(){return{ok:false,error:'network'}})   // on Cloudflare D1: raw bytes
+      :blobB64(r.blob).then(function(b64){return api('sendFile',{token:S.deliveryToken,name:r.name,mime:r.blob.type,data:b64})});
+    return up.then(function(res){
       if(!res.ok){if(res.error==='write_access'&&IN_TG&&TG.requestWriteAccess){TG.requestWriteAccess(function(ok){if(ok){i--;next()}else toast(t('e_write'))});return}throw new Error(res.error)}
       return next()})}
   next().catch(function(e){toast(errMsg(e))})}

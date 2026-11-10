@@ -1038,8 +1038,12 @@ document.addEventListener('click', function (ev) {
     case 'retryinit': S.me = null; render(); refreshMe().then(enter); return;
     case 'repdl': if (S.rep && S.rep.blob) saveBlob(S.rep.blob, S.rep.name); return;
     case 'repsend': if (!S.rep || !S.rep.blob) return; toast('…');
-      var fr = new FileReader(); fr.onload = function () { api('sendReport', { name: S.rep.name, data: String(fr.result).split(',')[1] }).then(function (r) {
-        if (r.ok) { toast(t('rep_sent')); haptic('ok'); } else if (r.error === 'write_access' && TG.requestWriteAccess) TG.requestWriteAccess(); else toast(t('e_gen')); }); }; fr.readAsDataURL(S.rep.blob); return;
+      var repDone = function (r) { if (r.ok) { toast(t('rep_sent')); haptic('ok'); } else if (r.error === 'write_access' && TG.requestWriteAccess) TG.requestWriteAccess(); else toast(t('e_gen')); };
+      if (CFG.fileUrl) {   // apps on Cloudflare D1: the PDF goes as raw bytes (fast, no text encoding)
+        fetch(CFG.fileUrl + '?kind=report&name=' + encodeURIComponent(S.rep.name), { method: 'POST', headers: { 'x-tg-init': IN_TG ? TG.initData : '' }, body: S.rep.blob })
+          .then(function (r) { return r.json(); }).catch(function () { return { ok: false, error: 'network' }; }).then(repDone); return;
+      }
+      var fr = new FileReader(); fr.onload = function () { api('sendReport', { name: S.rep.name, data: String(fr.result).split(',')[1] }).then(repDone); }; fr.readAsDataURL(S.rep.blob); return;
     case 'resetme': api('adminResetMe').then(function () { refreshMe().then(function () { toast('Reset'); render(); }); }); return;
     case 'checkpay': api('checkOrder', { order_id: S.payment.order_id }).then(function (r) { if (r.ok && r.status === 'paid') return onPaid(r);
         if (DEMO && confirm(t('pay_demo'))) return api('demoPay', { order_id: S.payment.order_id }).then(onPaid); S.err = t('not_yet'); render(); }); return;

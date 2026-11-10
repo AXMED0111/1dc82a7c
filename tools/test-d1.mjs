@@ -1,6 +1,9 @@
 /* Tests for the D1 engine (shared/worker/engine.js) and the D1 app modules.   node tools/test-d1.mjs */
 import { makeSim, makeD1, WHSEC } from './d1-sim.mjs';
 import debt from '../apps/debt/worker/debt.js';
+import converterMod from '../apps/converter/worker/converter.js';
+import rsvpMod from '../apps/rsvp/worker/rsvp.js';
+import controlMod from '../apps/control/worker/control.js';
 
 let pass = 0, fail = 0;
 const ok = (n, c, info) => { if (c) pass++; else { fail++; console.log('  FAIL', n, info !== undefined ? JSON.stringify(info).slice(0, 400) : ''); } };
@@ -175,6 +178,91 @@ await S.call(V, 'dbDeleteEntry', { entry: 'einc0001' }); ok('another shop cannot
 r = await S.call(V, 'dbAddEntry', { type: 'income', amount: 1, entry: 'einc0001' }); ok('another shop cannot reuse an entry id', r.error === 'entry_id', r);
 ok('phone saved in international format', (await S.call(U, 'dbSaveCustomer', { id: cid, name: 'Abdi', phone: '+44 7700 900123' })).customer.phone === '+447700900123');
 const qplan = S.fetches.filter((f) => /api\.telegram/.test(f.url)).length; ok('no Telegram call on plain reads', qplan > 0);
+
+section('PDF Tools on D1: files as raw bytes');
+S = await makeSim(converterMod); await S.setSettings({ testMode: false });
+r = await S.call(U, 'consume', { tool: 'merge' }); ok('free conversion counted', r.allowed && r.access.freeLeft === 1, r);
+const pdf = new TextEncoder().encode('%PDF-1.4 merged'); let n1 = S.sent.length;
+ok('file sent to the chat (raw bytes + delivery token)', (await S.file(U, 'file', pdf, { token: r.token, name: 'merged.pdf', mime: 'application/pdf' })).ok && S.sent.slice(n1).some((x) => x.method === 'sendDocument'));
+ok('file without a valid token refused', (await S.file(U, 'file', pdf, { token: 'nope', name: 'x.pdf' })).error === 'expired');
+ok('file from someone else\'s token refused', (await S.file(V, 'file', pdf, { token: r.token, name: 'x.pdf' })).error === 'expired');
+ok('upload needs a Telegram login', (await S.file(null, 'file', pdf, { token: r.token })).error === 'unauthorized');
+ok('PDF report as raw bytes', (await S.file(U, 'report', pdf, { name: 'Report' })).ok && S.sent.some((x) => x.method === 'sendDocument'));
+ok('report must be a PDF', (await S.file(U, 'report', new TextEncoder().encode('hello'), { name: 'r.pdf' })).error === 'not_pdf');
+ok('old JSON sendReport still works', (await S.call(U, 'sendReport', { name: 'r.pdf', data: Buffer.from('%PDF-1.4 test').toString('base64') })).ok);
+
+section('Invitations on D1');
+S = await makeSim(rsvpMod); await S.setSettings({ testMode: false });
+r = await S.call(U, 'rsvSave', { event: { title: 'Wedding', date: '2026-12-24', time: '18:00', open_max: 3 } }); ok('event saved', r.ok && r.event.status === 'draft', r);
+const ek = r.event.key; ok('date and time kept as text', r.event.date === '2026-12-24' && r.event.time === '18:00', r.event);
+ok('publish uses the free one', (await S.call(U, 'rsvPublish', { key: ek })).allowed === true);
+const ek2 = (await S.call(U, 'rsvSave', { event: { title: 'Second', date: '2026-12-25' } })).event.key;
+ok('2nd publish blocked', (await S.call(U, 'rsvPublish', { key: ek2 })).allowed === false);
+ok('stranger cannot edit', (await S.call(V, 'rsvSave', { event: { key: ek, title: 'Hacked', date: '2026-01-01' } })).error === 'forbidden');
+r = await S.call(U, 'rsvGuestAdd', { key: ek, guests: [{ name: 'Ali', max: 2 }, { name: 'Hawa', max: 1 }, { name: '' }] }); const gk = r.event.guests[0].key; ok('guests added (empty names skipped)', !!gk && r.event.guests.length === 2, r.event.guests);
+r = await S.call(V, 'rsvReply', { g: gk, rsvp: 'yes', party: 5 }); ok('party capped at max 2', r.ok && r.guest.party === 2, r);
+r = await S.call({ id: 5005, first_name: 'O' }, 'rsvReply', { e: ek, rsvp: 'yes', party: 2, name: 'Open guest' }); ok('open link reply', r.ok && r.guest.name === 'Open guest', r);
+r = await S.call({ id: 5005, first_name: 'O' }, 'rsvReply', { e: ek, rsvp: 'maybe', party: 1 }); ok('same person answers again: one guest row', r.ok && S.rows('Guests').filter((g) => g.tg_user === '5005').length === 1);
+ok('invite page shows my reply', (await S.call({ id: 5005, first_name: 'O' }, 'rsvInvite', { e: ek })).guest.rsvp === 'maybe');
+ok('host notified', S.sent.some((x) => /RSVP for Wedding/.test((x.payload || {}).text || '')));
+ok('draft event not public', (await S.call(V, 'rsvInvite', { e: ek2 })).error === 'not_found');
+r = await S.call(U, 'rsvCheckin', { key: ek, code: gk.toUpperCase() }); ok('check-in', r.result === 'in', r);
+ok('second scan = already', (await S.call(U, 'rsvCheckin', { key: ek, code: 'RSVP:' + gk })).result === 'already');
+ok('stranger cannot check in', (await S.call(V, 'rsvCheckin', { key: ek, code: gk })).error === 'forbidden');
+r = await S.call(U, 'rsvMine'); ok('my events with guests and numbers', r.events.length === 2 && r.events.find((e) => e.key === ek).stats.yesPeople === 2 && r.events.find((e) => e.key === ek).stats.checked === 2, r.events.map((e) => e.stats));
+ok('delete a guest', (await S.call(U, 'rsvGuestDel', { key: ek, guest: r.events.find((e) => e.key === ek).guests[1].key })).event.guests.length === 2);
+
+section('Control Center on D1: central numbers from several apps');
+{
+  const CEN = makeD1(), coachLike = { id: 'coach', url: 'https://axm-02.pages.dev', button: 'Interview Coach', defaults: { appName: 'Interview Coach' } };
+  const now = new Date().toISOString(), lastM = new Date(Date.UTC(new Date().getUTCFullYear(), new Date().getUTCMonth() - 1, 10)).toISOString();
+  const seed = async (mod, sql) => { const A = await makeSim(mod, { central: CEN }); sql.forEach(([q, ...a]) => A.env.DB._db.prepare(q).run(...a)); await A.cron('daily'); await A.cron('hourly'); return A; };
+  const pay = 'INSERT INTO Payments (order_id,user_id,app,plan,amount,currency,method,status,created_at,paid_at) VALUES (?,?,?,?,?,?,?,?,?,?)';
+  const user = 'INSERT INTO Users (user_id,app,first_name,created_at,last_seen) VALUES (?,?,?,?,?)';
+  const D = await seed(debt, [[pay, 'P0', '90', 'debt', 'pro_m', '2.00', 'USD', 'evc', 'paid', now, now], [pay, 'P1', '91', 'debt', 'pro_m', 150, 'XTR', 'stars', 'paid', now, now], [pay, 'PR', '98', 'debt', 'pro_m', '$2.00', 'USD', 'evc', 'review', now, null],
+    ['INSERT INTO Subscriptions (user_id,app,plan,status,start_date,expiry_date) VALUES (?,?,?,?,?,?)', '90', 'debt', 'pro_m', 'active', now, new Date(Date.now() + 20 * 864e5).toISOString()],
+    [user, '70', 'debt', 'Secret Customer', now, now], [user, '71', 'debt', 'U', now, now]]);
+  await seed(coachLike, [[pay, 'P2', '92', 'coach', 's10', '7.0012', 'USDT', 'usdt_trc20', 'paid', now, now], [pay, 'P3', '93', 'coach', 's1', 75, 'XTR', 'stars', 'paid', lastM, lastM], [user, '72', 'coach', 'U', now, now]]);
+  await seed(rsvpMod, [[pay, 'P4', '94', 'rsvp', 'event1', '5.00', 'USD', 'zaad', 'paid', now, now], [user, '73', 'rsvp', 'U', now, now]]);
+  const C = await makeSim(controlMod, { central: CEN });
+  CEN._db.prepare('UPDATE Apps SET hb_5min = ? WHERE app = ?').run(new Date(Date.now() - 3 * 36e5).toISOString(), 'coach');
+  CEN._db.prepare("INSERT INTO Tickets (ticket_id,app,user_id,user_name,type,status,priority,created_at,updated_at) VALUES ('T1','debt','70','Amina','payment','open','high',?,?)").run(now, now);
+  CEN._db.prepare("INSERT INTO TicketMsgs (ticket_id,\"from\",author_id,text,created_at) VALUES ('T1','user','70','I paid by EVC but no access',?)").run(now);
+  CEN._db.prepare("INSERT INTO Tickets (ticket_id,app,user_id,type,status,priority,created_at,updated_at) VALUES ('T2','coach','72','suggestion','open','normal',?,?)").run(now, now);
+  ok('central holds numbers only (no names or phones)', !JSON.stringify(CEN._db.prepare('SELECT * FROM Stats').all()).match(/Secret|Amina/));
+  r = await C.call(ADMIN, 'ccOverview', {}); const db = r.byApp.find((a) => a.app === 'debt');
+  ok('overview: per-app income this month (stars converted)', r.ok && Math.abs(db.mtd - (2 + 150 * 0.013)) < 0.01 && r.totals.ordersMtd === 4, { db, t: r.totals });
+  ok('overview: last month, subscribers, open tickets', r.byApp.find((a) => a.app === 'coach').lastMonth > 0 && db.subs === 1 && r.totals.openTickets === 2, r.byApp);
+  ok('overview: projection and charts', r.totals.projection >= r.totals.mtd && r.months.length === 12 && r.daily.length >= 28);
+  ok('overview: apps appear by themselves', ['debt', 'coach', 'rsvp'].every((a) => r.apps.some((x) => x.app === a)));
+  r = await C.call(ADMIN, 'ccOverview', { only: 'coach' }); ok('overview filter by app', r.byApp.length === 1 && r.byApp[0].app === 'coach', r.byApp);
+  r = await C.call(ADMIN, 'ccHealth'); const ch = r.apps.find((a) => a.app === 'coach'), dh = r.apps.find((a) => a.app === 'debt');
+  ok('health: stopped jobs flagged', ch.status === 'bad' && /stopped/.test(ch.issues.join()), ch);
+  ok('health: payment review flagged', dh.review === 1 && dh.issues.some((x) => /approval/.test(x)), dh);
+  ok('health: speed not judged on a few requests', dh.speedJudged === false && !dh.issues.some((x) => /slow/i.test(x)));
+  const CA = { id: 6161, first_name: 'CoachAdmin' };
+  CEN._db.prepare("INSERT INTO Admins (user_id,role,apps,perms,active) VALUES ('6161','app_admin','coach','support,reports',1)").run();
+  r = await C.call(CA, 'ccOverview', {}); ok('app admin sees only their app', r.byApp.every((a) => a.app === 'coach') && r.apps.every((a) => a.app === 'coach'), r.byApp.map((a) => a.app));
+  ok('app admin inbox scoped', (await C.call(CA, 'ccTickets', {})).items.every((x) => x.app === 'coach'));
+  ok('app admin cannot open other app ticket', (await C.call(CA, 'ccTicket', { id: 'T1' })).error === 'forbidden');
+  ok('app admin cannot manage admins', (await C.call(CA, 'ccAdmins')).error === 'forbidden');
+  r = await C.call(ADMIN, 'ccTickets', {}); ok('inbox: high priority first, with preview', r.items[0].id === 'T1' && /EVC/.test(r.items[0].preview), r.items);
+  ok('reply goes into the Debt Book queue', (await C.call(ADMIN, 'ccReply', { id: 'T1', text: 'Approved — you have access now.' })).ok && CEN._db.prepare("SELECT * FROM Outbox WHERE app='debt' AND chat_id='70'").all().some((m) => /Approved/.test(m.text)));
+  ok('ticket marked answered', (await C.call(ADMIN, 'ccTicket', { id: 'T1' })).ticket.status === 'answered');
+  r = await D.cron('5min'); ok('Debt Book sends its own queue (support reply)', r.sent >= 1 && CEN._db.prepare("SELECT status FROM Outbox WHERE app='debt' AND chat_id='70'").get().status === 'sent', r);
+  ok('super adds an app admin', (await C.call(ADMIN, 'ccAdminSave', { user_id: '7777', name: 'Hodan', role: 'app_admin', apps: 'debt', perms: 'support,payments' })).ok && (await C.call(ADMIN, 'ccAdmins')).items.some((x) => x.user_id === '7777' && x.perms === 'support,payments'));
+  ok('new admin told through the Control Center bot', CEN._db.prepare("SELECT * FROM Outbox WHERE app='control' AND chat_id='7777'").all().length === 1);
+  ok('admin without scope refused', (await C.call(ADMIN, 'ccAdminSave', { user_id: '7778', role: 'app_admin', apps: '', perms: '' })).error === 'scope');
+  ok('remove admin', (await C.call(ADMIN, 'ccAdminRemove', { user_id: '7777' })).ok && (await C.call(ADMIN, 'ccAdmins')).items.find((x) => x.user_id === '7777').active === false);
+  ok('AI not configured -> clear error', (await C.call(ADMIN, 'ccAsk', { q: 'How is income?' })).error === 'ai_not_configured');
+  await C.eng._setSecret(C.E, 'DEEPSEEK_KEY', 'k'); let sentAI = null;
+  C.reply = (url, o) => { if (/deepseek/.test(url)) { sentAI = JSON.parse(o.body); return { choices: [{ message: { content: 'Coach background jobs stopped 3 h ago.' } }] }; } return null; };
+  r = await C.call(ADMIN, 'ccAsk', { diagnose: true }); ok('AI diagnosis via DeepSeek with live snapshot', r.ok && /stopped/.test(r.answer) && /LIVE SNAPSHOT/.test(sentAI.messages[0].content) && /coach/.test(sentAI.messages[0].content) && /READ-ONLY/.test(sentAI.messages[0].content), r);
+  ok('assistant briefed not to over-alarm', /Do NOT recommend Maintenance mode for slowness/.test(sentAI.messages[0].content) && /speedJudged/.test(sentAI.messages[0].content));
+  ok('AI draft reply for a ticket', (await C.call(ADMIN, 'ccDraft', { id: 'T2' })).ok);
+  ok('non-admin blocked from control data', (await C.call(V, 'ccOverview', {})).error === 'forbidden');
+  C.reply = null;
+}
 
 section('migration from the real Apps Script (Debt Book)');
 {

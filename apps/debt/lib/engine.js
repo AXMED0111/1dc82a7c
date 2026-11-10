@@ -313,24 +313,28 @@ export function createApp(MOD) {
     }
     return sent;
   }
-  async function sendFile(ctx, req) {
-    const v = await kvGet(ctx.E, 'dl_' + String(req.token || '')); if (!v || v !== ctx.uid) return { ok: false, error: 'expired' };
-    if (!ctx.token) return { ok: false, error: 'bot_not_configured' };
-    const bytes = unb64(req.data); if (bytes.length > 45 * 1024 * 1024) return { ok: false, error: 'too_large' };
-    const name = String(req.name || 'file').replace(/[^\w\-. ]+/g, '_').slice(0, 80);
-    const r = await tgCall(ctx.token, 'sendDocument', { chat_id: ctx.uid }, { field: 'document', bytes, mime: String(req.mime || 'application/octet-stream'), name });
-    return r.ok ? { ok: true } : { ok: false, error: r.error_code === 403 ? 'write_access' : 'telegram_' + r.error_code };
-  }
-  async function sendReport(ctx, req) {
-    if (!ctx.token) return { ok: false, error: 'bot_not_configured' };
-    const k = 'rep_' + ctx.uid + '_' + dayOf(new Date()), n = Number(await kvGet(ctx.E, k) || 0); if (n >= 30) return { ok: false, error: 'limit' };
-    const bytes = unb64(req.data); if (bytes.length > 8 * 1024 * 1024) return { ok: false, error: 'too_large' };
-    if (bytes.length < 5 || String.fromCharCode(bytes[0], bytes[1], bytes[2], bytes[3]) !== '%PDF') return { ok: false, error: 'not_pdf' };
-    let name = String(req.name || 'report.pdf').replace(/[^\w\-. ]+/g, '_').slice(0, 80); if (!/\.pdf$/i.test(name)) name += '.pdf';
-    const r = await tgCall(ctx.token, 'sendDocument', { chat_id: ctx.uid }, { field: 'document', bytes, mime: 'application/pdf', name });
+  /* Files to the user's Telegram chat. kind 'file' = a converted file (needs the delivery token from consume, 45 MB);
+     kind 'report' = a PDF report made in the app (PDF only, 8 MB, 30 a day). Raw bytes arrive through /api/file. */
+  async function deliver(E, token, uid, kind, bytes, name, mime, dl) {
+    if (!token) return { ok: false, error: 'bot_not_configured' };
+    let k = '', n = 0;
+    if (kind === 'report') {
+      k = 'rep_' + uid + '_' + dayOf(new Date()); n = Number(await kvGet(E, k) || 0); if (n >= 30) return { ok: false, error: 'limit' };
+      if (bytes.length > 8 * 1024 * 1024) return { ok: false, error: 'too_large' };
+      if (bytes.length < 5 || String.fromCharCode(bytes[0], bytes[1], bytes[2], bytes[3]) !== '%PDF') return { ok: false, error: 'not_pdf' };
+      name = String(name || 'report.pdf').replace(/[^\w\-. ]+/g, '_').slice(0, 80); if (!/\.pdf$/i.test(name)) name += '.pdf'; mime = 'application/pdf';
+    } else {
+      const v = await kvGet(E, 'dl_' + String(dl || '')); if (!v || v !== uid) return { ok: false, error: 'expired' };
+      if (bytes.length > 45 * 1024 * 1024) return { ok: false, error: 'too_large' };
+      name = String(name || 'file').replace(/[^\w\-. ]+/g, '_').slice(0, 80);
+    }
+    const r = await tgCall(token, 'sendDocument', { chat_id: uid }, { field: 'document', bytes, mime: String(mime || 'application/octet-stream'), name });
     if (!r.ok) return { ok: false, error: r.error_code === 403 ? 'write_access' : 'telegram_' + r.error_code };
-    await kvPut(ctx.E, k, n + 1, 86400); return { ok: true };
+    if (k) await kvPut(E, k, n + 1, 86400);
+    return { ok: true };
   }
+  const sendFile = (ctx, req) => deliver(ctx.E, ctx.token, ctx.uid, 'file', unb64(req.data), req.name, req.mime, req.token);
+  const sendReport = (ctx, req) => deliver(ctx.E, ctx.token, ctx.uid, 'report', unb64(req.data), req.name, 'application/pdf');
 
   /* ---------- codes & referrals ---------- */
   const refOn = (st) => truthy(st.x_refOn);
@@ -550,7 +554,7 @@ export function createApp(MOD) {
 
   /* ---------- the API that app modules use ---------- */
   const API = { truthy, iso, dayOf, uuid, consume, accessFor, isPro, activeSub, usageRow, computeAccess, getSettings, saveSettings, log, notify, notifyAdmins, queueMsg, tgCall, botToken, secret, adminIds,
-    rateLimit, kvGet, kvPut, kvIncr, markPaid, priceFor, findCode, codeSave, codeToggle, codeOut, aiCall, aiJson, plansFor, tkAdd, notifyControl, metric, APP_URL: MOD.url };
+    rateLimit, kvGet, kvPut, kvIncr, markPaid, priceFor, findCode, codeSave, codeToggle, codeOut, aiCall, aiJson, aiAutoModel, AI_DEFAULT_MODEL, plansFor, tkAdd, tkOut, tkMsgs, notifyControl, metric, can, PERMS, APP_URL: MOD.url };
 
   /* ---------- prefetch: everything a request usually needs, in ONE database trip (+ the central one in parallel) ----------
      The user id is read from initData before the signature check; the rows are only used after the check passes.
@@ -866,6 +870,14 @@ export function createApp(MOD) {
       if (!context.env.CRON_KEY || context.request.headers.get('x-cron-key') !== context.env.CRON_KEY) return new Response('forbidden', { status: 403 });
       const E = await open(context.env), job = new URL(context.request.url).searchParams.get('job') || '5min';
       try { return json(Object.assign({ ok: true }, await cron(E, job))); } catch (e) { await log(E, '', 'cron_error', String(e && e.stack || e).slice(0, 400)); return json({ ok: false, error: String(e) }); }
+    },
+    async file(context) {   // POST /api/file?kind=file|report&name=&mime=&token= — raw bytes, Telegram login in header x-tg-init
+      let E; try { E = await open(context.env); } catch (e) { return json({ ok: false, error: 'not_configured' }); }
+      const u = new URL(context.request.url), token = await botToken(E), auth = await verifyInitData(context.request.headers.get('x-tg-init') || '', token);
+      if (!auth) return json({ ok: false, error: 'unauthorized' });
+      const kind = u.searchParams.get('kind') === 'report' ? 'report' : 'file', bytes = new Uint8Array(await context.request.arrayBuffer());
+      try { return json(await deliver(E, token, String(auth.user.id), kind, bytes, u.searchParams.get('name'), u.searchParams.get('mime'), u.searchParams.get('token'))); }
+      catch (e) { await log(E, auth.user.id, 'exception', 'file ' + String(e && e.message || e).slice(0, 300)); return json({ ok: false, error: 'server_error' }); }
     },
     async migrate(context) { const E = await open(context.env), body = await context.request.text(); return json(await migrate(E, body, context.request.headers.get('x-sig'))); },
     async exportRows(context) { const E = await open(context.env), u = new URL(context.request.url); return json(await exportTable(E, u.searchParams.get('table') || '', u.searchParams.get('after') || '0', u.searchParams.get('sig') || '', u.searchParams.get('ts') || '0')); },
