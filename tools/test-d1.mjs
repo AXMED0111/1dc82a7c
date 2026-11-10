@@ -454,14 +454,33 @@ section('Channel Pass on D1');
   ok('platform fee changed', (await S.call(ADMIN, 'adminGkFee', { fee: 10 })).ok && (await S.call(ADMIN, 'adminGk')).channels[0].owedStars === 315);
   await S.eng._syncCentral(S.E, false); const today = new Date().toISOString().slice(0, 10);
   ok('central numbers count paying members as subscriptions', S.crows('Stats').find((x) => x.app === 'gatekeeper' && x.date === today).subs_active === 1, S.crows('Stats'));
-  // reminders 2 days before, removal when the time is over
-  S.env.DB._db.prepare("UPDATE Members SET expiry_date = ? WHERE status = 'active'").run(new Date(Date.now() + 864e5).toISOString());
-  await S.cron('hourly'); await S.cron('5min'); ok('reminder 2 days before', S.sent.some((s) => /ends on/.test((s.payload || {}).text || '')) && S.rows('Members').find((m) => m.status === 'active').reminded === 'yes');
-  n0 = S.sent.filter((s) => /ends on/.test((s.payload || {}).text || '')).length; await S.cron('hourly'); await S.cron('5min');
-  ok('reminded once only', S.sent.filter((s) => /ends on/.test((s.payload || {}).text || '')).length === n0);
+  // reminders 5 and 2 days before, then the end
+  const txt = (re) => S.sent.filter((s) => re.test((s.payload || {}).text || '')).length;
+  const setEnd = (ms) => S.env.DB._db.prepare("UPDATE Members SET expiry_date = ?, start_date = ? WHERE status IN ('active', 'grace')").run(new Date(Date.now() + ms).toISOString(), new Date(Date.now() - 30 * 864e5).toISOString());
+  setEnd(4.5 * 864e5); await S.cron('hourly'); await S.cron('5min');
+  ok('reminder 5 days before', txt(/ends in 5 days/) === 1 && S.rows('Members').find((m) => m.status === 'active').reminded === '5');
+  await S.cron('hourly'); await S.cron('5min'); ok('5-day reminder sent once', txt(/ends in 5 days/) === 1);
+  setEnd(1.5 * 864e5); await S.cron('hourly'); await S.cron('5min');
+  ok('reminder 2 days before', txt(/Reminder: your access to VIP Signals ends on .* \(in 2 days\)/) === 1 && S.rows('Members').find((m) => m.status === 'active').reminded === '5,2');
+  await S.cron('hourly'); await S.cron('5min'); ok('reminded once only', txt(/Reminder: your access/) === 1 && txt(/ends in 5 days/) === 1);
+  // last chance (creator's choice): stays 2 more days, renewing continues from the old end date
+  await S.call(U, 'gkSave', { key, description: 'd', status: 'active', plans: [{ id: 'p1', label: '1 month', days: 30, usd: 5, stars: 350 }], graceDays: 2 });
+  ok('last-chance setting saved', (await S.call(U, 'gkMine')).channels[0].graceDays === 2);
+  setEnd(-1000); let b1 = S.sent.filter((s) => s.method === 'banChatMember').length; await S.cron('hourly'); await S.cron('5min');
+  ok('at the end: last chance, not removed', S.sent.filter((s) => s.method === 'banChatMember').length === b1 && txt(/Last chance: renew within 2 days/) === 1 && S.rows('Members').some((m) => m.status === 'grace'));
+  r = await S.call(U, 'gkMembers', { key }); ok('creator sees "last chance"', r.members[0].status === 'grace' && !!r.members[0].graceUntil, r.members);
+  const oldEnd = new Date(S.rows('Members').find((m) => m.status === 'grace').expiry_date).getTime();
+  await S.setSettings({ testMode: true }); await S.call(V, 'gkTestJoin', { key }); await S.setSettings({ testMode: false });
+  const back = S.rows('Members').filter((m) => m.user_id === '3003' && m.status === 'active');
+  ok('renewing in the last chance continues the same membership from its old end', back.length === 1 && Math.abs(new Date(back[0].expiry_date).getTime() - (oldEnd + 30 * 864e5)) < 5000 && !S.rows('Members').some((m) => m.status === 'grace'), back);
+  setEnd(-1000); await S.cron('hourly'); S.env.DB._db.prepare("UPDATE Members SET grace_until = ? WHERE status = 'grace'").run(new Date(Date.now() - 1000).toISOString());
+  b1 = S.sent.filter((s) => s.method === 'banChatMember').length; await S.cron('hourly'); await S.cron('5min');
+  ok('after the last chance: removed and told how to come back', S.sent.filter((s) => s.method === 'banChatMember').length === b1 + 1 && txt(/you were removed from the channel/) === 1 && (await S.call(V, 'gkChannel', { key })).member === null);
+  await S.call(U, 'gkSave', { key, description: 'd', status: 'active', plans: [{ id: 'p1', label: '1 month', days: 30, usd: 5, stars: 350 }], graceDays: 0 });
+  await S.call(U, 'gkMemberAction', { key, user_id: 3003, op: 'extend', days: 30 });
   S.env.DB._db.prepare("UPDATE Members SET expiry_date = ? WHERE status = 'active'").run(new Date(Date.now() - 1000).toISOString());
   const b0 = S.sent.filter((s) => s.method === 'banChatMember').length; await S.cron('hourly'); await S.cron('5min');
-  ok('expired member removed and told how to renew', S.sent.filter((s) => s.method === 'banChatMember').length === b0 + 1 && (await S.call(V, 'gkChannel', { key })).member === null && S.sent.some((s) => /has ended/.test((s.payload || {}).text || '') && /Renew/.test(JSON.stringify(s.payload.reply_markup))));
+  ok('no last chance: removed right away and told how to renew', S.sent.filter((s) => s.method === 'banChatMember').length === b0 + 1 && (await S.call(V, 'gkChannel', { key })).member === null && S.sent.some((s) => /has ended and you were removed/.test((s.payload || {}).text || '') && /Renew/.test(JSON.stringify(s.payload.reply_markup))));
   await S.tg(botAdmin('left')); ok('bot removed: channel marked removed', S.rows('Channels')[0].status === 'removed' && (await S.call(U, 'gkMine')).channels.length === 0);
   await S.tg(botAdmin('administrator')); ok('bot added again: paused, same channel', S.rows('Channels').length === 1 && S.rows('Channels')[0].status === 'paused');
 }

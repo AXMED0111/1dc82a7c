@@ -14,6 +14,7 @@ const byKey = (E, k) => E.db.one('Channels', { channel_key: String(k || '') });
 const byChatId = (E, id) => E.db.one('Channels', { channel_id: String(id) });
 const activeMember = (E, key, uid) => E.db.one('Members', { channel_key: key, user_id: String(uid), status: 'active' }, { where: '"expiry_date" > ?', args: [nowIso()], order: '"expiry_date" DESC' });
 const pub = (ch) => ({ key: ch.channel_key, title: ch.title, username: ch.username, description: ch.description, status: ch.status, plans: plansOf(ch), botOk: yes(ch.bot_ok) });
+const graceOf = (ch) => Math.max(0, Math.min(7, Math.round(Number(ch && ch.grace_days) || 0)));   // days of "last chance" after the end (0 = removed at once)
 async function owned(ctx, key) { const ch = await byKey(ctx.E, key); return ch && (String(ch.owner_id) === ctx.uid || ctx.isAdmin) ? ch : null; }
 const inviteButton = (ch) => ({ inline_keyboard: [[{ text: 'Join ' + String(ch.title).slice(0, 40), url: ch.invite_link }]] });
 const renewButton = (A, ch) => ({ inline_keyboard: [[{ text: 'Renew', web_app: { url: A.APP_URL + '?c=' + ch.channel_key } }]] });
@@ -42,7 +43,14 @@ async function numbers(E, chans) {
 async function activate(A, E, ch, uid, planId, days, orderId) {
   let exp;
   for (let i = 0; i < 3; i++) {   // extend the current period; if two payments land at once, neither extension is lost
-    const cur = await activeMember(E, ch.channel_key, uid), start = cur ? new Date(cur.expiry_date) : new Date(); exp = new Date(start.getTime() + days * 864e5);
+    let cur = await activeMember(E, ch.channel_key, uid);
+    if (!cur) {   // in the "last chance" days: renew the same membership from its old end date
+      const g = await E.db.one('Members', { channel_key: ch.channel_key, user_id: String(uid), status: 'grace' }, { order: '"expiry_date" DESC' });
+      if (g) { const base = new Date(g.expiry_date).getTime() + days * 864e5; exp = new Date(base > Date.now() ? base : Date.now() + days * 864e5);
+        const c = await E.db.run('Members', 'UPDATE "Members" SET "status" = \'active\', "expiry_date" = ?, "plan" = ?, "order_id" = ?, "reminded" = \'\', "grace_until" = \'\' WHERE rowid = ? AND "status" = \'grace\'', A.iso(exp), planId, orderId, g._id);
+        if (c.meta && c.meta.changes) break; continue; }
+    }
+    const start = cur ? new Date(cur.expiry_date) : new Date(); exp = new Date(start.getTime() + days * 864e5);
     if (!cur) { await E.db.ins('Members', { channel_key: ch.channel_key, channel_id: String(ch.channel_id), user_id: String(uid), plan: planId, status: 'active', start_date: new Date(), expiry_date: exp, order_id: orderId, reminded: '' }); break; }
     const c = await E.db.run('Members', 'UPDATE "Members" SET "expiry_date" = ?, "plan" = ?, "order_id" = ?, "reminded" = \'\' WHERE rowid = ? AND "expiry_date" = ?', A.iso(exp), planId, orderId, cur._id, cur.expiry_date);
     if (c.meta && c.meta.changes) break;
@@ -67,8 +75,8 @@ export default {
   id: GK, url: 'https://axm-01.pages.dev', button: 'Channel Pass',
   defaults: { appName: 'Channel Pass', freeAllowance: 0, x_feePercent: 5, plans: [], x_refOn: false },
   schema: {
-    Channels: ['channel_key', 'channel_id', 'owner_id', 'title', 'username', 'description', 'invite_link', 'status', 'plans_json', 'payout', 'bot_ok', 'created_at'],
-    Members: ['channel_key', 'channel_id', 'user_id', 'plan', 'status', 'start_date', 'expiry_date', 'order_id', 'reminded']
+    Channels: ['channel_key', 'channel_id', 'owner_id', 'title', 'username', 'description', 'invite_link', 'status', 'plans_json', 'payout', 'bot_ok', 'created_at', 'grace_days'],
+    Members: ['channel_key', 'channel_id', 'user_id', 'plan', 'status', 'start_date', 'expiry_date', 'order_id', 'reminded', 'grace_until']
   },
   indexes: {
     Channels: [[['channel_key'], true], [['channel_id']], [['owner_id']]],
@@ -87,12 +95,13 @@ export default {
   routes: {
     async gkMine(ctx) {
       const chans = (await ctx.E.db.sel('Channels', { owner_id: ctx.uid })).filter((c) => c.status !== 'removed'), nums = await numbers(ctx.E, chans);
-      return { ok: true, channels: chans.map((c, i) => Object.assign(pub(c), nums[i], { payout: c.payout })), feePercent: Number(ctx.st.x_feePercent) || 0 };
+      return { ok: true, channels: chans.map((c, i) => Object.assign(pub(c), nums[i], { payout: c.payout, graceDays: graceOf(c) })), feePercent: Number(ctx.st.x_feePercent) || 0 };
     },
     async gkSave(ctx, req) {
       const ch = await byKey(ctx.E, req.key); if (!ch || (String(ch.owner_id) !== ctx.uid && !ctx.isAdmin)) return { ok: false, error: 'forbidden' };
       const upd = { description: String(req.description || '').slice(0, 500), plans_json: JSON.stringify(cleanPlans(req.plans)), payout: String(req.payout || '').slice(0, 100) };
       if (req.status === 'active' || req.status === 'paused') upd.status = req.status;
+      if (req.graceDays !== undefined) upd.grace_days = graceOf({ grace_days: req.graceDays });
       await ctx.E.db.upd('Channels', ch, upd);
       return { ok: true };
     },
@@ -125,7 +134,8 @@ export default {
     async gkMembers(ctx, req, A) {
       const E = ctx.E, ch = await owned(ctx, req.key); if (!ch) return { ok: false, error: 'forbidden' };
       const latest = {};   // newest row per user
-      (await E.db.sel('Members', { channel_key: ch.channel_key })).forEach((m) => { const k = String(m.user_id); if (!latest[k] || new Date(m.expiry_date) > new Date(latest[k].expiry_date)) latest[k] = m; });
+      const live = (m) => (m.status === 'active' && new Date(m.expiry_date) > new Date() ? 2 : m.status === 'grace' ? 1 : 0);   // the current membership wins over old rows
+      (await E.db.sel('Members', { channel_key: ch.channel_key })).forEach((m) => { const k = String(m.user_id), o = latest[k]; if (!o || live(m) > live(o) || (live(m) === live(o) && new Date(m.expiry_date) > new Date(o.expiry_date))) latest[k] = m; });
       const ids = Object.keys(latest), names = {};
       for (let i = 0; i < ids.length; i += 90) {
         const part = ids.slice(i, i + 90);
@@ -133,9 +143,9 @@ export default {
       }
       const now = Date.now();
       return { ok: true, channel: { key: ch.channel_key, title: ch.title }, members: ids.map((k) => {
-        const m = latest[k], exp = new Date(m.expiry_date), n = names[k] || {}, st = m.status === 'active' && exp.getTime() > now ? 'active' : m.status === 'stopped' ? 'stopped' : 'expired';
-        return { user_id: k, name: n.name || ('User ' + k.slice(-4)), username: n.username, plan: m.plan, start: A.iso(m.start_date), expiry: A.iso(exp), status: st, daysLeft: Math.ceil((exp.getTime() - now) / 864e5) };
-      }).sort((a, b) => (a.status === b.status ? new Date(a.expiry) - new Date(b.expiry) : a.status === 'active' ? -1 : 1)) };
+        const m = latest[k], exp = new Date(m.expiry_date), n = names[k] || {}, st = m.status === 'active' && exp.getTime() > now ? 'active' : m.status === 'grace' ? 'grace' : m.status === 'stopped' ? 'stopped' : 'expired';
+        return { user_id: k, name: n.name || ('User ' + k.slice(-4)), username: n.username, plan: m.plan, start: A.iso(m.start_date), expiry: A.iso(exp), status: st, daysLeft: Math.ceil((exp.getTime() - now) / 864e5), graceUntil: st === 'grace' ? A.iso(m.grace_until) : '' };
+      }).sort((a, b) => { const o = { active: 0, grace: 1, stopped: 2, expired: 3 }; return o[a.status] - o[b.status] || new Date(a.expiry) - new Date(b.expiry); }) };
     },
     async gkMemberAction(ctx, req, A) {
       const E = ctx.E, ch = await owned(ctx, req.key); if (!ch) return { ok: false, error: 'forbidden' };
@@ -156,7 +166,7 @@ export default {
         return { ok: true, expiry: A.iso(exp) };
       }
       if (req.op === 'stop') {
-        await E.db.run('Members', 'UPDATE "Members" SET "status" = \'stopped\', "expiry_date" = ? WHERE "channel_key" = ? AND "user_id" = ? AND "status" = \'active\'', nowIso(), ch.channel_key, uid);
+        await E.db.run('Members', 'UPDATE "Members" SET "status" = \'stopped\', "expiry_date" = ? WHERE "channel_key" = ? AND "user_id" = ? AND "status" IN (\'active\', \'grace\')', nowIso(), ch.channel_key, uid);
         if (tok) await removeFromChat(A, tok, ch.channel_id, uid);
         if (req.tell !== false) E.defer(A.notify(E, uid, 'Your access to ' + ch.title + ' was ended by the channel admin.' + (req.reason ? ' Reason: ' + String(req.reason).slice(0, 200) : '')));
         E.defer(A.log(E, ctx.uid, 'member_stop', ch.channel_key + ' ' + uid));
@@ -209,24 +219,45 @@ export default {
       return { ok: true, approve: false, offer: ch.status === 'active', key: ch.channel_key, title: ch.title };
     }
   },
-  /* Hourly: remove expired members, remind 2 days before. Only rows that are due are read (index on status + expiry). */
+  /* Hourly: reminders 5 and 2 days before the end; at the end either a "last chance" of N days (creator's choice) or removal.
+     Only rows that are due are read (index on status + expiry). Telegram removals are capped per run (50 web calls per run on the free plan). */
   hourly: [async function gkExpiry(A, E) {
     const tok = await A.botToken(E); if (!tok) return;
-    const now = new Date(), soon = new Date(now.getTime() + 2 * 864e5);
-    const due = await E.db.sel('Members', { status: 'active' }, { where: '"expiry_date" <= ?', args: [soon.toISOString()], order: '"expiry_date"', limit: 500 }); if (!due.length) return;
-    const keys = [...new Set(due.map((m) => m.channel_key))], chans = {};
+    const now = new Date(), nowIso2 = now.toISOString(), in5 = new Date(now.getTime() + 5 * 864e5).toISOString();
+    const [due, graceOver] = await Promise.all([
+      E.db.sel('Members', { status: 'active' }, { where: '"expiry_date" <= ?', args: [in5], order: '"expiry_date"', limit: 500 }),
+      E.db.sel('Members', { status: 'grace' }, { where: '"grace_until" <= ?', args: [nowIso2], limit: 200 })]);
+    if (!due.length && !graceOver.length) return;
+    const keys = [...new Set(due.concat(graceOver).map((m) => m.channel_key))], chans = {};
     for (let i = 0; i < keys.length; i += 90) { const part = keys.slice(i, i + 90); (await E.db.sel('Channels', {}, { where: '"channel_key" IN (' + part.map(() => '?').join(',') + ')', args: part })).forEach((c) => { chans[c.channel_key] = c; }); }
-    const msgs = [];
+    const msgs = [], day10 = (d) => d.toISOString().slice(0, 10); let removals = 0;
+    const remove = async (m, ch) => {   // out of the channel, told how to come back
+      if (removals >= 20) return false; removals++;
+      const c = await E.db.run('Members', 'UPDATE "Members" SET "status" = \'expired\' WHERE rowid = ? AND "status" IN (\'active\', \'grace\')', m._id); if (!c.meta || !c.meta.changes) return true;
+      await removeFromChat(A, tok, m.channel_id, m.user_id);
+      if (ch) msgs.push({ chat: m.user_id, text: 'Your access to ' + ch.title + ' has ended and you were removed from the channel. Open the app to join again.', markup: renewButton(A, ch) });
+      return true;
+    };
+    for (const m of graceOver) {
+      if (await activeMember(E, m.channel_key, m.user_id)) { await E.db.upd('Members', m, { status: 'replaced' }); continue; }
+      await remove(m, chans[m.channel_key]);
+    }
     for (const m of due) {
-      const exp = new Date(m.expiry_date), ch = chans[m.channel_key];
+      const exp = new Date(m.expiry_date), ch = chans[m.channel_key], left = exp - now, len = exp - new Date(m.start_date || exp), sent = String(m.reminded || '');
       if (exp <= now) {
         if (await activeMember(E, m.channel_key, m.user_id)) { await E.db.upd('Members', m, { status: 'replaced' }); continue; }   // newer row exists
-        const c = await E.db.run('Members', 'UPDATE "Members" SET "status" = \'expired\' WHERE rowid = ? AND "status" = \'active\'', m._id); if (!c.meta || !c.meta.changes) continue;
-        await removeFromChat(A, tok, m.channel_id, m.user_id);
-        if (ch) msgs.push({ chat: m.user_id, text: 'Your access to ' + ch.title + ' has ended. Open the app to renew.', markup: renewButton(A, ch) });
-      } else if (!m.reminded) {
-        await E.db.upd('Members', m, { reminded: 'yes' });
-        if (ch) msgs.push({ chat: m.user_id, text: 'Your access to ' + ch.title + ' ends on ' + exp.toISOString().slice(0, 10) + '. Tap below to renew.', markup: renewButton(A, ch) });
+        const g = graceOf(ch);
+        if (g > 0) {   // last chance: stays in the channel for g more days
+          const until = new Date(exp.getTime() + g * 864e5);
+          const c = await E.db.run('Members', 'UPDATE "Members" SET "status" = \'grace\', "grace_until" = ? WHERE rowid = ? AND "status" = \'active\'', until.toISOString(), m._id);
+          if (c.meta && c.meta.changes && ch) msgs.push({ chat: m.user_id, text: 'Your access to ' + ch.title + ' has ended. Last chance: renew within ' + (g === 1 ? '1 day' : g + ' days') + ' (until ' + day10(until) + ') to stay in the channel.', markup: renewButton(A, ch) });
+        } else await remove(m, ch);
+      } else if (left <= 2 * 864e5 && !/2|yes/.test(sent)) {
+        await E.db.upd('Members', m, { reminded: '5,2' });
+        if (ch && len >= 4 * 864e5) msgs.push({ chat: m.user_id, text: 'Reminder: your access to ' + ch.title + ' ends on ' + day10(exp) + (left <= 864e5 ? ' (tomorrow or sooner)' : ' (in 2 days)') + '. Tap below to renew.', markup: renewButton(A, ch) });
+      } else if (left > 2 * 864e5 && !/5|yes/.test(sent)) {
+        await E.db.upd('Members', m, { reminded: '5' });
+        if (ch && len >= 10 * 864e5) msgs.push({ chat: m.user_id, text: 'Your access to ' + ch.title + ' ends in 5 days, on ' + day10(exp) + '. Renew now to keep it without a break.', markup: renewButton(A, ch) });
       }
     }
     await queueMany(E, msgs);

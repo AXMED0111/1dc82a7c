@@ -27,9 +27,9 @@ function money(n){return'$'+(+n||0).toFixed(2).replace(/\.00$/,'')}
 function planName(id){var p=(G.edit&&G.edit.plans||[]).filter(function(x){return x.id===id})[0];return p?p.label:id==='gift'?'Gift':id==='test'?'Test':id}
 function confirmBox(msg,cb){if(K.IN_TG&&K.TG.showConfirm)K.TG.showConfirm(msg,function(ok){if(ok)cb()});else if(confirm(msg))cb()}
 function statusChip(c){if(!c.botOk)return'<span class="pill bad">'+t('notready')+'</span>';return c.status==='active'?'<span class="pill ok">'+t('active')+'</span>':'<span class="pill">'+t('paused')+'</span>'}
-function memPill(m){if(m.status==='stopped')return'<span class="pill bad">'+t('m_stopped')+'</span>';if(m.status==='expired')return'<span class="pill">'+t('m_expired')+'</span>';
+function memPill(m){if(m.status==='grace')return'<span class="pill bad">'+t('m_grace',{d:K.fmtDate(m.graceUntil)})+'</span>';if(m.status==='stopped')return'<span class="pill bad">'+t('m_stopped')+'</span>';if(m.status==='expired')return'<span class="pill">'+t('m_expired')+'</span>';
  return m.daysLeft<=3?'<span class="pill bad">'+t('days_left',{n:Math.max(0,m.daysLeft)})+'</span>':'<span class="pill ok">'+t('days_left',{n:m.daysLeft})+'</span>'}
-function filtered(){var q=G.q.toLowerCase();return(G.members||[]).filter(function(m){var f=G.mf==='active'?m.status==='active':G.mf==='expiring'?m.status==='active'&&m.daysLeft<=3:m.status!=='active';
+function filtered(){var q=G.q.toLowerCase();return(G.members||[]).filter(function(m){var f=G.mf==='active'?m.status==='active':G.mf==='expiring'?(m.status==='active'&&m.daysLeft<=3)||m.status==='grace':m.status!=='active'&&m.status!=='grace';
  return f&&(!q||(m.name+' '+(m.username||'')).toLowerCase().indexOf(q)>=0)})}
 function offerPaywall(o){var c=o.channel;K.paywall({noRef:true,title:c.title,text:c.description||t('tagline'),icon:'channel',features:[t('f_instant'),t('f_auto'),t('f_remind')],
  plans:c.plans.map(function(p){return{id:c.key+'|'+p.id,label:p.label,days:p.days,credits:0,usd:p.usd,stars:p.stars}}),paidText:t('paid_ok2'),
@@ -49,7 +49,7 @@ K.app({
   none_ch:'No channels yet. Add your first private channel to start selling access.',none_sub:'You have no active subscriptions.',members_n:'{n} members',active:'Live',paused:'Not published',notready:'Bot rights missing',
   how_title:'Connect a channel',s1:'Open your private channel or group → Administrators → Add admin.',s2:'Search for the bot @{bot} and add it.',s3:'Allow “Invite users via link” and “Ban users”. Save.',s4:'Come back here and tap Refresh. Your channel appears automatically.',
   edit:'Channel',desc:'Description shown to buyers',plans:'Plans',plan_label:'Name',days:'Days',usd:'Price USD',stars:'Stars',add_plan:'Add plan',remove:'Remove',
-  payout:'Your payout details (USDT address or mobile money number)',publish:'Published',publish_sub:'Buyers can see and pay for this channel.',share:'Share link',
+  ends:'When a membership ends',ends_sub:'Members get reminders 5 days and 2 days before the end.',g0:'Remove right away',g1:'Last chance: 1 day, then remove',g2:'Last chance: 2 days, then remove',g3:'Last chance: 3 days, then remove',g7:'Last chance: 7 days, then remove',m_grace:'Last chance until {d}',payout:'Your payout details (USDT address or mobile money number)',publish:'Published',publish_sub:'Buyers can see and pay for this channel.',share:'Share link',
   share_sub:'Post this link anywhere. Buyers pay, the bot lets them in, reminds them before the end and removes them when the plan ends.',new_link:'New invite link',
   earn:'Earnings',gross:'Gross',fee:'Platform fee',net:'You receive',orders:'Orders',members:'Members',broadcast:'Message all members',members_pdf:'Members report (PDF)',
   f_active:'Active',f_expiring:'Ending soon',f_ended:'Ended',search:'Search members',none_m:'No members in this list.',days_left:'{n} days left',m_stopped:'Stopped',m_expired:'Ended',
@@ -66,7 +66,7 @@ K.app({
   none_ch:'Weli kanaal ma jiro. Ku dar kanaalkaaga gaarka ah si aad u bilowdo iibinta.',none_sub:'Ma lihid isdiiwaangelin firfircoon.',members_n:'{n} xubnood',active:'Shaqaynaya',paused:'Lama daabicin',notready:'Awoodaha bot-ka ayaa maqan',
   how_title:'Ku xir kanaal',s1:'Fur kanaalkaaga ama kooxdaada → Maamulayaasha → Ku dar maamule.',s2:'Raadi bot-ka @{bot} oo ku dar.',s3:'Oggolow “Ku casuun isticmaalayaal link” iyo “Mamnuuc isticmaalayaal”. Keydi.',s4:'Halkan ku soo noqo oo taabo Cusboonaysii. Kanaalkaagu si toos ah ayuu u soo muuqanayaa.',
   edit:'Kanaalka',desc:'Sharaxaadda iibsadayaasha loo muujinayo',plans:'Qorshayaasha',plan_label:'Magaca',days:'Maalmo',usd:'Qiimaha USD',stars:'Stars',add_plan:'Ku dar qorshe',remove:'Ka saar',
-  payout:'Faahfaahinta lacag-bixintaada (cinwaan USDT ama lambar lacag mobile)',publish:'La daabacay',publish_sub:'Iibsadayaashu way arki karaan oo bixin karaan.',share:'Link-ga la wadaago',
+  ends:'Marka xubinnimadu dhammaato',ends_sub:'Xubnaha waxaa la xasuusiyaa 5 maalmood iyo 2 maalmood ka hor dhammaadka.',g0:'Isla markiiba ka saar',g1:'Fursad u dambaysa: 1 maalin, kadib ka saar',g2:'Fursad u dambaysa: 2 maalmood, kadib ka saar',g3:'Fursad u dambaysa: 3 maalmood, kadib ka saar',g7:'Fursad u dambaysa: 7 maalmood, kadib ka saar',m_grace:'Fursad u dambaysa ilaa {d}',payout:'Faahfaahinta lacag-bixintaada (cinwaan USDT ama lambar lacag mobile)',publish:'La daabacay',publish_sub:'Iibsadayaashu way arki karaan oo bixin karaan.',share:'Link-ga la wadaago',
   share_sub:'Link-gan meel kasta dhig. Iibsaduhu wuu bixiyaa, bot-ku wuu soo galiyaa, wuu xusuusiyaa ka hor dhammaadka, wuuna saaraa marka qorshuhu dhammaado.',new_link:'Link casuumad cusub',
   earn:'Dakhliga',gross:'Wadarta',fee:'Khidmadda',net:'Waxaad helaysaa',orders:'Dalabyada',members:'Xubnaha',broadcast:'U dir fariin xubnaha oo dhan',members_pdf:'Warbixinta xubnaha (PDF)',
   f_active:'Firfircoon',f_expiring:'Dhowaan dhammaanaya',f_ended:'Dhammaaday',search:'Raadi xubnaha',none_m:'Liiskan xubin kuma jirto.',days_left:'{n} maalmood ayaa haray',m_stopped:'La joojiyay',m_expired:'Dhammaaday',
@@ -104,11 +104,12 @@ K.app({
     '<div><label class="f">'+t('days')+'</label><input class="t" type="number" data-pi="'+i+'" data-k="days" value="'+esc(p.days)+'"></div><div><label class="f">'+t('usd')+'</label><input class="t" type="number" step="0.01" data-pi="'+i+'" data-k="usd" value="'+esc(p.usd)+'"></div>'+
     '<div><label class="f">'+t('stars')+'</label><input class="t" type="number" data-pi="'+i+'" data-k="stars" value="'+esc(p.stars)+'"></div><div style="display:flex;align-items:flex-end"><button class="btn sm ghost" style="width:100%" data-a="prm" data-i="'+i+'">'+t('remove')+'</button></div></div>'}).join('')+
     (c.plans.length<6?'<button class="btn sm sec2" data-a="addplan">'+ic('plus','s')+t('add_plan')+'</button>':'');
+   var gd=+c.graceDays||0;h+='<div class="sec">'+t('ends')+'</div><div class="card"><select class="t" id="grace">'+[0,1,2,3,7].map(function(n){return'<option value="'+n+'" '+(gd===n?'selected':'')+'>'+t('g'+n)+'</option>'}).join('')+'</select><p class="m" style="margin-top:8px">'+t('ends_sub')+'</p></div>';
    h+='<div class="card" style="margin-top:12px"><label class="f">'+t('payout')+'</label><input class="t" id="payout" value="'+esc(c.payout)+'"></div><button class="btn" data-a="savech">'+ic('check')+t('save')+'</button>';
    h+='<div class="sec">'+t('earn')+'</div><div class="card stat"><div><b>'+money(r.usd)+'</b><span>'+t('gross')+' (USD)</span></div><div><b>'+(r.stars||0)+'</b><span>'+t('gross')+' (Stars)</span></div><div><b>'+fee+'%</b><span>'+t('fee')+'</span></div><div><b>'+money(r.usd*(100-fee)/100)+'</b><span>'+t('net')+'</span></div></div>';
    return h+'<button class="btn ghost" data-a="newlink">'+ic('link')+t('new_link')+'</button>'},
   members:function(){var h=K.header(t('members'),G.edit.title);if(!G.members)return h+K.spin();
-   var cnt={active:0,expiring:0,ended:0};G.members.forEach(function(m){if(m.status==='active'){cnt.active++;if(m.daysLeft<=3)cnt.expiring++}else cnt.ended++});
+   var cnt={active:0,expiring:0,ended:0};G.members.forEach(function(m){if(m.status==='active'){cnt.active++;if(m.daysLeft<=3)cnt.expiring++}else if(m.status==='grace')cnt.expiring++;else cnt.ended++});
    h+='<div class="tabs">'+[['active',t('f_active')+' '+cnt.active],['expiring',t('f_expiring')+' '+cnt.expiring],['ended',t('f_ended')+' '+cnt.ended]].map(function(x){return'<button data-a="mf" data-v="'+x[0]+'" class="'+(G.mf===x[0]?'on':'')+'">'+esc(x[1])+'</button>'}).join('')+'</div>';
    h+='<input class="t" id="mq" placeholder="'+t('search')+'" value="'+esc(G.q)+'" style="margin-bottom:10px">';
    var list=filtered();if(!list.length)h+=K.empty('users',t('none_m'));
@@ -147,7 +148,7 @@ K.app({
   pub:function(){keep();G.edit.status=G.edit.status==='active'?'paused':'active';K.render()},
   addplan:function(){keep();G.edit.plans.push({id:'p'+Date.now().toString(36).slice(-4),label:'',days:30,usd:1,stars:75});K.render()},
   prm:function(el,d){keep();G.edit.plans.splice(+d.i,1);K.render()},
-  savech:function(){keep();var c=G.edit;api('gkSave',{key:c.key,description:c.description,plans:c.plans,payout:c.payout,status:c.status}).then(function(r){S.msg=r.ok?t('saved'):'';S.err=r.ok?'':t('e_gen');K.render()})},
+  savech:function(){keep();var c=G.edit;api('gkSave',{key:c.key,description:c.description,plans:c.plans,payout:c.payout,status:c.status,graceDays:+c.graceDays||0}).then(function(r){S.msg=r.ok?t('saved'):'';S.err=r.ok?'':t('e_gen');K.render()})},
   newlink:function(){api('gkRefreshLink',{key:G.edit.key}).then(function(r){K.toast(r.ok?t('saved'):t('e_gen'))})},
   members:function(){G.members=null;G.mf='active';G.q='';K.go('members')},
   mf:function(el,d){G.mf=d.v;K.render()},
@@ -182,7 +183,7 @@ K.app({
    outbox:[]}},
  demo:{
   gkMine:function(d,s){return{ok:true,feePercent:+s.settings.x_feePercent||0,channels:s.app.channels.map(function(c){return Object.assign({},c,{members:s.app.members.filter(function(m){return m.key===c.key&&m.status==='active'&&new Date(m.expiry)>new Date()}).length,revenue:dRev(s,c.key)})})}},
-  gkSave:function(d,s){var c=dCh(s,d.key);c.description=d.description;c.plans=d.plans.filter(function(p){return p.label&&(p.usd>0||p.stars>0)});c.payout=d.payout;if(d.status)c.status=d.status;return{ok:true}},
+  gkSave:function(d,s){var c=dCh(s,d.key);c.description=d.description;c.plans=d.plans.filter(function(p){return p.label&&(p.usd>0||p.stars>0)});c.payout=d.payout;if(d.status)c.status=d.status;c.graceDays=+d.graceDays||0;return{ok:true}},
   gkRefreshLink:function(){return{ok:true}},
   gkChannel:function(d,s){var c=dCh(s,d.key);if(!c)return{ok:false,error:'not_found'};var m=dMem(s,d.key,'me');return{ok:true,channel:c,member:m?{expiry:m.expiry}:null,inviteLink:m?c.inviteLink:''}},
   gkMySubs:function(d,s){return{ok:true,subs:s.app.members.filter(function(m){return m.user_id==='me'&&m.status==='active'&&new Date(m.expiry)>new Date()}).map(function(m){var c=dCh(s,m.key)||{};return{key:m.key,title:c.title,expiry:m.expiry,inviteLink:c.inviteLink}})}},
@@ -204,7 +205,7 @@ function dCh(s,k){return s.app.channels.filter(function(c){return c.key===k})[0]
 function dMem(s,k,u){return s.app.members.filter(function(m){return m.key===k&&m.user_id===u&&m.status==='active'&&new Date(m.expiry)>new Date()})[0]}
 function dActivate(s,k,u,name,un,days,plan){var m=dMem(s,k,u),base=m?new Date(m.expiry):new Date(),exp=new Date(base.getTime()+(+days||30)*864e5).toISOString();if(m)m.expiry=exp;else s.app.members.push({key:k,user_id:u,name:name,username:un,plan:plan,start:new Date().toISOString(),expiry:exp,status:'active'})}
 function dRev(s,k){var r={usd:0,stars:0,orders:0};s.orders.forEach(function(o){if(o.status==='paid'&&String(o.plan).indexOf(k+'|')===0){r.orders++;if(o.currency==='XTR')r.stars+=+o.amount;else r.usd+=parseFloat(String(o.amount).replace(/[^\d.]/g,''))||0}});return r}
-function keep(){var c=G.edit,d=document.getElementById('desc'),p=document.getElementById('payout');if(d)c.description=d.value;if(p)c.payout=p.value;
+function keep(){var c=G.edit,d=document.getElementById('desc'),p=document.getElementById('payout'),gr=document.getElementById('grace');if(d)c.description=d.value;if(p)c.payout=p.value;if(gr)c.graceDays=+gr.value;
  document.querySelectorAll('[data-pi]').forEach(function(el){c.plans[+el.dataset.pi][el.dataset.k]=el.type==='number'?+el.value:el.value.trim()})}
 document.addEventListener('input',function(e){if(e.target.id==='mq'){G.q=e.target.value;var pos=e.target.selectionStart;K.render();var q=document.getElementById('mq');q.focus();q.setSelectionRange(pos,pos)}});
 })();
