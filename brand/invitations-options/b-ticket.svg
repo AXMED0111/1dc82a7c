@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#0B1024"/><stop offset=".55" stop-color="#16205A"/><stop offset="1" stop-color="#3A1D6E"/></linearGradient>
+    <radialGradient id="g1" cx=".2" cy=".15" r=".55"><stop offset="0" stop-color="#6366F1" stop-opacity=".45"/><stop offset="1" stop-color="#6366F1" stop-opacity="0"/></radialGradient>
+    <radialGradient id="g2" cx=".9" cy=".75" r=".5"><stop offset="0" stop-color="#EC4899" stop-opacity=".25"/><stop offset="1" stop-color="#EC4899" stop-opacity="0"/></radialGradient>
+    <linearGradient id="paper" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#FFFFFF"/><stop offset="1" stop-color="#EEF0F7"/></linearGradient>
+    <linearGradient id="gold" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#FCE7AC"/><stop offset=".5" stop-color="#E2B456"/><stop offset="1" stop-color="#A8761E"/></linearGradient>
+    <filter id="sh" x="-20%" y="-20%" width="140%" height="160%"><feDropShadow dx="0" dy="28" stdDeviation="28" flood-color="#000" flood-opacity=".5"/></filter>
+  </defs>
+  <rect width="1024" height="1024" fill="url(#bg)"/><rect width="1024" height="1024" fill="url(#g1)"/><rect width="1024" height="1024" fill="url(#g2)"/>
+  <g transform="rotate(-10 512 512)">
+    <g filter="url(#sh)"><path d="M262 344 H584 A28 28 0 0 0 640 344 H762 A38 38 0 0 1 800 382 V642 A38 38 0 0 1 762 680 H640 A28 28 0 0 0 584 680 H262 A38 38 0 0 1 224 642 V382 A38 38 0 0 1 262 344 Z" fill="url(#paper)"/></g>
+    <path d="M612 388 V636" stroke="#C8CCE0" stroke-width="8" stroke-linecap="round" stroke-dasharray="18 16"/>
+    <g fill="#16205A">
+      <path d="M284 404 h96 v96 h-96 z M304 424 v56 h56 v-56 z" fill-rule="evenodd"/><rect x="318" y="438" width="28" height="28"/>
+      <path d="M454 404 h96 v96 h-96 z M474 424 v56 h56 v-56 z" fill-rule="evenodd"/><rect x="488" y="438" width="28" height="28"/>
+      <path d="M284 524 h96 v96 h-96 z M304 544 v56 h56 v-56 z" fill-rule="evenodd"/><rect x="318" y="558" width="28" height="28"/>
+      <rect x="400" y="404" width="24" height="24"/><rect x="400" y="452" width="24" height="24"/><rect x="424" y="476" width="24" height="24"/>
+      <rect x="400" y="524" width="24" height="24"/><rect x="448" y="524" width="24" height="24"/><rect x="496" y="524" width="24" height="24"/>
+      <rect x="424" y="548" width="24" height="24"/><rect x="472" y="548" width="24" height="24"/><rect x="526" y="548" width="24" height="24"/>
+      <rect x="400" y="572" width="24" height="24"/><rect x="448" y="596" width="24" height="24"/><rect x="496" y="596" width="24" height="24"/>
+      <rect x="526" y="572" width="24" height="24"/><rect x="424" y="596" width="24" height="24"/>
+    </g>
+    <circle cx="706" cy="512" r="58" fill="url(#gold)"/>
+    <path d="M682 514 L700 532 L732 496" fill="none" stroke="#5E3E0C" stroke-width="15" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+</svg>

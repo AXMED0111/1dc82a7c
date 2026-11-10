@@ -54,14 +54,6 @@ LOGOS = {
   <rect x="510" y="540" width="210" height="22" rx="11" fill="#0F766E" opacity=".6"/><rect x="510" y="590" width="140" height="22" rx="11" fill="#0F766E" opacity=".6"/>
   <rect x="510" y="660" width="100" height="22" rx="11" fill="#0F766E" opacity=".35"/>''',
   f'<path d="M-36 -18 H34 M18 -34 L34 -18 L18 -2" {S}/><path d="M36 20 H-34 M-18 4 L-34 20 L-18 36" {S}/>'),
- # Invitations (RSVP): envelope with heart seal; badge = check
- 'invitations': ('#F0609E', '#9D174D', '#500724', '''
-  <g filter="url(#sh)"><rect x="250" y="330" width="524" height="370" rx="36" fill="url(#w)"/></g>
-  <path d="M262 352 L512 540 L762 352" fill="none" stroke="#F3C1D6" stroke-width="22" stroke-linejoin="round"/>
-  <path d="M262 690 L440 520 M762 690 L584 520" fill="none" stroke="#F3C1D6" stroke-width="16" stroke-linecap="round"/>
-  <circle cx="512" cy="530" r="78" fill="#DB2777"/>
-  <path d="M512 576 C462 540 452 512 470 494 C486 478 506 484 512 500 C518 484 538 478 554 494 C572 512 562 540 512 576 Z" fill="#fff"/>''',
-  f'<path d="M-30 2 L-8 24 L32 -20" {S}/>'),
  # Scholarship Finder: graduation cap over a book; badge = magnifier
  'scholarship-finder': ('#45C3F7', '#075985', '#082F49', '''
   <g filter="url(#sh)">
@@ -93,6 +85,7 @@ LOGOS = {
   <rect x="450" y="597" width="120" height="22" rx="11" fill="#EA580C" opacity=".2"/>''',
   f'<rect x="-40" y="-22" width="80" height="58" rx="12" {S}/><path d="M-16 -22 L-8 -36 H8 L16 -22" {S}/><circle cx="0" cy="7" r="15" {S}/>'),
 }
+# Invitations has its own premium design (midnight + gold seal): brand/invitations-logo.svg, options in brand/invitations-options/
 for name, (c1, c2, sh, body, badge) in LOGOS.items():
     (OUT / f'{name}-logo.svg').write_text(wrap(c1, c2, sh, body, badge))
 print('written', len(LOGOS))
