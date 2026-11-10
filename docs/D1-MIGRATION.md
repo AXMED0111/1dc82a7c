@@ -60,6 +60,12 @@ Apps Script keeps only one small job per Google account: nightly export → Driv
   Google and D1). Each app can switch back (`BACKEND=gas`). New apps (Scholarship Finder, Field Tasks) start on D1.
 - Follow-up: very large shops (thousands of entries) → page the ledger in dbBook (CPU limit on the free plan).
 
+- B2 (Debt Book): D1 `axm-debt` (e0e9b2c4…) bound as DB, axm-edge as EDGE + CENTRAL, MASTER_KEY + CRON_KEY secrets set;
+  functions deployed with BACKEND unset (still Google). `axm-cron` Worker live (every 5 min → /api/cron of all 9 sites).
+  Next: owner pastes new Debt Book code and runs migrateToCloudflare → verify rows in axm-debt → set BACKEND=d1 and
+  clear directUrl in apps/debt/public/config.js (no fallback writes to the old sheet) → redeploy.
+- During the pilot, Debt Book's tickets/numbers go to the D1 central; Control Center (Google) shows them after it moves.
+
 ## Owner steps (only these)
 - Phase A: none.
 - Phase B per app: paste the new `PASTE-THIS.gs` once, run `migrateToCloudflare`, check the app, say "done".
