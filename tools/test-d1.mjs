@@ -4,6 +4,8 @@ import debt from '../apps/debt/worker/debt.js';
 import converterMod from '../apps/converter/worker/converter.js';
 import rsvpMod from '../apps/rsvp/worker/rsvp.js';
 import controlMod from '../apps/control/worker/control.js';
+import coachMod from '../apps/coach/worker/coach.js';
+import translatorMod from '../apps/translator/worker/translator.js';
 
 let pass = 0, fail = 0;
 const ok = (n, c, info) => { if (c) pass++; else { fail++; console.log('  FAIL', n, info !== undefined ? JSON.stringify(info).slice(0, 400) : ''); } };
@@ -262,6 +264,35 @@ section('Control Center on D1: central numbers from several apps');
   ok('AI draft reply for a ticket', (await C.call(ADMIN, 'ccDraft', { id: 'T2' })).ok);
   ok('non-admin blocked from control data', (await C.call(V, 'ccOverview', {})).error === 'forbidden');
   C.reply = null;
+}
+
+section('Interview Coach and Document Translator on D1 (AI)');
+{
+  const gem = (obj) => ({ candidates: [{ content: { parts: [{ text: JSON.stringify(obj) }] } }], usageMetadata: { totalTokenCount: 100 } });
+  S = await makeSim(coachMod); await S.setSettings({ testMode: false }); await S.eng._setSecret(S.E, 'GEMINI_KEY', 'k');
+  S.reply = (url) => (/generativelanguage/.test(url) ? gem({ transcript: 'I want to study', overall: 72, scores: { content: 70, structure: 75, clarity: 80, confidence: 60 }, strengths: ['a'], improvements: ['b'], better_answer: 'c' }) : null);
+  r = await S.call(U, 'coScore', { category: 'visa', question: 'Why?', audio: 'A'.repeat(2000), seconds: 30, lang: 'so' }); ok('scored + charged', r.ok && r.result.overall === 72 && r.access.freeLeft === 1, r);
+  ok('Gemini called with the WAV', S.fetches.some((f) => /generativelanguage/.test(f.url) && /audio\/wav/.test(String(f.o.body))));
+  ok('history saved', (await S.call(U, 'coHistory')).items.length === 1);
+  ok('progress report locked on a free account', (await S.call(U, 'coReport')).allowed === false);
+  await S.setSettings({ testMode: true }); r = await S.call(U, 'coReport'); ok('progress report data', r.allowed && r.sessions.length === 1 && r.sessions[0].scores.clarity === 80, r);
+  let calls = 0; S.reply = (url) => { if (!/generativelanguage/.test(url)) return null; calls++; return calls === 1 ? { __code: 503, error: { message: 'high demand' } } : gem({ transcript: 't', overall: 50, scores: {} }); };
+  r = await S.call(U, 'coScore', { category: 'job', question: 'Q', audio: 'A'.repeat(2000), seconds: 20 });
+  ok('backup model used when Google is busy (503)', r.ok && r.result.overall === 50 && S.fetches.filter((f) => /flash-lite/.test(f.url)).length >= 1, r);
+  ok('AI prompt has the injection guard', S.fetches.some((f) => /untrusted user/.test(String(f.o && f.o.body))));
+  calls = 5; await S.setSettings({ x_aiUserDaily: 1, testMode: true }); await S.call(V, 'coScore', { category: 'job', question: 'Q', audio: 'A'.repeat(2000) }); r = await S.call(V, 'coScore', { category: 'job', question: 'Q', audio: 'A'.repeat(2000) });
+  ok('AI per-user daily cap', r.error === 'ai_user_cap', r); await S.setSettings({ x_aiUserDaily: 30, testMode: false });
+  S.reply = (url) => (/generativelanguage/.test(url) ? { candidates: [{ content: { parts: [{ text: 'not json' }] } }] } : null);
+  r = await S.call(U, 'coScore', { category: 'visa', question: 'Why?', audio: 'A'.repeat(2000) }); ok('AI failure not charged', r.ok === false && (await S.call(U, 'init')).access.freeLeft === 1, r);
+  S.reply = (url) => { if (/\/models\?/.test(url)) return { models: [{ name: 'models/gemini-3.6-flash', supportedGenerationMethods: ['generateContent'] }] }; if (/flash-latest|flash-lite-latest/.test(url)) return { __code: 404, error: { message: 'not found' } }; return /generativelanguage/.test(url) ? gem({ transcript: 't', overall: 61, scores: {} }) : null; };
+  r = await S.call(U, 'coScore', { category: 'job', question: 'Q', audio: 'A'.repeat(2000) }); ok('retired model name: switches to the newest Flash by itself', r.ok && r.result.overall === 61, r);
+  S.reply = null;
+  S = await makeSim(translatorMod); await S.setSettings({ testMode: false }); await S.eng._setSecret(S.E, 'GEMINI_KEY', 'k');
+  S.reply = (url) => (/generativelanguage/.test(url) ? { candidates: [{ content: { parts: [{ text: '```json\n' + JSON.stringify({ source_language: 'Somali', title: 'Birth Certificate', fields: [{ label: 'Name', value: 'Amina' }], body: '', labels: {} }) + '\n```' }] } }] } : null);
+  r = await S.call(U, 'trTranslate', { doc: 'birth', to: 'en', pages: [{ data: 'AAAA', mime: 'image/jpeg' }] }); ok('translated (code-fenced JSON ok) + delivery token', r.ok && r.result.fields[0].value === 'Amina' && r.token, r);
+  ok('second document blocked (1 free)', (await S.call(U, 'trTranslate', { doc: 'birth', to: 'en', pages: [{ data: 'AAAA' }] })).allowed === false);
+  ok('history: no images stored', (await S.call(U, 'trHistory')).items[0].title === 'Birth Certificate' && !JSON.stringify(S.rows('Translations')).includes('AAAA'));
+  S.reply = null;
 }
 
 section('migration from the real Apps Script (Debt Book)');

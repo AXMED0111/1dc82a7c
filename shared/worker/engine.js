@@ -524,10 +524,19 @@ export function createApp(MOD) {
       if (pick) await kvPut(E, 'ai_model_auto', pick, 7 * 86400); return pick || have;
     } catch (e) { return have; }
   }
+  /* Audio and photos arrive as base64 (only A-Z a-z 0-9 + / =). They are placed into Google's request as they are
+     instead of re-encoding megabytes with JSON.stringify (that alone took ~12 ms per voice answer). */
+  function partJson(p) {
+    if (p && p.inline_data && typeof p.inline_data.data === 'string') {
+      const d = p.inline_data.data;
+      if (d.indexOf('"') < 0 && d.indexOf('\\') < 0 && d.indexOf('\n') < 0 && d.indexOf('\r') < 0) return '{"inline_data":{"mime_type":' + JSON.stringify(String(p.inline_data.mime_type || '')) + ',"data":"' + d + '"}}';
+    }
+    return JSON.stringify(p);
+  }
   async function aiJson(E, parts, model) {
     const key = await secret(E, 'GEMINI_KEY'); if (!key) throw new Error('ai_not_configured');
     const r = await fetch('https://generativelanguage.googleapis.com/v1beta/models/' + encodeURIComponent(model || AI_DEFAULT_MODEL) + ':generateContent', { method: 'POST', headers: { 'content-type': 'application/json', 'x-goog-api-key': key },
-      body: JSON.stringify({ contents: [{ role: 'user', parts }], generationConfig: { temperature: 0.3, responseMimeType: 'application/json' } }) });
+      body: '{"contents":[{"role":"user","parts":[' + parts.map(partJson).join(',') + ']}],"generationConfig":{"temperature":0.3,"responseMimeType":"application/json"}}' });
     if (r.status !== 200) { let why = ''; try { why = ((await r.json()) || {}).error.message || ''; } catch (x) {} throw new Error('ai_http_' + r.status + (why ? ' ' + String(why).slice(0, 160) : '')); }
     const j = await r.json(), txt = ((((j.candidates || [])[0] || {}).content || {}).parts || []).map((x) => x.text || '').join('');
     const out = JSON.parse(txt.replace(/^```(json)?|```$/g, '').trim()); if (out && typeof out === 'object') out._tokens = (j.usageMetadata && j.usageMetadata.totalTokenCount) || 0;
