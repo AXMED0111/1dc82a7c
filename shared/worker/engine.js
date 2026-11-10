@@ -71,7 +71,8 @@ const val = (v) => (v === undefined || v === null ? null : v instanceof Date ? v
 export class Store {
   constructor(env, mod) {
     this.app = env.DB; this.cen = env.CENTRAL || env.DB;
-    this.schema = Object.assign({}, SCHEMA, mod.schema || {}); this.indexes = Object.assign({}, INDEXES, mod.indexes || {});
+    this.schema = Object.assign({}, SCHEMA, mod.schema || {}); this.indexes = Object.assign({}, INDEXES);
+    for (const [t, list] of Object.entries(mod.indexes || {})) this.indexes[t] = INDEXES[t] ? INDEXES[t].concat(list) : list;   // a module may add indexes to a core table
   }
   d(name) { return CENTRAL_SCHEMA[name] ? this.cen : this.app; }
   cols(name) { return CENTRAL_SCHEMA[name] || this.schema[name]; }

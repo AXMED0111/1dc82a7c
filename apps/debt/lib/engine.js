@@ -71,7 +71,8 @@ const val = (v) => (v === undefined || v === null ? null : v instanceof Date ? v
 export class Store {
   constructor(env, mod) {
     this.app = env.DB; this.cen = env.CENTRAL || env.DB;
-    this.schema = Object.assign({}, SCHEMA, mod.schema || {}); this.indexes = Object.assign({}, INDEXES, mod.indexes || {});
+    this.schema = Object.assign({}, SCHEMA, mod.schema || {}); this.indexes = Object.assign({}, INDEXES);
+    for (const [t, list] of Object.entries(mod.indexes || {})) this.indexes[t] = INDEXES[t] ? INDEXES[t].concat(list) : list;   // a module may add indexes to a core table
   }
   d(name) { return CENTRAL_SCHEMA[name] ? this.cen : this.app; }
   cols(name) { return CENTRAL_SCHEMA[name] || this.schema[name]; }
@@ -524,10 +525,19 @@ export function createApp(MOD) {
       if (pick) await kvPut(E, 'ai_model_auto', pick, 7 * 86400); return pick || have;
     } catch (e) { return have; }
   }
+  /* Audio and photos arrive as base64 (only A-Z a-z 0-9 + / =). They are placed into Google's request as they are
+     instead of re-encoding megabytes with JSON.stringify (that alone took ~12 ms per voice answer). */
+  function partJson(p) {
+    if (p && p.inline_data && typeof p.inline_data.data === 'string') {
+      const d = p.inline_data.data;
+      if (d.indexOf('"') < 0 && d.indexOf('\\') < 0 && d.indexOf('\n') < 0 && d.indexOf('\r') < 0) return '{"inline_data":{"mime_type":' + JSON.stringify(String(p.inline_data.mime_type || '')) + ',"data":"' + d + '"}}';
+    }
+    return JSON.stringify(p);
+  }
   async function aiJson(E, parts, model) {
     const key = await secret(E, 'GEMINI_KEY'); if (!key) throw new Error('ai_not_configured');
     const r = await fetch('https://generativelanguage.googleapis.com/v1beta/models/' + encodeURIComponent(model || AI_DEFAULT_MODEL) + ':generateContent', { method: 'POST', headers: { 'content-type': 'application/json', 'x-goog-api-key': key },
-      body: JSON.stringify({ contents: [{ role: 'user', parts }], generationConfig: { temperature: 0.3, responseMimeType: 'application/json' } }) });
+      body: '{"contents":[{"role":"user","parts":[' + parts.map(partJson).join(',') + ']}],"generationConfig":{"temperature":0.3,"responseMimeType":"application/json"}}' });
     if (r.status !== 200) { let why = ''; try { why = ((await r.json()) || {}).error.message || ''; } catch (x) {} throw new Error('ai_http_' + r.status + (why ? ' ' + String(why).slice(0, 160) : '')); }
     const j = await r.json(), txt = ((((j.candidates || [])[0] || {}).content || {}).parts || []).map((x) => x.text || '').join('');
     const out = JSON.parse(txt.replace(/^```(json)?|```$/g, '').trim()); if (out && typeof out === 'object') out._tokens = (j.usageMetadata && j.usageMetadata.totalTokenCount) || 0;
@@ -553,7 +563,7 @@ export function createApp(MOD) {
   }
 
   /* ---------- the API that app modules use ---------- */
-  const API = { truthy, iso, dayOf, uuid, consume, accessFor, isPro, activeSub, usageRow, computeAccess, getSettings, saveSettings, log, notify, notifyAdmins, queueMsg, tgCall, botToken, secret, adminIds,
+  const API = { fileUrl, b64bytes, truthy, iso, dayOf, uuid, consume, accessFor, isPro, activeSub, usageRow, computeAccess, getSettings, saveSettings, log, notify, notifyAdmins, queueMsg, tgCall, botToken, secret, adminIds,
     rateLimit, kvGet, kvPut, kvIncr, markPaid, priceFor, findCode, codeSave, codeToggle, codeOut, aiCall, aiJson, aiAutoModel, AI_DEFAULT_MODEL, plansFor, tkAdd, tkOut, tkMsgs, notifyControl, metric, can, PERMS, APP_URL: MOD.url };
 
   /* ---------- prefetch: everything a request usually needs, in ONE database trip (+ the central one in parallel) ----------
@@ -836,12 +846,28 @@ export function createApp(MOD) {
     E.c.settings = null;
     return { ok: true, table: name, inserted: stmts.length };
   }
+  /* ---------- private pictures: a signed link that works in <img> (no login header), the same all day so the phone caches it ---------- */
+  const fileSig = async (E, id, exp) => (await hmacHex(E.env.MASTER_KEY, 'get|' + id + '|' + exp)).slice(0, 32);
+  async function fileUrl(E, id) { const exp = (Math.floor(Date.now() / 864e5) + 8) * 864e5; return '/api/file?get=' + encodeURIComponent(id) + '&exp=' + exp + '&sig=' + (await fileSig(E, id, exp)); }
+  function b64bytes(s) {
+    if (typeof Uint8Array.fromBase64 === 'function') { try { return Uint8Array.fromBase64(s); } catch (e) { return null; } }
+    let bin; try { bin = atob(s); } catch (e) { return null; }
+    const out = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i); return out;
+  }
+  async function fileGet(E, u) {
+    const id = u.searchParams.get('get') || '', exp = Number(u.searchParams.get('exp')) || 0, sig = u.searchParams.get('sig') || '';
+    if (!id || exp < Date.now() || sig !== (await fileSig(E, id, exp)) || !MOD.fileGet) return new Response('not found', { status: 404 });
+    const f = await MOD.fileGet(id, API, E); const bytes = f && (f.bytes || b64bytes(f.b64 || ''));
+    if (!bytes) return new Response('not found', { status: 404 });
+    return new Response(bytes, { headers: { 'content-type': f.mime || 'image/jpeg', 'cache-control': 'private, max-age=86400' } });
+  }
+
   async function exportTable(E, name, after, sig, ts) {
     const ctl = await (E.env.EDGE || E.db.cen).prepare('SELECT whsec FROM meta WHERE app = ?').bind('control').first().catch(() => null), own = await secret(E, 'WEBHOOK_SECRET');
     const msg = name + '|' + after + '|' + ts, ok = Math.abs(Date.now() - Number(ts)) < 600000;
     let good = false; for (const k of [ctl && ctl.whsec, own].filter(Boolean)) if ((await hmacHex(k, msg)) === sig) good = true;
     if (!ok || !good) return { ok: false, error: 'forbidden' };
-    if (!E.db.cols(name) || name === 'Secrets' || name === 'Kv') return { ok: false, error: 'table' };
+    if (!E.db.cols(name) || name === 'Secrets' || name === 'Kv' || (MOD.noExport || []).indexOf(name) >= 0) return { ok: false, error: 'table' };
     const rows = await E.db.sel(name, CENTRAL_SCHEMA[name] ? { app: APP } : {}, { where: 'rowid > ?', args: [Number(after) || 0], limit: 1000 });
     return { ok: true, table: name, rows, next: rows.length === 1000 ? rows[rows.length - 1]._id : null };
   }
@@ -873,6 +899,7 @@ export function createApp(MOD) {
     },
     async file(context) {   // POST /api/file?kind=file|report&name=&mime=&token= — raw bytes, Telegram login in header x-tg-init
       let E; try { E = await open(context.env); } catch (e) { return json({ ok: false, error: 'not_configured' }); }
+      if (context.request.method === 'GET') return fileGet(E, new URL(context.request.url));   // GET /api/file?get=&exp=&sig= — a private picture (signed link)
       const u = new URL(context.request.url), token = await botToken(E), auth = await verifyInitData(context.request.headers.get('x-tg-init') || '', token);
       if (!auth) return json({ ok: false, error: 'unauthorized' });
       const kind = u.searchParams.get('kind') === 'report' ? 'report' : 'file', bytes = new Uint8Array(await context.request.arrayBuffer());
