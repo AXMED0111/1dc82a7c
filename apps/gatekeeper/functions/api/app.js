@@ -3,7 +3,8 @@
 //  • Fresh copy (< 2 min, no change since): answered by Cloudflare, Google is not asked.
 //  • Older copy (< 30 min): answered instantly, refreshed from Google in the background.
 //  • Very old copy (> 30 min): wait for Google at most 8 s, otherwise answer with the old copy and refresh in the background.
-//  • Writes (pay, save, send…) always go to Google; they clear that person's copies and mark everyone else's as "check again".
+//  • Writes (pay, save, send…) always go to Google; they mark every copy as "check again" (shown at once, refreshed in the background).
+//  • fresh:1 (sent by the phone for 60 s after a save) skips the copy and asks Google, so the saved change shows.
 // Who is asking is proven by a signed pass issued by Apps Script (HMAC with a key derived from the bot's webhook secret,
 // which this side learns only after Apps Script has accepted a real Telegram update). No bot token is stored here.
 // Bindings: DB (D1). Variables (not secret): GAS_URL, APP_ID.
@@ -40,7 +41,7 @@ export async function onRequestPost(context) {
   const gas = () => fetch(env.GAS_URL, { method: 'POST', redirect: 'follow', headers: { 'content-type': 'text/plain;charset=utf-8' }, body: raw }).then((r) => r.text());
   let uid = null; try { uid = await verifyPass(db, app, req.pass); } catch { uid = null; }
   if (uid && initUser(req.initData) !== uid) uid = null;   // the pass must belong to the same Telegram user as the request
-  const keyFor = async (u) => { const p = { ...req }; ['initData', 'rid', 'pass', 'v', 'start'].forEach((x) => delete p[x]); return app + '|' + u + '|' + action + '|' + (await shortHash(JSON.stringify(p))); };
+  const keyFor = async (u) => { const p = { ...req }; ['initData', 'rid', 'pass', 'v', 'start', 'fresh'].forEach((x) => delete p[x]); return app + '|' + u + '|' + action + '|' + (await shortHash(JSON.stringify(p))); };
   const save = async (u, k, txt, ep) => db.prepare('INSERT INTO cache (k, app, uid, v, t, ep) VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT(k) DO UPDATE SET v = excluded.v, t = excluded.t, ep = excluded.ep').bind(k, app, u, txt, Date.now(), ep).run();
   const epoch = async () => { const m = db ? await db.prepare('SELECT ep FROM meta WHERE app = ?').bind(app).first() : null; return m ? m.ep : 0; };
 
@@ -49,10 +50,8 @@ export async function onRequestPost(context) {
     const txt = await gas().catch(() => '{"ok":false,"error":"network"}');
     let o = null; try { o = JSON.parse(txt); } catch {}
     if (db && o && o.ok !== false) {
-      if (WRITE.test(action)) context.waitUntil(Promise.all([
-        uid ? db.prepare('DELETE FROM cache WHERE app = ? AND uid = ?').bind(app, uid).run() : null,
-        db.prepare('INSERT INTO meta (app, ep) VALUES (?, 1) ON CONFLICT(app) DO UPDATE SET ep = ep + 1').bind(app).run()
-      ]).catch(() => {}));
+      // Copies are kept (deleting them made the next screens wait for Google); the epoch marks them all "check again".
+      if (WRITE.test(action)) context.waitUntil(db.prepare('INSERT INTO meta (app, ep) VALUES (?, 1) ON CONFLICT(app) DO UPDATE SET ep = ep + 1').bind(app).run().catch(() => {}));
       else if (action === 'init' && !uid && o.edgePass) {   // first visit on a phone: keep a copy under the newly issued pass
         context.waitUntil((async () => { const u = await verifyPass(db, app, o.edgePass); if (u) { await save(u, await keyFor(u), txt, await epoch()); } })().catch(() => {}));
       }
@@ -63,6 +62,7 @@ export async function onRequestPost(context) {
   // Reads by a known person: serve the edge copy.
   const k = await keyFor(uid), ep = await epoch(), row = await db.prepare('SELECT v, t, ep FROM cache WHERE k = ?').bind(k).first(), now = Date.now();
   const refresh = () => gas().then(async (txt) => { let o; try { o = JSON.parse(txt); } catch { return null; } if (o && o.ok) await save(uid, k, txt, ep); return txt; });
+  if (req.fresh) { const txt = await refresh().catch(() => null); return out(txt || (row ? row.v : '{"ok":false,"error":"network"}'), 'fresh'); }
   if (row && row.ep === ep && now - row.t < FRESH) return out(row.v, 'hit');
   if (row) {
     if (now - row.t < OLD) { context.waitUntil(refresh().catch(() => {})); return out(row.v, 'stale'); }

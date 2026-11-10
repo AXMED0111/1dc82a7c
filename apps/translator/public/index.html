@@ -586,34 +586,58 @@ function newRid() { try { if (crypto.randomUUID) return crypto.randomUUID().repl
 /* ---- Speed: stale-while-revalidate cache (same idea as the school app's apiCache) ----
    Reads: an answer younger than 60 s is reused; an older one (up to 24 h, kept on the phone) is shown instantly while
    a fresh copy loads in the background — the screen updates itself if anything changed.
-   Writes (pay, save, send…): go straight to the server and clear the stored reads, so balances/access are never stale.
+   Writes (pay, save, send…): go straight to the server. Stored screens are NOT wiped (that made every next tab wait for
+   Google); they are marked "check again": shown instantly and refreshed in the background. For 60 s after a save the
+   background refresh asks for fresh:1, so the Cloudflare copy is bypassed and the screen shows the saved change.
+   Learned prefetch: screens used recently are refreshed in the background when the app opens, so tabs open instantly.
    The server still checks every action, so stored data can never unlock anything. */
 var WRITE_RE = /^(consume|createOrder|submitManual|sendFile|sendReport|ticketCreate|ticketReply|clientError)$|(Save|Add|Del|Delete|Submit|Reply|Publish|Checkin|Decide|Withdraw|Score|Translate|Toggle|Action|Broadcast|TestJoin|RefreshLink|Close|Remove|Draft|Ask)/;
 var NOCACHE_RE = /^(checkOrder|checkCode|adminHealth|adminAudit)$/, FRESH_MS = 60000, KEEP_MS = 864e5;
 var inflight = {}, revalidated = {}, memCache = {}, lsCacheKey = function () { return 'rc_' + CFG.appId + '_' + (TGU ? TGU.id : '0'); };
 (function () { var st = lsGet(lsCacheKey(), {}); Object.keys(st || {}).forEach(function (k) { if (Date.now() - st[k].t < KEEP_MS) memCache[k] = st[k]; }); })();
-function cacheSet(k, v) { memCache[k] = { t: Date.now(), v: v }; var keep = {}, keys = Object.keys(memCache).sort(function (a, b) { return memCache[b].t - memCache[a].t; }).slice(0, 25);
+function cacheSet(k, v) { memCache[k] = { t: Date.now(), v: v }; cachePersist(); }
+function cachePersist() { var keep = {}, keys = Object.keys(memCache).sort(function (a, b) { return memCache[b].t - memCache[a].t; }).slice(0, 25);
   keys.forEach(function (x) { var js = JSON.stringify(memCache[x]); if (js.length < 100000) keep[x] = memCache[x]; }); lsSet(lsCacheKey(), keep); }
 function cacheClear() { memCache = {}; lsSet(lsCacheKey(), {}); }
-function api(action, data) {
-  data = Object.assign({}, data || {}); data.simulateFree = !!lsGet('simfree_' + CFG.appId, false);
+function cacheStale() { Object.keys(memCache).forEach(function (k) { memCache[k].stale = true; }); cachePersist(); }
+var bypassUntil = 0, PF_KEY = function () { return 'pf_' + CFG.appId + '_' + (TGU ? TGU.id : '0'); };
+function pfNote(action, data) {   // remember which screens this person uses (for the background refresh on open)
+  if (/^(admin|cc)/.test(action)) return;
+  var l = lsGet(PF_KEY(), []), k = action + '|' + JSON.stringify(data); if (!Array.isArray(l)) l = [];
+  l = l.filter(function (x) { return x.k !== k; }); l.unshift({ k: k, a: action, d: data }); lsSet(PF_KEY(), l.slice(0, 12));
+}
+function prefetch() {   // after the first screen is shown: refresh recently used screens one by one, quietly
+  if (DEMO) return; var l = lsGet(PF_KEY(), []); if (!Array.isArray(l)) return; var i = 0;
+  (function next() { if (i >= l.length) return; var x = l[i++]; api(x.a, x.d, { quiet: true }).then(function () { setTimeout(next, 150); }, function () { setTimeout(next, 150); }); })();
+}
+function api(action, data, opts) {
+  opts = opts || {}; var orig = data || {};
+  data = Object.assign({}, orig); data.simulateFree = !!lsGet('simfree_' + CFG.appId, false);
   if (DEMO) return demoCall(action, data);
-  if (WRITE_RE.test(action)) return callServer(action, data).then(function (res) { if (res && res.ok !== false) cacheClear(); return res; });
+  if (WRITE_RE.test(action)) return callServer(action, data).then(function (res) { if (res && res.ok !== false) { cacheStale(); bypassUntil = Date.now() + 60000; } return res; });
   if (NOCACHE_RE.test(action)) return callServer(action, data);
   var k = action + '|' + JSON.stringify(data), hit = memCache[k], age = hit ? Date.now() - hit.t : Infinity, screenAt = S.screen;
-  var firstThisVisit = !revalidated[k]; revalidated[k] = true;   // on each app open, every screen re-checks once in the background
-  if (hit && age < FRESH_MS && !firstThisVisit) return Promise.resolve(hit.v);
+  if (!opts.quiet) pfNote(action, orig);
+  var mustCheck = !revalidated[k] || (hit && hit.stale); revalidated[k] = true;   // each app open (and after a save) every screen re-checks once in the background
+  if (hit && age < FRESH_MS && !mustCheck) return Promise.resolve(hit.v);
   if (inflight[k]) return hit ? Promise.resolve(hit.v) : inflight[k];   // same request already on its way: never send it twice
-  var fresh = inflight[k] = callServer(action, data).then(function (res) {
+  var bypass = Date.now() < bypassUntil;
+  function load(fresh) {
+    return callServer(action, fresh ? Object.assign({ fresh: 1 }, data) : data).then(function (res) {
+      if (res && res.ok) {
+        var cur = memCache[k], changed = !cur || JSON.stringify(cur.v) !== JSON.stringify(res); cacheSet(k, res);
+        if (cur && changed && !opts.quiet) { if (action === 'init') { S.me = res; if (canAutoRefresh()) render(); } else if (S.screen === screenAt) scheduleRefresh(); }   // background refresh updates the screen
+      }
+      return res;
+    });
+  }
+  var p = inflight[k] = load(bypass && !!hit).then(function (res) {
     delete inflight[k];
-    if (res && res.ok) {
-      var changed = !hit || JSON.stringify(hit.v) !== JSON.stringify(res); cacheSet(k, res);
-      if (hit && changed) { if (action === 'init') { S.me = res; if (canAutoRefresh()) render(); } else if (S.screen === screenAt) scheduleRefresh(); }   // background refresh updates the screen
-    }
+    if (bypass && !hit && res && res.ok) load(true);   // shown at once from the Cloudflare copy; just after a save, confirm it with a fresh read
     return res;
   });
   if (hit && age < KEEP_MS) return Promise.resolve(hit.v);   // instant answer from the phone, fresh one on its way
-  return fresh;
+  return p;
 }
 /* Never redraw under the user's fingers: skip while typing or while a form/editor is open. */
 function canAutoRefresh() { var ae = document.activeElement; if (ae && /^(INPUT|TEXTAREA|SELECT)$/.test(ae.tagName)) return false;
@@ -661,7 +685,7 @@ function qRun() {
     qBusy = false;
     if (!res || (res.ok === false && Q_TRANSIENT.test(res.error || ''))) { qTimer = setTimeout(qRun, qWait); qWait = Math.min(qWait * 2, 60000); qPaint(); return; }
     var l2 = qList(); if (l2.length && l2[0].data.rid === it.data.rid) l2.shift(); lsSet(QKEY, l2); qWait = 2000;
-    if (res.ok !== false) cacheClear(); else toast(t('q_fail'));
+    if (res.ok !== false) { cacheStale(); bypassUntil = Date.now() + 60000; } else toast(t('q_fail'));
     var h = qHandlers[it.action]; if (h) try { h(res, it.data); } catch (e) {}
     if (!qList().length && canAutoRefresh()) enter();   // all saved: re-read the screen from the server
     qRun();
@@ -1004,7 +1028,7 @@ function app(def) {
   if (def.startScreen) S.screen = def.startScreen();
   render();
   try { var f0 = APP.enter[S.screen]; if (f0 && !DEMO) f0(); } catch (e) {}   // start the screen's data request now, in parallel with init
-  refreshMe().then(function () { enter(); qRun(); });   // then send any saves left from last time
+  refreshMe().then(function () { enter(); qRun(); setTimeout(prefetch, 1200); });   // then send saves left from last time, then refresh recently used screens
 }
 
 return { app: app, insight: insight, codesBlock: codesBlock, dCode: dCode, dCodeSave: dCodeSave, reloadCodes: reloadCodes, report: report, showReport: showReport, saveBlob: saveBlob, loadScript: loadScript, isPro: function () { return S.me && /^(sub|test)$/.test(S.me.access.reason); }, CFG: CFG, TG: TG, IN_TG: IN_TG, TGU: TGU, QS: QS, START: START, EDITION: EDITION, DEMO: DEMO, MB: MB, S: S,

@@ -63,9 +63,13 @@ r = await post(req(V, 'dbBook', { pass: fake })); ok('forged payload ignored', r
 const ep0 = sql.prepare('SELECT ep FROM meta').get().ep;
 r = await post(req(U, 'dbSaveCustomer', { pass: passU, name: 'Ali', phone: '1' })); await settle();
 ok('write passes through', r.how === 'pass-through', r);
-ok('write cleared user copies', sql.prepare('SELECT COUNT(*) n FROM cache WHERE uid = ?').get('2002').n === 0);
+ok('write keeps the copies (no waiting on the next screens)', sql.prepare('SELECT COUNT(*) n FROM cache WHERE uid = ?').get('2002').n > 0);
 ok('write bumped epoch', sql.prepare('SELECT ep FROM meta').get().ep === ep0 + 1);
-gasCalls = 0; r = await post(req(U, 'dbBook', { pass: passU })); await settle(); ok('after write -> fresh from Google', r.how === 'miss' && gasCalls === 1, r);
+gasCalls = 0; r = await post(req(U, 'dbBook', { pass: passU })); ok('after write -> old copy at once, marked check again', r.how === 'stale', r);
+await settle(); ok('... and refreshed in the background', gasCalls === 1);
+gasCalls = 0; r = await post(req(U, 'dbBook', { pass: passU, fresh: 1 })); await settle();
+ok('fresh:1 (just after a save) asks Google and shows the saved change', r.how === 'fresh' && gasCalls === 1 && r.body.customers.some((c) => c.name === 'Ali'), r);
+gasCalls = 0; r = await post(req(U, 'dbBook', { pass: passU })); ok('fresh answer is saved as the new copy', r.how === 'hit' && gasCalls === 0, r);
 // stale (older than 2 min): answered instantly, refreshed in background
 sql.prepare('UPDATE cache SET t = ?').run(Date.now() - 5 * 60e3);
 gasCalls = 0; r = await post(req(U, 'dbBook', { pass: passU })); ok('stale -> instant answer', r.how === 'stale', r);
