@@ -38,7 +38,7 @@ export async function makeSim(mod, opts = {}) {
   central._db.exec('CREATE TABLE IF NOT EXISTS meta (app TEXT PRIMARY KEY, ep INTEGER NOT NULL DEFAULT 0, whsec TEXT)');
   central._db.prepare('INSERT OR REPLACE INTO meta (app, ep, whsec) VALUES (?, 0, ?)').run(mod.id, WHSEC);
   central._db.prepare('INSERT OR REPLACE INTO meta (app, ep, whsec) VALUES (?, 0, ?)').run('control', CONTROL_WHSEC);
-  const env = { DB: makeD1(), CENTRAL: central, MASTER_KEY: 'master-key-for-tests', CRON_KEY: 'cron-key' };
+  const env = { DB: makeD1(), CENTRAL: central, EDGE: central, MASTER_KEY: 'master-key-for-tests', CRON_KEY: 'cron-key' };
   const eng = createApp(mod), sent = [], fetches = [], pending = [];
   const S = { env, eng, sent, fetches, central, reply: null };
   globalThis.fetch = async (url, o = {}) => {

@@ -807,7 +807,7 @@ export function createApp(MOD) {
 
   /* ---------- migration & export (owner's Apps Script, signed with the webhook secret Cloudflare learned) ---------- */
   async function signedBy(E, body, sig) {
-    const m = await E.db.cen.prepare('SELECT whsec FROM meta WHERE app = ?').bind(APP).first().catch(() => null);
+    const m = await (E.env.EDGE || E.db.cen).prepare('SELECT whsec FROM meta WHERE app = ?').bind(APP).first().catch(() => null);   // meta lives in axm-edge (learned by the webhook forwarder)
     const keys = [m && m.whsec, await secret(E, 'WEBHOOK_SECRET')].filter(Boolean);
     for (const k of keys) if ((await hmacHex(k, body)) === String(sig || '')) return true;
     return false;
@@ -833,7 +833,7 @@ export function createApp(MOD) {
     return { ok: true, table: name, inserted: stmts.length };
   }
   async function exportTable(E, name, after, sig, ts) {
-    const ctl = await E.db.cen.prepare('SELECT whsec FROM meta WHERE app = ?').bind('control').first().catch(() => null), own = await secret(E, 'WEBHOOK_SECRET');
+    const ctl = await (E.env.EDGE || E.db.cen).prepare('SELECT whsec FROM meta WHERE app = ?').bind('control').first().catch(() => null), own = await secret(E, 'WEBHOOK_SECRET');
     const msg = name + '|' + after + '|' + ts, ok = Math.abs(Date.now() - Number(ts)) < 600000;
     let good = false; for (const k of [ctl && ctl.whsec, own].filter(Boolean)) if ((await hmacHex(k, msg)) === sig) good = true;
     if (!ok || !good) return { ok: false, error: 'forbidden' };

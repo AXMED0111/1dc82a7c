@@ -66,6 +66,14 @@ Apps Script keeps only one small job per Google account: nightly export → Driv
   clear directUrl in apps/debt/public/config.js (no fallback writes to the old sheet) → redeploy.
 - During the pilot, Debt Book's tickets/numbers go to the D1 central; Control Center (Google) shows them after it moves.
 
+- 2026-11-10: Debt Book LIVE on D1. Databases moved to Western Europe (closest region to East Africa; D1's region is
+  fixed at creation, so they were copied with `tools/d1_copy.py`): `axm-debt-eu` ebf7f065… (DB), `axm-central-eu`
+  bbf9c5ba… (CENTRAL); `axm-edge` e1b31b31… stays as EDGE (edge cache + learned webhook secrets in `meta`).
+  Pages Smart Placement on: the function runs next to its database, so database round trips are short.
+  Old `axm-debt` (ENAM) kept as an extra copy for now. New app databases: create with primary_location_hint "weur".
+- Engine prefetch: one database round for what every request needs; front end: in-place screen updates (no flashing),
+  saves never disappear (pending + 30 s overlay; reads started before a save are re-checked).
+
 ## Owner steps (only these)
 - Phase A: none.
 - Phase B per app: paste the new `PASTE-THIS.gs` once, run `migrateToCloudflare`, check the app, say "done".
