@@ -42,6 +42,19 @@ r = await S.call(U, 'init'); ok('subscribed after stars', r.access.reason === 's
 await S.tg(tgMsg(2002, { successful_payment: { invoice_payload: order1, telegram_payment_charge_id: 'ch1', total_amount: 75 } }));
 ok('payment counted once (repeat webhook)', S.rows('Subscriptions').length === 1);
 ok('user notified', S.sent.some((s) => s.method === 'sendMessage' && /confirmed/.test(s.payload.text)));
+// refund a Stars payment (admin): Telegram gives the Stars back, the plan ends
+r = await S.call(ADMIN, 'adminStarsRecent'); ok('admin sees recent Stars payments', r.ok && r.items[0].order_id === order1 && r.items[0].status === 'paid' && r.items[0].amount === 75, r);
+ok('only admins can refund', (await S.call(U, 'adminRefund', { order_id: order1 })).error === 'forbidden');
+S.reply = (url) => (/refundStarPayment/.test(url) ? { ok: false, error_code: 400, description: 'Bad Request: CHARGE_NOT_FOUND' } : null);
+r = await S.call(ADMIN, 'adminRefund', { order_id: order1 }); ok('Telegram refuses: nothing changes, the reason is shown', /CHARGE_NOT_FOUND/.test(r.error) && S.rows('Payments').find((p) => p.order_id === order1).status === 'paid', r);
+S.reply = null; r = await S.call(ADMIN, 'adminRefund', { order_id: order1 });
+const rf = S.sent.filter((s) => s.method === 'refundStarPayment').pop();
+ok('refund: Telegram asked with the buyer and the charge id', r.ok && rf && rf.payload.user_id === 2002 && rf.payload.telegram_payment_charge_id === 'ch1', { r, rf });
+ok('refund: payment marked refunded, plan ended, buyer told', S.rows('Payments').find((p) => p.order_id === order1).status === 'refunded' && (await S.call(U, 'init')).access.reason !== 'sub' && S.sent.some((s) => /75 Stars was refunded/.test((s.payload || {}).text || '')));
+ok('refund only once', (await S.call(ADMIN, 'adminRefund', { order_id: order1 })).error === 'already_refunded' && S.sent.filter((s) => s.method === 'refundStarPayment').length === 2);
+ok('refund is in the admin audit', S.rows('Log').some((l) => l.event === 'audit:adminRefund') && S.rows('Log').some((l) => l.event === 'refunded'));
+r = await S.call(U, 'createOrder', { plan: 'pro_m', method: 'stars' }); await S.tg(tgMsg(2002, { successful_payment: { invoice_payload: r.order_id, telegram_payment_charge_id: 'ch2', total_amount: 75 } }));
+ok('buying again after a refund works', (await S.call(U, 'init')).access.reason === 'sub');
 // USDT
 r = await S.call(V, 'createOrder', { plan: 'pro_m', method: 'usdt_trc20' }); ok('usdt order (unique amount)', r.ok && /^1\.\d{4}$/.test(r.amount), r);
 const amt = r.amount, oid = r.order_id;

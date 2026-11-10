@@ -25,10 +25,10 @@ export const USDT = {
 const ORDER_TTL_HOURS = 6;
 export const PERMS = ['support', 'payments', 'settings', 'reports'];
 const PERM_OF = { adminGet: 'settings', adminSave: 'settings', adminSetSecret: 'super', adminCodeSave: 'settings', adminCodeToggle: 'settings', adminSchSave: 'settings', adminSchDelete: 'settings', adminSchList: 'settings', adminGkFee: 'settings',
-  adminDecide: 'payments', adminPending: 'payments', adminMkWithdrawal: 'payments', adminMk: 'payments',
+  adminDecide: 'payments', adminPending: 'payments', adminStarsRecent: 'payments', adminRefund: 'payments', adminMkWithdrawal: 'payments', adminMk: 'payments',
   adminRevenue: 'reports', adminHealth: 'reports', adminStats: 'reports', adminAudit: 'reports', adminCodes: 'reports', adminGk: 'reports' };
 export const WRITES = /^(consume|createOrder|submitManual|sendFile|sendReport)$|(Save|Add|Del|Delete|Submit|Reply|Publish|Checkin|Decide|Withdraw|Score|Translate|Toggle|Action|Broadcast|TestJoin|RefreshLink)/;
-const AUDITED = /^(ccReply|ccClose|ccAdminSave|ccAdminRemove|adminSave|adminSetSecret|adminDecide|adminCodeSave|adminCodeToggle|adminResetMe|adminMkWithdrawal|adminSchSave|adminSchDelete|adminGkFee|gkMemberAction|gkBroadcast|gkSave|gkCodeSave|gkCodeToggle|gkRefreshLink|mkDecide|mkWithdraw|dbDeleteCustomer)$/;
+const AUDITED = /^(ccReply|ccClose|ccAdminSave|ccAdminRemove|adminSave|adminSetSecret|adminDecide|adminRefund|adminCodeSave|adminCodeToggle|adminResetMe|adminMkWithdrawal|adminSchSave|adminSchDelete|adminGkFee|gkMemberAction|gkBroadcast|gkSave|gkCodeSave|gkCodeToggle|gkRefreshLink|mkDecide|mkWithdraw|dbDeleteCustomer)$/;
 const TICKET_TYPES = ['question', 'suggestion', 'problem', 'payment', 'message'];
 const TG_TEXT = { start: 'Welcome. Tap the button below to open the app.', open: 'Open app',
   paysupport: 'For payment questions, reply here with your order ID and a short description. We answer within 24 hours.',
@@ -430,6 +430,22 @@ export function createApp(MOD) {
     o.amount = '$' + plan.usd.toFixed(2); o.currency = 'USD'; await E.db.ins('Payments', o);
     return { ok: true, order_id: o.order_id, method, amount: o.amount, number: ctx.st.methods[method] };
   }
+  async function refundStars(E, orderId, by) {
+    const o = await E.db.one('Payments', { order_id: orderId, app: APP }); if (!o || o.method !== 'stars') return { ok: false, error: 'order' };
+    if (o.status !== 'paid' || !o.tx_ref) return { ok: false, error: o.status === 'refunded' ? 'already_refunded' : 'state' };
+    const r = await tgCall(await botToken(E), 'refundStarPayment', { user_id: Number(o.user_id), telegram_payment_charge_id: String(o.tx_ref) });
+    if (!r.ok) return { ok: false, error: 'telegram: ' + String(r.description || r.error_code || '').slice(0, 120) };
+    const c = await E.db.run('Payments', 'UPDATE "Payments" SET "status" = \'refunded\' WHERE "order_id" = ? AND "status" = \'paid\'', orderId); if (!c.meta || !c.meta.changes) return { ok: true };
+    try {
+      await E.db.run('Subscriptions', 'UPDATE "Subscriptions" SET "status" = \'refunded\' WHERE "order_id" = ? AND "app" = ?', orderId, APP);
+      const st = await getSettings(E), plan = (st.plans || []).filter((p) => p.id === o.plan)[0];
+      if (plan && Number(plan.credits) > 0 && !(Number(plan.days) > 0)) { const us = await usageRow(E, o.user_id); await E.db.upd('Usage', us, { credits: Math.max(0, (Number(us.credits) || 0) - Number(plan.credits)) }); }
+      if (MOD.onRefund) await MOD.onRefund(o, API, E);
+    } catch (e) { await log(E, o.user_id, 'refund_error', String(e && e.message || e)); }
+    await log(E, by, 'refunded', orderId + ' ' + o.amount + ' Stars');
+    await notify(E, o.user_id, 'Your payment of ' + o.amount + ' Stars was refunded. The Stars are back in your Telegram balance.');
+    return { ok: true };
+  }
   async function ownOrder(ctx, id) { const o = await ctx.E.db.one('Payments', { order_id: String(id || '') }); return o && String(o.user_id) === ctx.uid && o.app === APP ? o : null; }
   async function markPaid(E, orderId, txRef) {
     // Atomic claim: only one caller can move pending/review -> paid (replaces Apps Script's lock).
@@ -659,6 +675,8 @@ export function createApp(MOD) {
         const o = await E.db.one('Payments', { order_id: String(req.order_id || ''), app: APP }); if (!o || o.status !== 'review') { res = { ok: false, error: 'state' }; break; }
         if (req.approve) await markPaid(E, o.order_id, o.tx_ref); else { await E.db.upd('Payments', o, { status: 'rejected' }); await notify(E, o.user_id, 'Your payment could not be confirmed. Please contact support.'); }
         await log(E, uid, req.approve ? 'approved' : 'rejected', o.order_id); res = { ok: true }; break; }
+      case 'adminStarsRecent': res = { ok: true, items: (await E.db.sel('Payments', { app: APP, method: 'stars' }, { where: '"status" IN (\'paid\', \'refunded\')', order: 'rowid DESC', limit: 30 })).map((r) => ({ order_id: r.order_id, user_id: r.user_id, plan: r.plan, amount: r.amount, status: r.status, paid_at: iso(r.paid_at) })) }; break;
+      case 'adminRefund': res = await refundStars(E, String(req.order_id || ''), uid); break;
       case 'adminStats': res = await adminStats(ctx); break;
       case 'adminResetMe': { const us = await usageRow(E, uid); await E.db.upd('Usage', us, { free_used: 0, credits: 0 });
         for (const s of await E.db.sel('Subscriptions', { user_id: uid, app: APP, status: 'active' })) await E.db.upd('Subscriptions', s, { status: 'cancelled' });

@@ -664,11 +664,21 @@ function renderSettings(){var A=S.admin,h=header('Settings','Admin only');
    '<div><label class="f">Max uses (0 = unlimited)</label><input class="t" id="nc_max" type="number" min="0"></div><div><label class="f">Expires (optional)</label><input class="t" id="nc_exp" type="date"></div></div><label class="f">Note (optional)</label><input class="t" id="nc_note">'+
    '<div class="fs" style="margin-top:6px">100% = free access (partners, testers).</div><button class="btn sm" style="width:100%;margin-top:10px" data-act="codeadd">'+ic('plus','s')+'Save code</button></div>';
   h+='<div class="sec">Payments to review</div><div class="card">'+(A.pending&&A.pending.length?'<ul class="files">'+A.pending.map(function(p){return'<li><div class="grow"><div class="fn">'+esc(p.method)+' · '+esc(p.amount)+' · '+esc(p.plan)+'</div><div class="fs">User '+esc(p.user_id)+' · Tx '+esc(p.tx_ref)+'</div></div><button class="btn sm" data-approve="'+esc(p.order_id)+'">Approve</button><button class="btn sm ghost" data-reject="'+esc(p.order_id)+'">Reject</button></li>'}).join('')+'</ul>':'<p class="m">Nothing to review.</p>')+'</div>';
+  h+=starsBlock();
   var s=A.stats||{};h+='<div class="sec">Stats</div><div class="card stat"><div><b>'+(s.users||0)+'</b><span>Users</span></div><div><b>'+(s.activeSubs||0)+'</b><span>Active subscriptions</span></div><div><b>'+(s.conversions||0)+'</b><span>Conversions</span></div><div><b>'+(s.paidOrders||0)+'</b><span>Paid orders</span></div></div>';
   h+='<div class="sec">Testing</div><div class="card">'+sw('simfree',lsGet('pdft_simfree',false),'Simulate free user (this device)','Ignores test mode so you can try the 2 free conversions and the paywall.')+
     '<button class="btn sm ghost" style="width:100%;margin-top:8px" data-act="resetme">Reset my usage &amp; subscription</button><button class="btn sm ghost" style="width:100%;margin-top:8px" data-act="paywall">Preview paywall</button></div>';
   return h}
-function loadAdmin(){S.admin=null;render();Promise.all([api('adminGet'),api('adminPending'),api('adminStats'),api('adminCodes')]).then(function(r){
+/* Stars payments: an admin can refund one (Telegram gives the Stars back; the plan or credits from it are taken back). */
+function starsBlock() { var L = S.starsPays; if (!L) return '';
+  return '<div class="sec">Recent Stars payments</div><div class="card">' + (L.length ? '<ul class="files">' + L.map(function (p) { return '<li><div class="grow"><div class="fn">' + esc(p.amount) + ' Stars · ' + esc(p.plan) + '</div><div class="fs">User ' + esc(p.user_id) + ' · ' + esc(String(p.paid_at || '').slice(0, 16).replace('T', ' ')) + ' · ' + esc(p.order_id) + '</div></div>' +
+    (p.status === 'paid' ? '<button class="btn sm ghost" data-refund="' + esc(p.order_id) + '" data-amt="' + esc(p.amount) + '">Refund</button>' : '<span class="pill">Refunded</span>') + '</li>'; }).join('') + '</ul>' : '<p class="m">No Stars payments yet.</p>') +
+    '<div class="fs" style="margin-top:8px">Refund gives the Stars back to the buyer and ends what the payment opened.</div></div>'; }
+function loadStars() { api('adminStarsRecent').then(function (r) { S.starsPays = r && r.ok ? r.items : []; render(); }); }
+document.addEventListener('click', function (ev) { var el = ev.target.closest && ev.target.closest('[data-refund]'); if (!el) return; var id = el.getAttribute('data-refund'), msg = 'Refund ' + el.getAttribute('data-amt') + ' Stars for order ' + id + '?';
+  var go = function () { el.disabled = true; api('adminRefund', { order_id: id }).then(function (r) { toast(r.ok ? 'Refunded' : (r.error || 'Error')); loadStars(); }); };
+  if (IN_TG && TG.showConfirm) TG.showConfirm(msg, function (ok) { if (ok) go(); }); else if (confirm(msg)) go(); });
+function loadAdmin(){S.starsPays=null;loadStars();S.admin=null;render();Promise.all([api('adminGet'),api('adminPending'),api('adminStats'),api('adminCodes')]).then(function(r){
   if(!r[0].ok){S.admin={settings:defaultSettings(),secrets:{},pending:[],stats:{}};S.adminMsg='';toast(r[0].error||'error');render();return}
   S.admin={settings:r[0].settings,secrets:r[0].secrets||{},pending:(r[1].items||[]),stats:r[2].stats||{},codes:(r[3]&&r[3].codes)||[]};render()})}
 function collectSettings(){var st=JSON.parse(JSON.stringify(S.admin.settings));

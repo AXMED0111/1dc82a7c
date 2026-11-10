@@ -91,6 +91,11 @@ export default {
     await A.notify(E, ch.owner_id, 'New subscriber in ' + ch.title + ' (' + o.method + ' ' + o.amount + ').');
     return exp;
   },
+  async onRefund(o, A, E) {   // the membership bought with a refunded payment ends
+    const m = await E.db.one('Members', { order_id: o.order_id }); if (!m) return;
+    await E.db.upd('Members', m, { status: 'stopped', expiry_date: new Date() });
+    const tok = await A.botToken(E); if (tok) await removeFromChat(A, tok, m.channel_id, m.user_id);
+  },
   async extraSubs(A, E) { return E.db.count('Members', { status: 'active' }, { where: '"expiry_date" > ?', args: [nowIso()] }); },   // paying members count as subscriptions in the central numbers
   routes: {
     async gkMine(ctx) {
