@@ -74,6 +74,18 @@ Apps Script keeps only one small job per Google account: nightly export → Driv
 - Engine prefetch: one database round for what every request needs; front end: in-place screen updates (no flashing),
   saves never disappear (pending + 30 s overlay; reads started before a save are re-checked).
 
+- 2026-11-10: all 9 apps ported (`apps/<app>/worker/<app>.js`), `node tools/test-d1.mjs` = 286 checks.
+  Field Tasks: slot check, approvals and withdrawals are single D1 transactions; worker photos are sent to the business
+  owner's Telegram chat (free storage) and served by signed links `/api/file?get=…` (D1 copy only if Telegram refuses;
+  photos are not in the nightly JSON). Channel Pass: revenue via indexed `Payments.plan` range; hourly expiry reads only due rows.
+- D1 databases (weur) for the 6 live apps: `axm-gatekeeper-eu`, `axm-coach-eu`, `axm-translator-eu`, `axm-rsvp-eu`,
+  `axm-converter-eu`, `axm-control-eu`, bound as DB with CENTRAL = axm-central-eu, EDGE = axm-edge; MASTER_KEY, CRON_KEY,
+  Smart Placement. That makes 10 databases (free maximum). Scholarship Finder and Field Tasks (no bots yet) get theirs
+  later, after the old `axm-debt` (ENAM copy) and `axm-edge` are retired (move `meta` into axm-central-eu first).
+- Migration safety: `GET /api/migrate` says which system serves the app; Google's timed jobs (cronUsdt/Hourly/Daily) ask
+  it and switch themselves off for good once it is `d1` (they would act on the old sheet). After the switch a second copy
+  is refused on both sides (it would replace newer D1 data with the old sheet).
+
 ## Owner steps (only these)
 - Phase A: none.
 - Phase B per app: paste the new `PASTE-THIS.gs` once, run `migrateToCloudflare`, check the app, say "done".
