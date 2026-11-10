@@ -1103,6 +1103,49 @@ function upsertStats(list) {
   delete _rc.Stats;
 }
 
+/* ======================= MOVE TO CLOUDFLARE D1 (docs/D1-MIGRATION.md) =======================
+   Run migrateToCloudflare() once from the editor. It copies every tab of this app's sheet (and this app's part of the
+   central sheet) to the app's Cloudflare D1 database, plus the secrets (bot token, keys) — signed with the webhook
+   secret, so only this script can do it. Safe to run again: app tables are replaced, central rows are never doubled.
+   The sheets are not changed; they stay as the backup. */
+function migrateToCloudflare() {
+  var app = THIS_APP.id, sec = prop('WEBHOOK_SECRET_' + app); if (!sec) throw new Error('Run connectTelegram() first (webhook secret missing).');
+  var url = THIS_APP.url + '/api/migrate', report = [];
+  function post(obj) {
+    var body = JSON.stringify(obj), r = UrlFetchApp.fetch(url, { method: 'post', contentType: 'application/json', payload: body, muteHttpExceptions: true, headers: { 'x-sig': hmacHexGs(sec, body) } });
+    var out = {}; try { out = JSON.parse(r.getContentText()); } catch (e) { out = { ok: false, error: 'http_' + r.getResponseCode() }; }
+    if (!out.ok) throw new Error('Cloudflare refused ' + (obj.table || 'secrets') + ': ' + (out.error || r.getResponseCode()));
+    return out;
+  }
+  function clean(v) { return v instanceof Date ? v.toISOString() : v === '' ? null : v; }
+  function send(name, list, reset) {
+    var h = schemaOf(name); if (!h) return;
+    var rowsOut = list.map(function (r) { var o = {}; h.forEach(function (k) { if (r[k] !== undefined) o[k] = clean(r[k]); }); return o; });
+    if (!rowsOut.length && reset) { post({ table: name, rows: [], reset: true }); report.push(name + ': 0'); return; }
+    for (var i = 0; i < rowsOut.length; i += 400) post({ table: name, rows: rowsOut.slice(i, i + 400), reset: reset && i === 0 });
+    report.push(name + ': ' + rowsOut.length);
+  }
+  var mine = function (r) { return !r.app || r.app === app; };
+  Object.keys(EXTRA_SCHEMA).forEach(function (n) { SCHEMA[n] = EXTRA_SCHEMA[n]; });
+  ['Users', 'Usage', 'Subscriptions', 'Payments', 'Settings', 'Codes', 'Referrals'].concat(Object.keys(EXTRA_SCHEMA)).forEach(function (n) { if (sh(n)) send(n, rows(n).filter(mine), true); });
+  if (sh('Log')) send('Log', rows('Log').filter(mine).slice(-2000), true);
+  // central: this app's directory line, numbers, tickets (+ messages), queued messages, and the admins list
+  var myTickets = srows('Tickets').filter(function (t) { return t.app === app; }), ids = {}; myTickets.forEach(function (t) { ids[t.ticket_id] = 1; });
+  send('Apps', srows('Apps').filter(function (a) { return a.app === app; }), false);
+  send('Stats', srows('Stats').filter(function (r) { return r.app === app; }).map(function (r) { var o = Object.assign({}, r); o.date = dayOf(String(r.date).replace(/^'/, '')); return o; }), false);
+  send('Tickets', myTickets, false);
+  send('TicketMsgs', srows('TicketMsgs').filter(function (m) { return ids[m.ticket_id]; }), false);
+  send('Admins', srows('Admins'), false);
+  send('Outbox', srows('Outbox').filter(function (m) { return m.app === app && m.status === 'queued'; }), false);
+  // secrets: only what this app has; names as the Cloudflare engine expects them
+  var s = { BOT_TOKEN: botToken(app), WEBHOOK_SECRET: sec, ADMIN_IDS: prop('ADMIN_IDS') };
+  ['GEMINI_KEY', 'DEEPSEEK_KEY', 'TRONGRID_KEY', 'ETHERSCAN_KEY'].forEach(function (k) { if (prop(k)) s[k] = prop(k); });
+  var n = post({ secrets: s }).secrets;
+  report.push('secrets: ' + n);
+  Logger.log('Copied to Cloudflare D1 — ' + report.join(', '));
+  Logger.log('Done. Tell Claude: "migrated ' + app + '". Your sheets were not changed.');
+}
+
 /**
  * Connect the bot to its Mini App: set Script property BOT_TOKEN_<app> and THIS_APP.url, then run
  * connectTelegram(). Registers the webhook (Netlify function), the menu button and the commands.

@@ -172,4 +172,28 @@ r = await S.call(V, 'dbAddEntry', { type: 'income', amount: 1, entry: 'einc0001'
 ok('phone saved in international format', (await S.call(U, 'dbSaveCustomer', { id: cid, name: 'Abdi', phone: '+44 7700 900123' })).customer.phone === '+447700900123');
 const qplan = S.fetches.filter((f) => /api\.telegram/.test(f.url)).length; ok('no Telegram call on plain reads', qplan > 0);
 
+section('migration from the real Apps Script (Debt Book)');
+{
+  const { createRequire } = await import('node:module'); const require = createRequire(import.meta.url); const { makeEnv } = require('./gas-sim.js');
+  const G = makeEnv('debt'); G.setSettings({ testMode: false, freeAllowance: 5 }); G.props.WEBHOOK_SECRET_debt = WHSEC; G.props.GEMINI_KEY = 'gk';
+  G.call(U, 'dbSaveShop', { shop: { name: 'Old Shop', currency: 'USD', freq: 'weekly', lang: 'en' } });
+  const c1 = G.call(U, 'dbSaveCustomer', { name: 'Faarax', phone: '+252615550001' }).customer;
+  G.call(U, 'dbAddEntry', { id: c1.id, type: 'debt', amount: 70, date: '2026-11-01', due: '2026-11-05' }); G.call(U, 'dbAddEntry', { id: c1.id, type: 'payment', amount: 20, method: 'cash' });
+  G.call(U, 'dbAddEntry', { type: 'expense', amount: 9, category: 'Rent', method: 'cash' });
+  G.call(U, 'ticketCreate', { type: 'question', text: 'How do reminders work?' });
+  const posted = []; G.ctx.__fetchReply = (url, o) => { if (/\/api\/migrate$/.test(url)) { posted.push({ body: o.payload, sig: o.headers['x-sig'] }); const b = JSON.parse(o.payload); return b.secrets ? { ok: true, secrets: Object.keys(b.secrets).length } : { ok: true }; } return { ok: true, result: {} }; };
+  G.run('_rc = {}; migrateToCloudflare()'); G.ctx.__fetchReply = null;
+  ok('Apps Script sent every tab + secrets, all signed', posted.length >= 8 && posted.every((p) => p.sig && p.sig.length === 64) && posted.some((p) => JSON.parse(p.body).secrets), posted.length);
+  const T = await makeSim(debt);
+  const replay = async () => { for (const p of posted) { const r = await T.eng.migrate({ request: { text: async () => p.body, headers: { get: (h) => (h === 'x-sig' ? p.sig : null) } }, env: T.env }); const j = await r.json(); if (!j.ok) return j; } return { ok: true }; };
+  ok('Cloudflare accepted every signed part', (await replay()).ok);
+  r = await T.call(U, 'dbBook');
+  ok('same customers, balances and cashbook on D1', r.ok && r.shop.name === 'Old Shop' && r.customers.length === 1 && r.customers[0].balance === 50 && r.customers[0].phone === '+252615550001' && r.cash.length === 1 && r.cash[0].category === 'Rent', r);
+  ok('free uses carried over', (await T.call(U, 'init')).access.freeUsed === 1);
+  ok('support ticket carried to central', T.crows('Tickets').some((t) => t.app === 'debt' && t.user_id === '2002'));
+  ok('Gemini key carried (encrypted)', T.rows('Secrets').some((x) => x.name === 'GEMINI_KEY') && !T.rows('Secrets').some((x) => x.val === 'gk'));
+  await replay(); r = await T.call(U, 'dbBook');
+  ok('running the copy again does not double anything', r.customers.length === 1 && r.customers[0].entries.length === 2 && T.crows('Tickets').filter((t) => t.app === 'debt').length === 1 && T.crows('TicketMsgs').length === 1, { n: r.customers.length, t: T.crows('Tickets').length, m: T.crows('TicketMsgs').length });
+}
+
 console.log(`\n${pass} passed, ${fail} failed`); process.exit(fail ? 1 : 0);

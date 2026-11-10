@@ -792,7 +792,7 @@ export function createApp(MOD) {
     if (req.secrets) { let n = 0; for (const [k, v] of Object.entries(req.secrets)) if (v && /^[A-Z_]{3,40}$/.test(k)) { await setSecret(E, k, v); n++; } return { ok: true, secrets: n }; }
     const name = String(req.table || ''); if (!E.db.cols(name) || name === 'Secrets') return { ok: false, error: 'table' };
     if (req.reset && !CENTRAL_SCHEMA[name]) await E.db.run(name, `DELETE FROM ${q(name)}`);
-    const rowsIn = Array.isArray(req.rows) ? req.rows : [], key = { Users: ['user_id', 'app'], Usage: ['user_id', 'app'], Payments: ['order_id'], Settings: ['app'], Apps: ['app'], Tickets: ['ticket_id'], Admins: ['user_id'], Stats: ['date', 'app'] }[name];
+    const rowsIn = Array.isArray(req.rows) ? req.rows : [], key = { Users: ['user_id', 'app'], Usage: ['user_id', 'app'], Payments: ['order_id'], Settings: ['app'], Apps: ['app'], Tickets: ['ticket_id'], TicketMsgs: ['ticket_id', 'created_at'], Admins: ['user_id'], Stats: ['date', 'app'], Outbox: ['msg_id'] }[name];
     const stmts = [];
     for (const r of rowsIn) {
       const o = {}; E.db.cols(name).forEach((c) => { if (r[c] !== undefined && r[c] !== '') o[c] = typeof r[c] === 'string' ? r[c].replace(/^'/, '') : r[c]; });

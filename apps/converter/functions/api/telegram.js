@@ -15,9 +15,10 @@ export async function onRequest({ request, env }) {
     const r = await fetch(env.GAS_URL, { method: 'POST', redirect: 'follow', headers: { 'content-type': 'text/plain;charset=utf-8' },
       body: JSON.stringify({ tgUpdate: update, whSecret, app }) });
     let o = null; try { o = JSON.parse(await r.text()); } catch {}
-    if (env.DB && app && o && o.ok === true) {
+    const edge = env.EDGE || env.DB;
+    if (edge && app && o && o.ok === true) {
       const m = update.message || {}, changes = !!(update.pre_checkout_query || m.successful_payment || update.my_chat_member || update.chat_join_request || m.contact);
-      const job = env.DB.prepare('INSERT INTO meta (app, ep, whsec) VALUES (?, 0, ?) ON CONFLICT(app) DO UPDATE SET whsec = excluded.whsec' + (changes ? ', ep = ep + 1' : '')).bind(app, whSecret).run();
+      const job = edge.prepare('INSERT INTO meta (app, ep, whsec) VALUES (?, 0, ?) ON CONFLICT(app) DO UPDATE SET whsec = excluded.whsec' + (changes ? ', ep = ep + 1' : '')).bind(app, whSecret).run();
       await job.catch(() => {});   // small write; awaited so it never depends on background-task support
     }
   } catch (e) {}

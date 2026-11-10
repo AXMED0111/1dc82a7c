@@ -24,12 +24,27 @@ for app in apps:
 # Cloudflare Pages Function: secret-free forwarder (Apps Script verifies Telegram's secret header itself)
 CF = (root / 'shared/telegram-forwarder.js').read_text()
 EDGE = (root / 'shared/edge-proxy.js').read_text()   # edge copy in front of Apps Script: /api/app
+ENGINE = (root / 'shared/worker/engine.js').read_text()   # D1 engine (docs/D1-MIGRATION.md)
+WRAP = {   # Pages Functions for apps that have a D1 module: Cloudflare variable BACKEND=d1 switches the app to D1
+  'app.js': "import { createApp } from '../../lib/engine.js';\nimport MOD from '../../lib/module.js';\nimport { onRequestPost as viaGoogle } from '../../lib/edge.js';\nconst D1 = createApp(MOD);\n// BACKEND=d1: answer from this app's D1 database; otherwise the edge copy in front of Apps Script.\nexport const onRequestPost = (c) => (c.env.BACKEND === 'd1' ? D1.app(c) : viaGoogle(c));\n",
+  'telegram.js': "import { createApp } from '../../lib/engine.js';\nimport MOD from '../../lib/module.js';\nimport { onRequest as toGoogle } from '../../lib/forwarder.js';\nconst D1 = createApp(MOD);\nexport const onRequest = (c) => (c.env.BACKEND === 'd1' && c.request.method === 'POST' ? D1.telegram(c) : toGoogle(c));\n",
+  'cron.js': "import { createApp } from '../../lib/engine.js';\nimport MOD from '../../lib/module.js';\nconst D1 = createApp(MOD);\n// Called every 5 minutes by the axm-cron Worker (header x-cron-key).\nexport const onRequestPost = (c) => (c.env.BACKEND === 'd1' ? D1.cron(c) : new Response('{\"ok\":true,\"skipped\":\"backend is Google\"}'));\n",
+  'migrate.js': "import { createApp } from '../../lib/engine.js';\nimport MOD from '../../lib/module.js';\nconst D1 = createApp(MOD);\n// Apps Script migrateToCloudflare() posts each tab here, signed with the webhook secret (works before the switch).\nexport const onRequestPost = (c) => D1.migrate(c);\n",
+  'export.js': "import { createApp } from '../../lib/engine.js';\nimport MOD from '../../lib/module.js';\nconst D1 = createApp(MOD);\n// Nightly backup (Control Center Apps Script) reads every table here, signed.\nexport const onRequestGet = (c) => D1.exportRows(c);\n",
+}
 for d in (root / 'apps').iterdir():
     if (d / 'public').is_dir():
         (d / 'functions/api').mkdir(parents=True, exist_ok=True)
-        (d / 'functions/api/telegram.js').write_text(CF)
-        (d / 'functions/api/app.js').write_text(EDGE)
-print('webhook forwarder written to every app')
+        mod = d / 'worker' / (d.name + '.js')
+        if mod.exists():
+            (d / 'lib').mkdir(exist_ok=True)
+            (d / 'lib/engine.js').write_text(ENGINE); (d / 'lib/module.js').write_text(mod.read_text())
+            (d / 'lib/edge.js').write_text(EDGE); (d / 'lib/forwarder.js').write_text(CF)
+            for f, src in WRAP.items(): (d / 'functions/api' / f).write_text(src)
+        else:
+            (d / 'functions/api/telegram.js').write_text(CF)
+            (d / 'functions/api/app.js').write_text(EDGE)
+print('Cloudflare functions written (D1 engine where a module exists)')
 
 # English bot descriptions into each app's Apps Script module (block between markers is regenerated)
 import re as _re

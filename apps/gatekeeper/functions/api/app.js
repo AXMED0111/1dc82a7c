@@ -7,7 +7,7 @@
 //  • fresh:1 (sent by the phone for 60 s after a save) skips the copy and asks Google, so the saved change shows.
 // Who is asking is proven by a signed pass issued by Apps Script (HMAC with a key derived from the bot's webhook secret,
 // which this side learns only after Apps Script has accepted a real Telegram update). No bot token is stored here.
-// Bindings: DB (D1). Variables (not secret): GAS_URL, APP_ID.
+// Bindings: EDGE (or DB) = axm-edge D1. Variables (not secret): GAS_URL, APP_ID.
 const FRESH = 120e3, OLD = 30 * 60e3, MAX_WAIT = 8000;
 const WRITE = /^(consume|createOrder|submitManual|sendFile|sendReport|ticketCreate|ticketReply|clientError)$|(Save|Add|Del|Delete|Submit|Reply|Publish|Checkin|Decide|Withdraw|Score|Translate|Toggle|Action|Broadcast|TestJoin|RefreshLink|Close|Remove|Draft|Ask)/;
 const NOCACHE = /^(admin|cc)|^(checkOrder|checkCode)$/;   // admin data and payment checks are always live
@@ -33,7 +33,7 @@ function initUser(initData) { try { return String(JSON.parse(new URLSearchParams
 const out = (txt, how) => new Response(txt, { headers: { 'content-type': 'application/json', 'x-edge': how, 'cache-control': 'no-store' } });
 
 export async function onRequestPost(context) {
-  const { request, env } = context, db = env.DB, app = env.APP_ID || '';
+  const { request, env } = context, db = env.EDGE || env.DB, app = env.APP_ID || '';   // EDGE = axm-edge (cache) once the app has its own D1 as DB
   if (!env.GAS_URL) return out('{"ok":false,"error":"not_configured"}', 'none');
   const raw = await request.text();
   let req; try { req = JSON.parse(raw); } catch { return out('{"ok":false,"error":"bad_request"}', 'none'); }
