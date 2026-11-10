@@ -24,7 +24,7 @@ function makeEnv(app, drive, opts) {
   // E.sheets.<Tab>: the tab in whichever of this app's spreadsheets has it (own sheet first, then central, then any)
   const sheets = new Proxy({}, { get: (t, n) => { const ids = [props.APP_SHEET_ID, props.CENTRAL_SHEET_ID, props.MASTER_SHEET_ID].filter(Boolean).concat(Object.keys(drive.books));
     for (const id of ids) { const b = drive.books[id]; if (b && b.tabs[n]) return b.tabs[n]; } return undefined; } });
-  const fetches = [];
+  const fetches = [], logs = [];
   const ctx = {
     console, JSON, Math, Date,
     PropertiesService: { getScriptProperties: () => ({ getProperty: (k) => props[k] || null, setProperty: (k, v) => { props[k] = String(v); } }) },
@@ -47,7 +47,7 @@ function makeEnv(app, drive, opts) {
         getFilesByName(n) { return iter(this.files.filter((f) => f.name === n)); }, getFiles() { return iter(this.files.filter((f) => !f.trashed)); } };
       return { folders, getFilesByName: (n) => iter(Object.values(drive.books).filter((b) => b.name === n && !b.trashed).map((b) => ({ getId: b.getId, isTrashed: () => false }))), createFolder: (n) => (folders[n] = new Folder(n)), getFoldersByName: (n) => iter(folders[n] ? [folders[n]] : []), getFolderById: () => new Folder('x'),
         getFileById: () => ({ getBlob: () => ({ getBytes: () => [1, 2, 3] }), makeCopy: (n, f) => { const file = { name: n, trashed: false, created: new Date(), getDateCreated() { return this.created; }, setTrashed(v) { this.trashed = v; } }; f.files.push(file); return file; } }) }; })(),
-    Logger: { log() {} }
+    Logger: { log(m) { logs.push(String(m)); } }
   };
   vm.createContext(ctx);
   const dir = path.join(root, 'apps', app, 'apps-script');
@@ -70,6 +70,6 @@ function makeEnv(app, drive, opts) {
   function server(action, extra) { ctx.__req = JSON.stringify(Object.assign({ action, app, serverSecret: props.SERVER_SECRET }, extra || {})); return JSON.parse(vm.runInContext('doPost({postData:{contents:__req}}).text', ctx)); }
   function run(code) { return vm.runInContext(code, ctx); }
   function setSettings(patch) { const admin = { id: 1001, first_name: 'Ahmed' }; const st = call(admin, 'adminGet').settings; Object.assign(st, patch); return call(admin, 'adminSave', { settings: st }); }
-  return { ctx, props, sheets, sent, fetches, call, server, run, setSettings, TOKEN, initData, drive, book: openById };
+  return { ctx, props, sheets, sent, fetches, logs, call, server, run, setSettings, TOKEN, initData, drive, book: openById };
 }
 module.exports = { makeEnv, makeDrive };

@@ -925,7 +925,19 @@ function serverRoute(req) {
 }
 
 /* ======================= TRIGGERS ======================= */
+/* After the move to Cloudflare D1, Google's timed jobs stop by themselves: they would act on the old sheet
+   (e.g. remove a member who renewed on Cloudflare). Cloudflare tells which system serves the app: GET <site>/api/migrate. */
+function movedToD1() {
+  if (prop('MOVED_TO_D1')) return true;
+  var b = '';
+  try { b = JSON.parse(UrlFetchApp.fetch(THIS_APP.url + '/api/migrate', { muteHttpExceptions: true }).getContentText()).backend; } catch (e) {}
+  if (b !== 'd1') return false;
+  setProp('MOVED_TO_D1', new Date().toISOString());
+  ScriptApp.getProjectTriggers().forEach(function (t) { if (/^cron(Usdt|Daily|Hourly)$/.test(t.getHandlerFunction())) ScriptApp.deleteTrigger(t); });
+  return true;
+}
 function cronUsdt() {
+  if (movedToD1()) return;
   registerApp('hb_5min');
   setProp('LAST_CRON_5MIN', new Date().toISOString());
   try { processOutbox(400); } catch (e) { log('', 'cron', 'outbox_error', e); }
@@ -938,6 +950,7 @@ function cronUsdt() {
 }
 var DAILY_JOBS = DAILY_JOBS || [];
 function cronDaily() {
+  if (movedToD1()) return;
   setProp('LAST_CRON_DAILY', new Date().toISOString()); registerApp('hb_daily');
   try { backupLedger(); } catch (e) { log('', 'cron', 'backup_error', e); }
   try { syncCentral(true); } catch (e) { log('', 'cron', 'sync_error', e); }   // daily full rebuild of this app's numbers
@@ -953,7 +966,7 @@ function cronDaily() {
 
 /* App modules add their own hourly jobs to HOURLY_JOBS. */
 var HOURLY_JOBS = HOURLY_JOBS || [];
-function cronHourly() { setProp('LAST_CRON_HOURLY', new Date().toISOString()); registerApp('hb_hourly'); try { flushMetrics(); } catch (e) { log('', 'cron', 'metrics_error', e); } try { syncCentral(false); } catch (e) { log('', 'cron', 'sync_error', e); } HOURLY_JOBS.forEach(function (fn) { try { fn(); } catch (e) { log('', 'cron', 'error', e); } }); }
+function cronHourly() { if (movedToD1()) return; setProp('LAST_CRON_HOURLY', new Date().toISOString()); registerApp('hb_hourly'); try { flushMetrics(); } catch (e) { log('', 'cron', 'metrics_error', e); } try { syncCentral(false); } catch (e) { log('', 'cron', 'sync_error', e); } HOURLY_JOBS.forEach(function (fn) { try { fn(); } catch (e) { log('', 'cron', 'error', e); } }); }
 
 /* Daily copy of the master sheet, newest 14 kept. Shared ledgers are backed up once per day (deduplicated by name).
    A backup only counts once it has been restored: open a copy from the folder and check it at least once a month. */
@@ -1110,6 +1123,7 @@ function upsertStats(list) {
    The sheets are not changed; they stay as the backup. */
 function migrateToCloudflare() {
   var app = THIS_APP.id, sec = prop('WEBHOOK_SECRET_' + app); if (!sec) throw new Error('Run connectTelegram() first (webhook secret missing).');
+  if (movedToD1()) { Logger.log('Nothing to do: this app already runs on Cloudflare (since ' + prop('MOVED_TO_D1').slice(0, 10) + '). Copying again would replace newer data with the old sheet, so nothing was changed. Google\'s timed jobs are off.'); return; }
   var url = THIS_APP.url + '/api/migrate', report = [];
   function post(obj) {
     var body = JSON.stringify(obj), r = UrlFetchApp.fetch(url, { method: 'post', contentType: 'application/json', payload: body, muteHttpExceptions: true, headers: { 'x-sig': hmacHexGs(sec, body) } });
