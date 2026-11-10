@@ -90,6 +90,12 @@ Apps Script keeps only one small job per Google account: nightly export → Driv
   copied (owner ran migrateToCloudflare) and switched (BACKEND=d1, directUrl '', fileUrl '/api/file'). All 7 live apps on D1.
   Next: Phase C (nightly JSON backups), then retire axm-debt (old) + axm-edge to make room for Scholarship Finder / Field Tasks.
 
+- 2026-11-10: Phase C live. Control Center Apps Script `nightlyBackup` (trigger ~02:00, installed by `installBackups`) reads every
+  table of every app through `/api/export` (signed with the Control Center webhook secret; `_tables` lists tables + central,
+  `_done` stamps Apps.last_backup) and saves Drive "Mini Apps backups/<app>/<YYYY-MM-DD>.json" + "central" (newest 30 kept),
+  then overwrites each app's sheet and the central sheet. Problems go to the admins by Telegram. First run: 7 apps + central,
+  all good in 81 s. Not in the JSON: Secrets, Kv, Field Tasks photos.
+
 ## Owner steps (only these)
 - Phase A: none.
 - Phase B per app: paste the new `PASTE-THIS.gs` once, run `migrateToCloudflare`, check the app, say "done".
