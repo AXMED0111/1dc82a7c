@@ -86,6 +86,10 @@ Apps Script keeps only one small job per Google account: nightly export → Driv
   it and switch themselves off for good once it is `d1` (they would act on the old sheet). After the switch a second copy
   is refused on both sides (it would replace newer D1 data with the old sheet).
 
+- 2026-11-10 06:29–07:37 UTC: PDF Tools, Invitations, Interview Coach, Document Translator, Channel Pass and Control Center
+  copied (owner ran migrateToCloudflare) and switched (BACKEND=d1, directUrl '', fileUrl '/api/file'). All 7 live apps on D1.
+  Next: Phase C (nightly JSON backups), then retire axm-debt (old) + axm-edge to make room for Scholarship Finder / Field Tasks.
+
 ## Owner steps (only these)
 - Phase A: none.
 - Phase B per app: paste the new `PASTE-THIS.gs` once, run `migrateToCloudflare`, check the app, say "done".
