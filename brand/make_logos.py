@@ -85,7 +85,7 @@ LOGOS = {
   <rect x="450" y="597" width="120" height="22" rx="11" fill="#EA580C" opacity=".2"/>''',
   f'<rect x="-40" y="-22" width="80" height="58" rx="12" {S}/><path d="M-16 -22 L-8 -36 H8 L16 -22" {S}/><circle cx="0" cy="7" r="15" {S}/>'),
 }
-# Invitations has its own premium design (midnight + gold seal): brand/invitations-logo.svg, options in brand/invitations-options/
+# Invitations has its own premium design (card with QR + envelope + gold seal, burgundy): brand/invitations-logo.svg, options in brand/invitations-options/
 for name, (c1, c2, sh, body, badge) in LOGOS.items():
     (OUT / f'{name}-logo.svg').write_text(wrap(c1, c2, sh, body, badge))
 print('written', len(LOGOS))
