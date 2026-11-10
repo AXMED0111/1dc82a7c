@@ -4,6 +4,7 @@
 window.APP_CONFIG = {
   appId: 'debt',
   apiUrl: '/api/app',
+  fileUrl: '/api/file',
   directUrl: '',
   botUsername: 'DebtBook0_bot',
   appShortName: '',
